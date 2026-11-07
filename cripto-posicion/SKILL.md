@@ -1,7 +1,7 @@
 ---
 name: cripto-posicion
 description: >-
-  Revisa una posición abierta de futuros cripto en MEXC y dice qué hacer ahora:
+  Revisa una posición abierta (operaciones de 15 a 60 min) en futuros cripto de MEXC y dice qué hacer ahora:
   MANTENER, MOVER SL, REDUCIR o CERRAR. Mira lo que hizo el precio desde la
   entrada (TPs o SL tocados, minuto a minuto), el tiempo transcurrido frente a
   la espera máxima de la señal, las noticias publicadas desde que se abrió, si
@@ -26,6 +26,8 @@ node "${CLAUDE_SKILL_DIR}/posicion.mjs" SOL --lado short --entrada 89.5 --sl 90 
 node "${CLAUDE_SKILL_DIR}/posicion.mjs" SOL --json
 ```
 
+La estrategia (`tendencia` o `reversion`) se lee de la señal; si no hay señal guardada, indícala con `--estrategia`.
+
 Opciones: `--lado`, `--entrada`, `--sl`, `--tp1`, `--tp2`, `--tp3`,
 `--contratos`, `--hace 15m` o `--abierta "2026-11-07 10:30"` (hora local),
 `--espera 45m` (espera máxima si no hay señal guardada), `--sin-noticias`,
@@ -38,25 +40,34 @@ Opciones: `--lado`, `--entrada`, `--sl`, `--tp1`, `--tp2`, `--tp3`,
    posición sigue abierta en MEXC, debe cerrarse ya.
 2. **CERRAR**: si desde la entrada salió una noticia en contra (hack,
    deslistado o sentimiento claramente contrario).
+2b. **CERRAR (asegura ganancia)** en una **reversión**: si el precio ya volvió
+   a la media de 5m y vas en ganancia, el movimiento esperado se cumplió.
 3. **CERRAR**: si el análisis cambió de lado con confianza de 50 o más (si va
-   en ganancia: "asegura ganancia").
-4. **CERRAR**: si pasó la espera máxima y el TP1 no llegó.
+   en ganancia: "asegura ganancia"). Solo en operaciones de **tendencia**. En
+   las de reversión se vigila la propia lectura de reversión, porque la
+   tendencia corta va en contra por definición.
+4. **CERRAR**: si pasó la espera máxima y el TP1 no llegó (entre 10 y 30 min
+   según la señal).
+4b. **CERRAR**: si se cumplió el tiempo total de la operación (60 min por
+   defecto), aunque haya tocado TPs: se cierra lo que quede.
 5. **MANTENER con SL movido**: si ya tocó un TP, recuerda cerrar la parte
    correspondiente y mover el SL (a la entrada tras el TP1, al TP1 tras el
    TP2). Si además el impulso se debilitó: **REDUCIR**.
 6. **REDUCIR**: si la confianza bajó 15 puntos o más respecto a la señal, si el
-   análisis empieza a girar, o si desde aquí la probabilidad del siguiente TP
-   es menos del 40 % de la suma "TP o stop". Da un SL más cercano (a mitad de
-   camino).
+   análisis empieza a girar, si **las ballenas están en contra** (puntuación de
+   0.3 o más contra tu lado) o **movieron más de 1 M USD contra tu lado desde
+   la señal**, o si desde aquí la probabilidad del siguiente TP es menos del
+   40 % de la suma "TP o stop". Da un SL más cercano (a mitad de camino).
 7. **MANTENER**: el plan sigue en pie. Di el tiempo que queda y la hora límite.
 
 ## Pasos
 
-1. Si el usuario dice cuándo entró o a qué precio, pásalo (`--hace`,
-   `--entrada`). Si no hay señal guardada, pídele lado, entrada, SL y TPs.
+1. Si el usuario dice cuándo entró o a qué precio, pásalo (`--hace 4m`,
+   `--entrada`). Si no hay señal guardada, pídele lado, entrada, SL y TPs. El usuario
+   suele preguntar cada 5 a 10 minutos: responde rápido.
 2. Ejecuta `posicion.mjs`.
-3. Si tienes WebSearch, busca noticias de la última hora de la moneda y del
-   mercado (Fed, CPI, liquidaciones grandes, hacks) y súmalas al juicio.
+3. Las noticias solo importan si son de los últimos minutos. Búscalas con
+   WebSearch solo si el precio hizo algo raro (una vela enorme).
 4. Responde corto: la **ACCIÓN** en mayúsculas, el porqué en una o dos frases,
    qué tocar exactamente en MEXC (cerrar X %, mover el SL a Y), el tiempo que
    queda para el TP1 y las probabilidades desde aquí.

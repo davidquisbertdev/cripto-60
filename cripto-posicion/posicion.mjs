@@ -8,6 +8,9 @@ import { base as baseDe } from '../lib/mexc.mjs';
 import { analizarSimbolo } from '../lib/motor.mjs';
 import { simular } from '../lib/simulacion.mjs';
 import { redondear, repartir } from '../lib/plan.mjs';
+import { compararInstantanea } from '../lib/ballenas.mjs';
+import path from 'node:path';
+import { carpeta } from '../lib/config.mjs';
 import { leerConfig, leerJSON, rutaSenal } from '../lib/config.mjs';
 import { args, precio as fp, usdt, pct, signo, hora, duracion, parseDuracion, parseFecha, salir } from '../lib/formato.mjs';
 
@@ -17,8 +20,9 @@ export function cargarPosicion(op, cfg, ahora, sym) {
   if (s && s.plan?.viable) {
     Object.assign(pos, {
       lado: s.lado, entrada: s.plan.entrada, sl: s.plan.sl, tps: s.plan.tps.map((t) => t.precio), contratos: s.plan.contratos,
-      tam: s.plan.tam_contrato, abierta: s.creada, espera_max_min: s.espera_max_min, confianza_senal: s.confianza, nivel_senal: s.nivel,
-      partes: s.plan.tps.map((t) => t.contratos), desde_senal: true,
+      tam: s.plan.tam_contrato, abierta: s.creada, espera_max_min: s.espera_max_min, duracion_max_min: s.duracion_max_min ?? null, confianza_senal: s.confianza, nivel_senal: s.nivel,
+      partes: s.plan.tps.map((t) => t.contratos), desde_senal: true, estrategia: s.estrategia ?? 'tendencia', objetivo_media: s.objetivo_media ?? null,
+      ballenas_senal: s.ballenas?.instantanea ? { t: s.creada, posiciones: s.ballenas.instantanea, puntuacion: s.ballenas.puntuacion } : null,
     });
   }
   if (op.lado) pos.lado = op.lado.toUpperCase();
@@ -30,12 +34,17 @@ export function cargarPosicion(op, cfg, ahora, sym) {
   if (op.abierta) pos.abierta = parseFecha(op.abierta);
   if (op.hace) pos.abierta = ahora - parseDuracion(op.hace) * 60e3;
   if (op.espera) pos.espera_max_min = parseDuracion(op.espera);
+  if (op.estrategia) pos.estrategia = op.estrategia.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  pos.estrategia = pos.estrategia ?? 'tendencia';
+  if (!['tendencia', 'reversion'].includes(pos.estrategia)) throw new Error('--estrategia debe ser tendencia o reversion');
   if (!pos.lado || pos.entrada == null || pos.sl == null || !pos.tps?.length)
     throw new Error('No hay señal guardada para esta moneda: indica --lado long|short --entrada X --sl Y --tp1 A [--tp2 B --tp3 C] [--hace 10m]');
   if (!['LONG', 'SHORT'].includes(pos.lado)) throw new Error('--lado debe ser long o short');
   const L = pos.lado === 'LONG' ? 1 : -1;
   if (L * (pos.entrada - pos.sl) <= 0) throw new Error(`El SL ${pos.sl} está del lado equivocado para un ${pos.lado} con entrada ${pos.entrada}.`);
   pos.abierta = pos.abierta ?? ahora;
+  pos.espera_max_min = pos.espera_max_min ?? cfg.espera_max_min;
+  pos.duracion_max_min = pos.duracion_max_min ?? cfg.duracion_max_min;
   const repDefecto = pos.tps.length === 3 ? cfg.reparto_tps : pos.tps.length === 2 ? [50, 50, 0] : [100, 0, 0];
   if (pos.contratos && !pos.partes) pos.partes = repartir(pos.contratos, repDefecto).map((c, i) => (i < pos.tps.length ? c : 0));
   pos.reparto = pos.partes && pos.contratos ? pos.partes.map((c) => (100 * c) / pos.contratos) : repDefecto;
@@ -73,18 +82,28 @@ export function recorrido(velas1m, pos) {
 
 export function evaluar(a, pos, cfg) {
   const ahora = a.ahora, precio = a.precio, L = pos.lado === 'LONG' ? 1 : -1;
-  const v1 = a.velas1m;
+  const v1 = a.velas1m_vivo ?? a.velas1m; // incluye la vela en curso
   const rec = recorrido(v1, pos);
   const R = Math.abs(pos.entrada - pos.sl);
   const transcurrido = (ahora - pos.abierta) / 60e3;
-  const espera = pos.espera_max_min;
-  const d = a.decision;
+  const espera = pos.espera_max_min, total = pos.duracion_max_min;
+  // Una reversión va contra el movimiento corto por definición: se vigila con su propia lectura.
+  const rev = pos.estrategia === 'reversion';
+  const d = rev ? a.decisionReversion : a.decision;
   const enContra = d.sesgo !== pos.lado && d.nivel !== 'NO OPERAR';
   const debil = d.sesgo === pos.lado && (d.nivel === 'NO OPERAR' || (pos.confianza_senal != null && d.confianza <= pos.confianza_senal - 15));
+  // reversión: si el precio ya volvió a la media, el movimiento esperado se cumplió
+  const media = pos.objetivo_media ?? a.reversion?.medio ?? null;
+  const llegoMedia = rev && media != null && (pos.lado === 'LONG' ? precio >= media : precio <= media);
   const nuevas = (a.noticias?.propias || []).filter((n) => n.fecha && n.fecha >= pos.abierta - 15 * 60e3);
   const nuevasMacro = (a.noticias?.macro || []).filter((n) => n.fecha && n.fecha >= pos.abierta - 15 * 60e3);
   const malas = nuevas.filter((n) => L * n.sentimiento < -0.3 || n.riesgo);
   const r_actual = (L * (precio - pos.entrada)) / R;
+  // Ballenas: puntuación actual frente al lado de la posición, y qué movieron desde la señal
+  const bw = d.ballenas;
+  const ballenasContra = bw != null && L * bw <= -0.3;
+  const movBallenas = pos.ballenas_senal && a.ballenas?.hl ? compararInstantanea(pos.ballenas_senal, a.ballenas.hl) : null;
+  const movContra = movBallenas && L * movBallenas.delta_neto_usd < -1e6;
 
   let pnl = null;
   if (pos.contratos && pos.tam) {
@@ -98,10 +117,10 @@ export function evaluar(a, pos, cfg) {
 
   let sim = null;
   if (!rec.cierre) {
-    const restante = espera ? Math.max(espera - transcurrido, 15) : cfg.espera_max_horas * 60;
+    const restante = Math.max((rec.hit === 0 ? espera : total) - transcurrido, 3);
     sim = simular({
-      velas: a.velas5m.slice(-1000), lado: pos.lado, entrada: pos.entrada, sl: rec.stop, tps: pos.tps, reparto: pos.reparto,
-      horizonte: Math.max(3, Math.round(restante / 5)), n: cfg.simulaciones, semilla: cfg.semilla, inicio: precio, hechos: rec.hit, riesgoR: R,
+      velas: a.velas1m.slice(-1000), lado: pos.lado, entrada: pos.entrada, sl: rec.stop, tps: pos.tps, reparto: pos.reparto,
+      horizonte: Math.round(restante), minBarra: 1, n: cfg.simulaciones, semilla: cfg.semilla, inicio: precio, hechos: rec.hit, riesgoR: R,
     });
   }
   const sig = rec.hit < 3 ? `tp${rec.hit + 1}` : null;
@@ -122,19 +141,25 @@ export function evaluar(a, pos, cfg) {
   } else if (malas.length && (L * r_actual <= 0 || malas.some((n) => n.riesgo))) {
     accion = 'CERRAR';
     motivo = `Salió una noticia en contra desde que abriste: "${malas[0].titulo}".`;
-  } else if (enContra && d.confianza >= 50) {
+  } else if (llegoMedia && (L * (precio - pos.entrada)) > 0) {
+    accion = 'CERRAR (asegura ganancia)';
+    motivo = `Reversión cumplida: el precio volvió a la media de 5m (${media.toPrecision(6)}). A partir de aquí ya no hay ventaja.`;
+  } else if (!rev && enContra && d.confianza >= 50) {
     accion = r_actual > 0 ? 'CERRAR (asegura ganancia)' : 'CERRAR';
     motivo = `El análisis cambió: ahora se inclina a ${d.sesgo} con confianza ${d.confianza}/100.`;
   } else if (rec.hit === 0 && espera && transcurrido >= espera) {
     accion = 'CERRAR';
     motivo = `Pasaron ${duracion(transcurrido)} (espera máxima ${duracion(espera)}) y no llegó el TP1. El plan ya no se está cumpliendo.`;
+  } else if (total && transcurrido >= total) {
+    accion = 'CERRAR';
+    motivo = `Se cumplió el tiempo total de la operación (${duracion(total)}). En scalping no se espera más: cierra lo que quede${rec.hit ? ' (ya aseguraste el TP' + rec.hit + ')' : ''} y busca la siguiente.`;
   } else if (rec.hit >= 1) {
     accion = 'MANTENER con SL movido';
     motivo = `Ya tocó TP${rec.hit}. Asegúrate de haber cerrado el ${pos.reparto.slice(0, rec.hit).join(' % + ')} % y de tener el SL en ${rec.stop}${rec.hit === 1 ? ' (entrada: ya no puedes perder)' : ' (TP1)'}.`;
-    if (debil || enContra) { accion = 'REDUCIR'; motivo += ` El impulso se debilitó (confianza ${d.confianza}): cierra otra parte o sube el SL a ${medio}.`; }
-  } else if (debil || enContra || (pSig != null && pStop != null && pSig + pStop >= 10 && pSig / (pSig + pStop) < 0.4)) {
+    if (debil || enContra || ballenasContra || movContra) { accion = 'REDUCIR'; motivo += ` ${ballenasContra || movContra ? 'Las ballenas se mueven en contra' : `El impulso se debilitó (confianza ${d.confianza})`}: cierra otra parte o sube el SL a ${medio}.`; }
+  } else if (debil || enContra || ballenasContra || movContra || (pSig != null && pStop != null && pSig + pStop >= 10 && pSig / (pSig + pStop) < 0.4)) {
     accion = 'REDUCIR';
-    motivo = `${debil ? `La confianza bajó (${pos.confianza_senal ?? '—'} → ${d.confianza}/100). ` : ''}${enContra ? `El análisis empieza a inclinarse a ${d.sesgo}. ` : ''}Desde aquí: ${sig.toUpperCase()} ${pct(pSig)} frente a stop ${pct(pStop)}. Cierra la mitad o acerca el SL a ${medio}.`;
+    motivo = `${debil ? `La confianza bajó (${pos.confianza_senal ?? '—'} → ${d.confianza}/100). ` : ''}${enContra ? `El análisis empieza a inclinarse a ${d.sesgo}. ` : ''}${ballenasContra ? `Las ballenas están en contra (${a.ballenas.lectura}). ` : ''}${movContra ? `Desde tu señal las ballenas movieron ${(movBallenas.delta_neto_usd / 1e6).toFixed(1)} M USD hacia ${movBallenas.delta_neto_usd > 0 ? 'LONG' : 'SHORT'}. ` : ''}Desde aquí: ${sig.toUpperCase()} ${pct(pSig)} frente a stop ${pct(pStop)}. Cierra la mitad o acerca el SL a ${medio}.`;
   } else {
     accion = 'MANTENER';
     motivo = `El plan sigue en pie: análisis ${d.sesgo} ${d.confianza}/100, TP1 ${pct(pSig)} vs SL ${pct(pStop)}.`;
@@ -142,15 +167,17 @@ export function evaluar(a, pos, cfg) {
   if (!rec.cierre && espera) {
     const resta = espera - transcurrido;
     if (rec.hit === 0) pasos.push(resta > 0 ? `Te quedan ${duracion(resta)} para el TP1: si a las ${hora(pos.abierta + espera * 60e3, cfg.zona_horaria)} no llegó, cierra.` : 'Tiempo cumplido sin TP1.');
+    else if (total) pasos.push(`Cierre total como mucho a las ${hora(pos.abierta + total * 60e3, cfg.zona_horaria)} (${duracion(Math.max(total - transcurrido, 0))} restantes).`);
   }
 
   return {
     tipo: 'posicion', simbolo: a.simbolo, base: a.base, ahora, precio, decimales: a.decimales, posicion: pos, accion, motivo, pasos,
     r_actual: +r_actual.toFixed(2), transcurrido_min: Math.round(transcurrido), recorrido: rec, pnl,
-    analisis: { sesgo: d.sesgo, nivel: d.nivel, confianza: d.confianza, razones: d.razones, alertas: d.alertas },
+    estrategia: pos.estrategia, analisis: { sesgo: d.sesgo, nivel: d.nivel, confianza: d.confianza, razones: d.razones, alertas: d.alertas },
     noticias_nuevas: nuevas.map(({ titulo, fecha, fuente, sentimiento }) => ({ titulo, fecha, fuente, sentimiento })),
     macro_nuevas: nuevasMacro.slice(0, 4).map(({ titulo, fecha, fuente }) => ({ titulo, fecha, fuente })),
     simulacion: sim, prob_siguiente_tp: pSig, prob_stop: pStop, siguiente: sig ? sig.toUpperCase() : null,
+    ballenas: a.ballenas ? { puntuacion: a.ballenas.puntuacion, lectura: a.ballenas.lectura, cobertura: a.ballenas.cobertura, frases: a.ballenas.frases, en_contra: ballenasContra, desde_senal: movBallenas } : null,
   };
 }
 
@@ -168,9 +195,16 @@ export function informe(e, cfg) {
   if (e.pnl) out.push(`PnL aprox.: realizado ${usdt(e.pnl.realizado)} · flotante ${usdt(e.pnl.flotante)} (sin comisiones)`);
   for (const ev of e.recorrido.eventos) out.push(`  · ${hora(ev.t, tz)} ${ev.que}`);
   if (e.simulacion) out.push(`Probabilidades desde aquí: ${e.siguiente} ${pct(e.prob_siguiente_tp)} · stop ${pct(e.prob_stop)} (${e.simulacion.simulaciones} simulaciones, ${duracion(e.simulacion.horizonte_min)})`);
+  out.push(`Estrategia: ${e.estrategia === 'reversion' ? 'REVERSIÓN a la media' : 'TENDENCIA'}`);
   out.push(`Análisis ahora: ${e.analisis.sesgo} ${e.analisis.nivel} (${e.analisis.confianza}/100)${p.confianza_senal != null ? ` · en la señal: ${p.confianza_senal}/100` : ''}`);
   for (const r of e.analisis.razones) out.push(`  · ${r}`);
   for (const r of e.analisis.alertas) out.push(`  ! ${r}`);
+  if (e.ballenas?.cobertura) {
+    out.push(`Ballenas ahora: ${e.ballenas.lectura} (${signo(e.ballenas.puntuacion)})${e.ballenas.en_contra ? ' ← EN CONTRA de tu posición' : ''}`);
+    for (const x of e.ballenas.frases.slice(0, 2)) out.push(`  · ${x}`);
+    const m = e.ballenas.desde_senal;
+    if (m) out.push(`  · Desde tu señal: ${m.cambios.length ? `${signo(m.delta_neto_usd / 1e6, 2)} M USD netos hacia ${m.delta_neto_usd >= 0 ? 'LONG' : 'SHORT'} (${m.cambios.slice(0, 2).map((c) => c.que).join(', ')})` : 'las ballenas no se movieron'}`);
+  }
   out.push(`Noticias desde que abriste: ${e.noticias_nuevas.length ? '' : 'ninguna de ' + e.base}`);
   for (const n of e.noticias_nuevas) out.push(`  · ${hora(n.fecha, tz)} ${n.titulo} [${n.fuente}] ${signo(n.sentimiento)}`);
   for (const n of e.macro_nuevas) out.push(`  · (mercado) ${hora(n.fecha, tz)} ${n.titulo}`);
@@ -181,18 +215,17 @@ export function informe(e, cfg) {
 
 async function main() {
   const { pos, op } = args(process.argv.slice(2), {
-    flags: ['json', 'sin_noticias'], numeros: ['entrada', 'sl', 'tp1', 'tp2', 'tp3', 'contratos'],
+    flags: ['json', 'sin_noticias', 'sin_ballenas'], numeros: ['entrada', 'sl', 'tp1', 'tp2', 'tp3', 'contratos'],
   });
   if (!pos[0]) throw new Error('Uso: posicion.mjs SOL [--entrada X --sl Y --tp1 A --tp2 B --tp3 C --lado long --hace 10m]');
   const cfg = leerConfig(op.config);
   const fuente = new Fuente({ offline: op.offline, grabar: op.grabar });
   const p = cargarPosicion(op, cfg, fuente.ahora(), pos[0]);
-  const a = await analizarSimbolo(fuente, pos[0], { conNoticias: !op.sin_noticias });
-  const minutos = Math.min(2000, Math.ceil((fuente.ahora() - p.abierta) / 60e3) + 5);
-  a.velas1m = await fuente.velas(a.simbolo, '1m', Math.max(minutos, 10));
+  const a = await analizarSimbolo(fuente, pos[0], { conNoticias: !op.sin_noticias, conBallenas: !op.sin_ballenas, carpetaCache: path.join(carpeta(cfg), 'cache') });
+  a.velas1m_vivo = await fuente.velas(a.simbolo, '1m', 2000); // misma petición que el motor: incluye la vela en curso
   p.tam = p.tam ?? +a.contrato.contractSize;
   const e = evaluar(a, p, cfg);
   console.log(op.json ? JSON.stringify(e, null, 2) : informe(e, cfg));
 }
 
-if (import.meta.url === pathToFileURL(process.argv[1]).href) main().catch(salir);
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) main().catch(salir);

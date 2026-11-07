@@ -1,6 +1,6 @@
 {
   "name": "cripto-trader-skill",
-  "description": "Skills de Claude para futuros cripto en MEXC: señal LONG/SHORT con entrada, SL, TP1-TP3, apalancamiento, probabilidades y espera máxima; revisión de posición, noticias, escáner y diario de capital.",
+  "description": "Skills de Claude para futuros cripto en MEXC: señal LONG/SHORT con entrada, SL, TP1-TP3, apalancamiento, probabilidades y espera máxima; revisión de posición, ballenas, noticias, escáner y diario de capital.",
   "version": "3.0.0",
   "author": {
     "name": "david"

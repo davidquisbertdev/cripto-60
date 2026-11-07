@@ -54,8 +54,9 @@ async function main() {
   const crec = e.capital_inicial ? (100 * (e.capital - e.capital_inicial)) / e.capital_inicial : 0;
   console.log(`Capital: ${usdt(e.capital)} (inicio ${usdt(e.capital_inicial)}, ${signo(crec, 1)} %)`);
   console.log(`Operaciones: ${e.operaciones} · ganadas ${e.ganadas} · perdidas ${e.perdidas}${e.tasa_acierto != null ? ` · acierto ${e.tasa_acierto} %` : ''}`);
-  console.log(`Hoy (${e.hoy.fecha}): ${e.hoy.operaciones} operaciones, ${signo(e.hoy.pnl, 3)} USDT · pérdidas seguidas: ${e.perdidas_seguidas}`);
+  console.log(`Hoy (${e.hoy.fecha}): ${e.hoy.operaciones} operaciones (${e.hoy.ultima_hora} en la última hora, máx. ${cfg.max_operaciones_hora}), ${signo(e.hoy.pnl, 3)} USDT · pérdidas seguidas: ${e.perdidas_seguidas}`);
   for (const a of e.avisos) console.log(`! ${a}`);
+  console.log(`Margen sugerido por operación: ${usdt(e.margen_sugerido)} (base ${cfg.margen_base} + ${cfg.reinversion_pct} % de lo ganado)`);
   console.log(e.bloqueo ? `⛔ ${e.bloqueo}` : '✓ Puedes operar hoy según tus reglas.');
   const ult = diario.operaciones.slice(-5);
   if (ult.length) {
@@ -64,4 +65,4 @@ async function main() {
   }
 }
 
-if (import.meta.url === pathToFileURL(process.argv[1]).href) main().catch(salir);
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) main().catch(salir);

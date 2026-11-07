@@ -30,4 +30,4 @@ async function main() {
   console.log('\nEl sentimiento es un conteo de palabras clave en inglés, orientativo. Lee el titular antes de decidir.');
 }
 
-if (import.meta.url === pathToFileURL(process.argv[1]).href) main().catch(salir);
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) main().catch(salir);
