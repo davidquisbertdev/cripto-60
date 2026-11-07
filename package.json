@@ -1,0 +1,12 @@
+{
+  "name": "cripto-trader-skill",
+  "version": "3.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Skills de Claude para futuros cripto en MEXC",
+  "engines": { "node": ">=18" },
+  "scripts": {
+    "test": "node --test tests/lib.test.mjs tests/skills.test.mjs tests/ballenas.test.mjs"
+  },
+  "license": "MIT"
+}

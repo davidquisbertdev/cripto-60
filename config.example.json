@@ -1,0 +1,52 @@
+{
+  "zona_horaria": "America/La_Paz",
+  "objetivo_usdt": 3,
+  "margen_base": 20,
+  "reinversion_pct": 50,
+  "apalancamiento_max": 30,
+  "riesgo_max_pct": 10,
+  "riesgo_por_confianza": {
+    "ALTA": 10,
+    "MEDIA": 7,
+    "BAJA": 4
+  },
+  "margen_por_confianza": {
+    "ALTA": 100,
+    "MEDIA": 75,
+    "BAJA": 50
+  },
+  "tps_r": [
+    1,
+    1.8,
+    2.6
+  ],
+  "reparto_tps": [
+    50,
+    25,
+    25
+  ],
+  "sl_candidatos_atr": [
+    0.9,
+    1.2,
+    1.6,
+    2
+  ],
+  "sl_pct_min": 0.3,
+  "cierre_tiempo_max_pct": 35,
+  "cierre_tiempo_no_operar_pct": 60,
+  "comision_ratio_min": 3,
+  "historial_min_ops": 12,
+  "historial_r_min": -0.03,
+  "historial_r_bueno": 0.03,
+  "validez_entrada_min": 5,
+  "espera_min_min": 10,
+  "espera_max_min": 30,
+  "duracion_max_min": 60,
+  "max_operaciones_dia": 20,
+  "max_operaciones_hora": 4,
+  "max_perdida_dia_pct": 20,
+  "perdidas_seguidas_mitad": 2,
+  "perdidas_seguidas_pausa": 2,
+  "pausa_min": 30,
+  "perdidas_seguidas_parar": 4
+}

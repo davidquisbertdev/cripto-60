@@ -1,216 +1,157 @@
-# The Day Trader skill
+# Cripto Trader skill
 
-11 Claude skills for day trading: scan thousands of charts, track breaking news, time every entry and exit, and replay every outcome before you risk a dollar.
+Skills de Claude para operar **futuros perpetuos de criptomonedas en MEXC** de
+forma manual, en operaciones de **15 a 60 minutos** que buscan unos **3 USDT**
+cada una: le pides una señal ("analiza SOL, tengo 10 USDT") y te dice si es
+**LONG, SHORT o NO OPERAR**, con entrada, stop loss, **TP1, TP2 y TP3**, qué %
+cerrar en cada uno, apalancamiento, margen, cuánto ganas o pierdes en USDT, las
+probabilidades y **cuánto tiempo esperar como máximo** antes de cerrar.
 
-Free, MIT, no signup, no API key. The tools are plain Python that read free
-public data: Yahoo Finance charts, Nasdaq Trader's symbol lists, SEC EDGAR
-and the House Clerk.
+La idea no es hacerse millonario de la noche a la mañana, sino hacer crecer el
+capital poco a poco con una gestión de riesgo estricta. Las operaciones las
+haces tú en MEXC: nada de esto toca tu cuenta.
 
-One scans thousands of charts for setups. Another tracks breaking news on
-every stock you watch. One watches a setup bar by bar and tells you the moment
-to get in, and another sets your stop and your target before you do. And the
-craziest one is the Time Machine: before you risk a dollar, it replays the
-rest of the session 10,000 times from the stock's own recent bars, plus every
-past day the same setup fired, and tells you the honest odds.
+Las herramientas son Node.js (18 o superior) sin dependencias y leen datos
+públicos sin API key: la API de futuros de MEXC; las posiciones on-chain de las
+ballenas de Hyperliquid; los ratios de top traders y el open interest de
+Binance (o Bybit); los RSS de Cointelegraph, Decrypt y CoinDesk, y el índice
+Fear & Greed de alternative.me.
 
-And no trade goes through until you say yes. Nothing in this pack can place
-an order on its own. Paper trading is the default.
+## Las skills
 
-> **Looking for the original Trader skill?** Copy an investor's 13F, the
-> stock screener, tax lots and rebalancing live in
-> [github.com/Jakeschincariol/trader-skill](https://github.com/Jakeschincariol/trader-skill).
-> This repo is its day-trading sequel: the Trader skill v2.
+| comando | qué hace |
+| --- | --- |
+| `/cripto-senal` | Analiza una moneda (5m, 15m, 1h, 4h, BTC, funding, libro de órdenes, noticias) y da la orden completa, o NO OPERAR con los niveles a vigilar. |
+| `/cripto-posicion` | Revisa tu posición abierta: MANTENER, MOVER SL, REDUCIR o CERRAR, según el precio, el tiempo, las noticias nuevas y si el análisis cambió. |
+| `/cripto-ballenas` | Qué hacen las ballenas: posiciones reales de las billeteras grandes de Hyperliquid, qué abrieron o cerraron, qué cambió desde la última revisión, top traders frente a minoristas, open interest, flujo y muros. Lo usan también la señal y la revisión de posición. |
+| `/cripto-noticias` | Titulares recientes de la moneda y del mercado, sentimiento, alertas de riesgo y Fear & Greed. |
+| `/cripto-escaner` | Ordena los futuros cripto más líquidos de MEXC por claridad del setup. |
+| `/cripto-diario` | Registra tus resultados, lleva el capital y para la operativa si el día va mal. |
 
-## Install
-
-Paste this into Claude:
-
-```
-https://github.com/Jakeschincariol/day-trader-skill
-
-install skill
-```
-
-Or as a plugin, in Claude Code:
+## Ejemplos
 
 ```
-/plugin marketplace add Jakeschincariol/day-trader-skill
-/plugin install day-trader-skill@day-trader-skill
+analiza ENA, tengo 20 USDT
 ```
 
-Claude Code namespaces plugin skills, so installed as a plugin they show up as
-`/day-trader-skill:trader-scanner` and so on. Copy the folders instead if you want
-plain `/trader-scanner`:
+Claude ejecuta `/cripto-senal NEAR --capital 10` (datos reales del 7/11/2026):
+
+```
+SEÑAL: SHORT   confianza BAJA
+  Entrada    limit 3.660 o a mercado 3.658 · si a las 12:37 no entraste, descártala
+  Stop loss  3.667  (+0.25 %)  0.7 ATR(5m), calibrado por tiempo
+  TP1        3.649  cierra 50 % → +0.10 USDT
+  TP2        3.644  cierra 30 % → +0.09 USDT
+  TP3        3.639  cierra 20 % → +0.07 USDT
+  Apalancamiento 13x AISLADO · margen 6.47 USDT · 23 contratos
+  Si salta el SL pierdes -0.24 USDT = 2.4 % del capital
+PROBABILIDADES en 25 min: TP1 37 % · SL 38 % · cierre por tiempo 25 %
+HISTORIAL REAL (últimas 27 h, 54 operaciones con el mismo plan, con comisiones)
+  ganadoras 52 % · resultado medio -0.07 R → 10 operaciones ≈ -0.16 USDT
+TIEMPO  TP1 suele llegar en 7 min. Si a las 12:44 no tocó TP1, CIERRA.
+        Si tocó TP1, cierra todo como mucho a las 12:59.
+```
+
+La señal evalúa **dos estrategias**: TENDENCIA (a favor del movimiento) y
+REVERSIÓN a la media (cuando el precio se estira lejos de su media de 5m, se
+apuesta a la vuelta). Mide el historial real de cada una en esa moneda y
+recomienda la que está ganando. En mercado lateral suele ganar la reversión; con
+tendencia, la tendencia.
+
+El historial real es la parte más importante: dice si esta señal **ganó o
+perdió de verdad** en esa moneda durante las últimas horas, comisiones
+incluidas. Si pierde, la herramienta baja la confianza o dice NO OPERAR.
+
+```
+analiza mi posición de NEAR        (4 minutos después)
+```
+
+→ `MANTENER` (te quedan 6 min para el TP1), `MOVER SL a entrada`, `REDUCIR`,
+`CERRAR (se acabó el tiempo)` o `CERRAR (el análisis cambió)`.
+
+```
+¿qué moneda opero ahora?
+```
+
+→ `/cripto-escaner`: las monedas que más se mueven frente a sus comisiones,
+marcando las que MEXC tiene con **0 comisión**.
+
+## Gestión de riesgo
+
+- **SL con espacio**: entre 0.3 % y 0.8 % (de 0.9 a 2 ATR de 5m), elegido para que
+  la operación se resuelva en 15 a 30 min y un pequeño retroceso no te saque.
+- **TPs a 1R, 1.8R y 2.6R**: el TP1 cierra el 50 %, el TP2 el 75 % y el TP3 el
+  100 %. Tras el TP1, SL a la entrada.
+- **Apalancamiento calculado para tu objetivo** (3 USDT por defecto):
+  posición = objetivo / movimiento medio de los TP; apalancamiento = posición /
+  margen. **Menos margen o un SL más cerca = más apalancamiento** para la misma
+  ganancia. Ejemplo real: con 20 USDT hicieron falta 22x en ENA; con 100 USDT
+  en MNT bastaron 10x.
+- **Frenos que el objetivo nunca rompe**: la pérdida en el SL no pasa del 10 % /
+  7 % / 4 % del capital (confianza ALTA / MEDIA / BAJA); la liquidación queda
+  siempre al menos al doble de distancia que el SL; el tope es de 30x. Si no
+  llegas a 3 USDT, el informe te dice cuánto y por qué.
+- **La cara B, siempre visible**: para ganar unos 3 USDT con 20 de margen, si salta
+  el SL pierdes unos 1.4-2 USDT.
+- **Reloj**: la entrada caduca en 5 min; sin TP1 en 10 a 30 min, se cierra; a los
+  60 min se cierra todo.
+- **Diario**: con 2 pérdidas seguidas, pausa de 30 min y riesgo a la mitad; con 4,
+  o un 20 % perdido en el día, se para hasta mañana. **Margen sugerido** = 20 +
+  50 % de lo ganado: el tamaño crece con tus ganancias.
+- **Solo se recomienda lo que gana en el historial real reciente** de esa moneda
+  (con comisiones). Si pierde en promedio: NO OPERAR.
+
+Todo se configura en `trader/config.json` (copia `config.example.json`).
+
+## Instalación
+
+Como plugin de Claude Code:
+
+```
+/plugin marketplace add <tu-usuario>/daily-trader-skill
+/plugin install cripto-trader-skill@cripto-trader-skill
+```
+
+O copiando las carpetas, **incluida `lib/`**, que comparten todas:
 
 ```bash
-git clone https://github.com/Jakeschincariol/day-trader-skill.git
-cp -r day-trader-skill/trader-* ~/.claude/skills/
+cp -r cripto-* lib ~/.claude/skills/
 ```
 
-Project-local instead of global: copy the same folders into your repo's
-`.claude/skills/`. No Claude Code at all? Paste any single `SKILL.md` at the
-top of a chat and it runs as a mode. You lose the Python tools, but the method
-works.
+Los datos se guardan en `trader/`, en la carpeta donde trabajes:
+`senal-SOL.json`, `diario.json` y `config.json`.
 
-The tools need Python 3.8 or newer. Nothing to pip install. The SEC tools
-(news filings, the analyst) ask you to identify yourself: put your name and
-email in `trader/config.json` (`"sec_user_agent": "Your Name you@example.com"`)
-or in the `SEC_USER_AGENT` environment variable.
-
-## The eleven
-
-| command | job | what it does |
-| --- | --- | --- |
-| `/trader-scanner` | Chart Scanner | Scans thousands of charts for setups: opening-range breakouts, flags, oversold bounces. |
-| `/trader-news` | News Monitor | Tracks breaking news on every stock you watch and flags what moves it. |
-| `/trader-entry` | Entry Timer | Watches a setup bar by bar and tells you the moment to get in. |
-| `/trader-exit` | Exit Planner | Sets your stop and your target before you enter, so you know when to get out. |
-| `/trader-timemachine` | Time Machine | Replays every possible outcome of a trade before you risk a dollar: 10,000 simulated sessions plus every past time the setup fired. |
-| `/trader-risk` | Risk Manager | Checks every trade against your limits and stops anything over them. |
-| `/trader-budget` | Budget Manager | Sizes every position to your budget and your max loss per trade. |
-| `/trader-broker` | Order Executor | Sends approved orders to your broker, paper trading by default, never without your yes. |
-| `/trader-alerts` | Price Alerts | Rings when a price, a stop or the opening bell hits. |
-| `/trader-analyst` | Earnings Analyst | Reads earnings reports and sums up what changed. |
-| `/trader-pelosi` | Pelosi Tracker | Reads Congress's stock-trade disclosures the minute they are filed. |
-
-## How to use it
-
-Everything lands in a `trader/` folder in your project, and each skill reads
-what the last one wrote:
-
-```
-scanner -> news -> entry -> exit -> timemachine -> budget -> risk -> broker   (one trade)
-alerts: stop, target, flat by the close                                       (while it is open)
-news / analyst / pelosi                                                        (on a schedule)
-```
-
-An example, the trade in the reel: Tesla, Monday October 19 2026, real data.
-
-1. **`/trader-scanner`** at 10:15 AM ET: of the 231 charts in the reel's
-   scan, 42 had closed above their 15-minute opening range. TSLA is one: range 354.47 to 362.18,
-   the 10:10 candle closed at 364.18, 0.55 % over the top.
-2. **`/trader-news`**: the morning's TSLA headlines, in New York time
-   ("Tesla-SpaceX Merger Mania Strikes Wall Street Ahead of Earnings", 8:04,
-   tagged earnings and deal). Tesla reports this week: a day trade is out
-   before the close, so it is not exposed to the report.
-3. **`/trader-entry`** watched TSLA bar by bar. At 10:12 it said waiting (the
-   10:10 bar was still forming). At 10:15 it said triggered: the first
-   5-minute close above the range, 364.18.
-4. **`/trader-exit`** set the plan before the entry: stop at the range's
-   midpoint, 358.32, so 5.86 a share at risk; target one times that risk,
-   370.04; flat by 3:55 PM either way.
-5. **`/trader-timemachine`** replayed the rest of the day 10,000 times, each
-   5-minute candle drawn from TSLA's own candles at that time of day over the
-   previous 59 sessions (seed 19, so anyone can repeat it): target first
-   29.4 %, stop first 25.5 %, still open at the close 45.1 %. It also re-ran
-   the same rule on those 59 real sessions: it fired 33 times, 13 hit the
-   target, 15 the stop, 5 neither. Its verdict: close to a coin flip. That is
-   the point of looking before you risk a dollar.
-6. **`/trader-budget`** with a $5,000 account and a $50 max loss per trade:
-   50 / 5.86 = 8 shares ($2,913.44). If the stop fills at 358.32, the loss is
-   $46.88. It writes one bracket order: buy 8 TSLA, stop-loss 358.32,
-   take-profit 370.04.
-7. **`/trader-risk`** checks it against your limits: the max loss, the daily
-   loss limit, trades per day, reward to risk, the entry window, position
-   size and cash. PASS or BLOCK, with the reason.
-8. **`/trader-broker`** shows you the ticket in plain words. You type yes for
-   that exact order. Claude calls your brokerage connector (Alpaca's MCP
-   server, paper account by default), and Claude's own "Allow once / Deny"
-   card asks you one more time.
-9. **`/trader-alerts`** rings on the stop, the target and at 3:55 PM to
-   flatten whatever is still open.
-
-## The tools
-
-All standard-library Python. The data tools read public endpoints and are
-polite about it.
+## Herramientas
 
 ```bash
-python3 trader-scanner/scan.py universe                                # ~5,900 US stocks, Nasdaq Trader
-python3 trader-scanner/scan.py daily                                   # pre-market setups, whole universe
-python3 trader-scanner/scan.py orb --at 10:15                          # opening-range breakouts so far
-python3 trader-news/news.py --tickers TSLA --hours 12                  # headlines, 8-Ks, today's move
-python3 trader-entry/entry.py check TSLA --setup orb                   # waiting / triggered / expired
-python3 trader-entry/entry.py watch TSLA --every 30                    # bar by bar until it triggers
-python3 trader-exit/exit.py plan --stop or-mid --target 1R --write     # -> trader/plan.json
-python3 trader-timemachine/timemachine.py run --write                  # 10,000 replays + the history
-python3 trader-budget/size.py --write                                  # -> trader/orders.json
-python3 trader-risk/check.py                                           # PASS / BLOCK per order
-python3 trader-broker/ticket.py show                                   # the tickets, READY or not
-python3 trader-alerts/alerts.py add --from-plan                        # stop, target, flat by close
-python3 trader-alerts/alerts.py check                                  # rings what hit, once
-python3 trader-analyst/facts.py TSLA                                   # quarters, growth, EPS
-python3 trader-pelosi/ptr.py index --member pelosi                     # her PTRs this year
+node cripto-senal/senal.mjs SOL --capital 10 --objetivo 3
+node cripto-posicion/posicion.mjs SOL --entrada 89.52 --hace 7m
+node cripto-ballenas/ballenas.mjs SOL
+node cripto-noticias/noticias.mjs SOL MNT --horas 48
+node cripto-escaner/escaner.mjs --top 30
+node cripto-diario/diario.mjs registrar SOL --pnl 0.68 --lado short
+npm test                                  # tests offline con datos reales grabados
 ```
 
-```bash
-python3 -m unittest discover -s tests -v
-```
+## Letra pequeña
 
-The tests run offline, on fixtures cut from real data: TSLA's 5-minute bars
-for the 60 days to October 19 2026, the 10:15 AM opening-range scan, Yahoo's
-TSLA headlines that morning, the House Clerk's 2026 index, real PTR text and
-real XBRL facts. They reproduce every number in the example above.
+**No es asesoría financiera.** Es software que lee datos públicos y hace
+cálculos. Los futuros apalancados pueden liquidarte, y la mayoría de quienes
+hacen trading pierden dinero. Opera solo lo que puedas perder.
 
-## Fine print
+**La confianza no es una probabilidad**: mide cuánto coinciden los indicadores.
+La simulación (velas reales de 1 min sorteadas) mide tiempos y distancias, no
+la ventaja. La ventaja la mide el historial real de las últimas ~28 h, que es
+poco tiempo: el mercado cambia y lo que funcionó ayer puede no funcionar hoy.
 
-**Not financial advice.** This is software that reads public data and does
-arithmetic. It does not know your situation and it cannot see the future.
-Most people who day trade lose money. You can lose money. Decide for
-yourself, and talk to a licensed professional if you need advice.
+**El trading de corto plazo es difícil**: las comisiones y el exceso de operaciones hacen que
+la mayoría pierda. Si el historial real sale negativo, cree en el historial.
 
-**No trade goes through until you say yes.** Only `/trader-broker` can lead to
-an order, and only after `/trader-risk` passes that exact order and you type
-yes for it in the chat. Set your brokerage tool to "Needs approval" in Claude
-(Customize, Connectors, tool permissions), never "Always allow", so Claude's
-own "Allow once / Deny" card is a second check. No options, margin, short
-selling or leverage unless you turn them on.
+**Un stop es un plan, no una garantía**: en un movimiento brusco puede
+ejecutarse peor.
 
-**Paper first.** `"paper": true` is the default in `config.example.json`, and
-Alpaca's MCP server defaults to its paper account. Keys live in environment
-variables, never in the chat.
+**Datos gratuitos**: la API pública de MEXC y los RSS pueden fallar o retrasarse.
+Comprueba el precio en MEXC antes de entrar.
 
-**The Time Machine is a simulation, not a prediction.** It is built from the
-stock's own last 60 days of 5-minute bars. The future can do things those 60
-days never did: an earnings report, a halt, a headline. Treat its odds as a
-reality check, never as a promise.
-
-**A stop is a plan, not a guarantee.** In a fast market or across a gap, a
-stop order can fill well past its price. The max loss shown is the loss at
-the stop price.
-
-**The data is free and unofficial.** Yahoo Finance's chart endpoint is not an
-official API: it can lag, change or rate-limit you. The scanner and the entry
-timer read 1-minute or 5-minute bars, not every tick. Check anything that
-matters against your broker before you act on it.
-
-**Day-trading rules.** FINRA removed the $25,000 pattern-day-trader minimum
-on June 4, 2026 (Regulatory Notice 26-10), and brokers may phase the change
-in until October 20, 2027, so yours may still apply the old rule. If it does,
-set `"pdt_guard": true` and `/trader-risk` counts your day trades.
-
-**Congress's trades are public, not inside information.** Members must disclose
-trades over $1,000 within 45 days (the STOCK Act). The Pelosi skill reads those
-public filings the minute they post.
-
-**Taxes.** Day-trading gains are short-term gains, and frequent trading makes
-wash sales likely. Nothing here is tax advice.
-
-## Files
-
-```
-trader-scanner/     SKILL.md, scan.py
-trader-news/        SKILL.md, news.py
-trader-entry/       SKILL.md, entry.py
-trader-exit/        SKILL.md, exit.py
-trader-timemachine/ SKILL.md, timemachine.py
-trader-risk/        SKILL.md, check.py
-trader-budget/      SKILL.md, size.py, config.example.json, targets.example.json
-trader-broker/      SKILL.md, ticket.py, claude_desktop_config.example.json
-trader-alerts/      SKILL.md, alerts.py, alerts.example.json
-trader-analyst/     SKILL.md, facts.py, metrics.example.json
-trader-pelosi/      SKILL.md, ptr.py
-tests/              unittest suite + offline fixtures
-```
-
-MIT. Made by [Jake Schincariol](https://opusjake.ai).
+Basado en [day-trader-skill](https://github.com/Jakeschincariol/day-trader-skill)
+(MIT), reescrito para futuros cripto.
