@@ -1,0 +1,18 @@
+{
+  "zona_horaria": "America/La_Paz",
+  "apalancamiento_max": 20,
+  "riesgo_max_pct": 10,
+  "riesgo_por_confianza": { "ALTA": 8, "MEDIA": 5, "BAJA": 2.5 },
+  "margen_por_confianza": { "ALTA": 100, "MEDIA": 70, "BAJA": 50 },
+  "tps_r": [1, 2, 3],
+  "reparto_tps": [50, 30, 20],
+  "liquidacion_vs_sl": 2,
+  "validez_entrada_min": 30,
+  "espera_max_horas": 12,
+  "simulaciones": 5000,
+  "semilla": 7,
+  "max_operaciones_dia": 4,
+  "max_perdida_dia_pct": 15,
+  "perdidas_seguidas_mitad": 2,
+  "perdidas_seguidas_parar": 3
+}
