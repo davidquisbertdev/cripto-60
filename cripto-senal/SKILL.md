@@ -87,7 +87,31 @@ Otras opciones: `--json`, `--sin-noticias`, `--semilla N`, `--no-guardar`,
 5. Si sale **NO OPERAR**, dilo sin rodeos y por qué: historial negativo, mercado
    quieto o lateral, comisiones que se comen el movimiento, pausa del diario.
    Sugiere probar otra moneda (`/cripto-escaner`) o volver en unos minutos.
-6. Sé claro con la relación ganancia/pérdida: para ganar unos 3 USDT con 20 de
+6. **SIEMPRE, también con NO OPERAR, termina con el bloque MEJOR ENTRADA** del
+   informe (el usuario lo pidió así para todos los análisis). Es la jugada con
+   más probabilidad de ganar entre las estrategias evaluadas y los dos lados
+   (LONG y SHORT): % de ganadoras del historial real o, si hay pocas
+   operaciones, la probabilidad simulada de tocar el TP1 antes que el SL.
+   Dalo **como lista, una línea por dato, nunca en un párrafo**, con este orden:
+   ```
+   **Hora:** HH:MM (válida hasta HH:MM)
+   **Posición:** LONG o SHORT · estrategia
+   **Precio de entrada:** limit X (o a mercado Y)
+   **SL:** X
+   **TP1:** X (cierra 50 %)
+   **TP2:** X (cierra 25 %, 75 % en total)
+   **TP3:** X (cierra el resto)
+   **Apalancamiento:** Nx aislado · margen X USDT · cantidad
+   **Dinero:** pierdes X si salta el SL · +Y si solo llega el TP1 · +Z con los 3 TP
+   **Probabilidad:** X % de ganar (de dónde sale) · resultado medio R
+   **Tiempo:** si a las HH:MM no tocó el TP1, cierra · a las HH:MM cierra todo
+   ```
+   Si el veredicto era NO OPERAR, pon delante una sola línea de aviso ("el
+   sistema no la recomienda; es la de más probabilidad, bajo tu riesgo") y, si
+   el resultado medio es negativo, dilo: ganar a menudo no basta si las
+   pérdidas son mayores. No cambies los niveles ni subas el riesgo.
+   Se desactiva con `"mostrar_mejor_entrada": false` en `trader/config.json`.
+7. Sé claro con la relación ganancia/pérdida: para ganar unos 3 USDT con 20 de
    margen se pierden unos 1.4-2 USDT si salta el SL. Nunca subas el riesgo por
    encima del tope para llegar al objetivo.
 

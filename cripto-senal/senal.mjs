@@ -163,6 +163,48 @@ export async function generarSenal(a, op, cfg) {
   }
   const resumenHist = (h) => (h ? { n: h.n, acierto_pct: h.acierto_pct ?? null, r_medio_neto: h.r_medio_neto ?? null } : null);
 
+  // MEJOR ENTRADA: la jugada con más probabilidad de terminar en ganancia entre las estrategias
+  // evaluadas, aunque el veredicto sea NO OPERAR (el usuario la quiere siempre, con su aviso).
+  // Probabilidad = % de ganadoras del historial real si hay operaciones suficientes; si no, la
+  // probabilidad simulada de tocar el TP1 antes que el SL.
+  const probDe = (x) => {
+    if (x.historial?.n >= cfg.historial_min_ops) return { pct: x.historial.acierto_pct, fuente: `historial real, ${x.historial.n} operaciones` };
+    const p = x.sim?.prob;
+    if (p && p.tp1 + p.sl_antes_tp1 > 0) return { pct: +((100 * p.tp1) / (p.tp1 + p.sl_antes_tp1)).toFixed(1), fuente: 'simulación: TP1 antes que el SL' };
+    return null;
+  };
+  let mejor = null;
+  if (cfg.mostrar_mejor_entrada !== false) {
+    const extras = [];
+    // también el lado contrario de la tendencia, para comparar LONG frente a SHORT (salvo si se forzó un lado)
+    const t0 = evaluadas.find((x) => x.estrategia === 'tendencia');
+    if (!op.lado && t0 && !op.estrategia && !(nivel !== 'NO OPERAR' && plan.viable)) {
+      const opuesto = t0.lado === 'LONG' ? 'SHORT' : 'LONG';
+      if (!evaluadas.some((x) => x.lado === opuesto && x.estrategia === 'tendencia')) {
+        const r = evaluarEstrategia(a, cfg, op, { estrategia: 'tendencia', lado: opuesto, nivel: 'NO OPERAR', motivos: [], capital, diario });
+        extras.push({ ...r, d: t0.d });
+      }
+    }
+    // con una señal recomendada, la mejor entrada es esa misma; con NO OPERAR, la de más probabilidad
+    const hayRecomendada = nivel !== 'NO OPERAR' && plan.viable;
+    const cand = (hayRecomendada ? [g] : [...evaluadas, ...extras]).filter((x) => x.plan?.viable && probDe(x)).sort((x, y) => probDe(y).pct - probDe(x).pct || (y.historial?.r_medio_neto ?? -1) - (x.historial?.r_medio_neto ?? -1));
+    const m = cand[0];
+    if (m) {
+      const Lm = m.lado === 'LONG' ? 1 : -1;
+      const esp = m.sim ? Math.min(Math.max(m.sim.espera_max_min ?? cfg.espera_max_min, cfg.espera_min_min), cfg.espera_max_min) : cfg.espera_max_min;
+      mejor = {
+        lado: m.lado, estrategia: m.estrategia, nivel: m.nivel, recomendada: m.nivel !== 'NO OPERAR' && !diario?.bloqueo,
+        prob: probDe(m), historial: resumenHist(m.historial), tp1_sim: m.sim?.prob.tp1 ?? null, sl_sim: m.sim?.prob.sl_antes_tp1 ?? null,
+        entrada: { mercado: a.precio, limit: redondear(a.precio - Lm * 0.3 * atr1, unidad), valida_hasta: ahora + cfg.validez_entrada_min * 60e3 },
+        sl: m.plan.sl, tps: m.plan.tps.map((t) => ({ n: t.n, precio: t.precio, cerrar_pct: t.cerrar_pct, contratos: t.contratos })),
+        apalancamiento: m.plan.apalancamiento, margen: m.plan.margen, contratos: m.plan.contratos, cantidad_moneda: m.plan.cantidad_moneda,
+        nocional: m.plan.nocional, riesgo_usdt: m.plan.riesgo_usdt, ganancia_todos: m.plan.escenarios?.todos_los_tps ?? null,
+        ganancia_tp1: m.plan.escenarios?.tp1_y_luego_be ?? null, liquidacion: m.plan.liquidacion,
+        cerrar_si_no_tp1_a_las: ahora + esp * 60e3, cierre_total_a_las: ahora + cfg.duracion_max_min * 60e3,
+      };
+    }
+  }
+
   const recomendado = nivel !== 'NO OPERAR' && plan.viable;
   return {
     tipo: 'senal', version: 4, modo: 'intradia-corto', estrategia: g.estrategia, simbolo: a.simbolo, base: a.base, exchange: a.exchange ?? 'MEXC', creada: ahora,
@@ -193,8 +235,30 @@ export async function generarSenal(a, op, cfg) {
       puntuacion: a.ballenas.puntuacion, lectura: a.ballenas.lectura, cobertura: a.ballenas.cobertura, frases: a.ballenas.frases,
       muros: a.ballenas.muros, precio_hl: a.ballenas.hl?.precio_hl ?? null, instantanea: a.ballenas.hl?.instantanea ?? null,
     } : null,
+    mejor_entrada: mejor,
     diario,
   };
+}
+
+// Bloque fijo, siempre al final: hora, lado, entrada, SL, TP1-TP3, apalancamiento y probabilidad.
+function bloqueMejor(s, cfg, f, linea) {
+  const m = s.mejor_entrada;
+  if (!m) return [];
+  const tz = cfg.zona_horaria, out = [linea];
+  const cant = (c) => (s.exchange === 'BINANCE' ? `${+(c * (m.cantidad_moneda / (m.contratos || 1))).toFixed(6)} ${s.base}` : `${c} contr.`);
+  out.push(m.recomendada
+    ? `MEJOR ENTRADA (recomendada: ${m.nivel})`
+    : `MEJOR ENTRADA POSIBLE (el sistema dice NO OPERAR: es la de más probabilidad, entra solo bajo tu riesgo)`);
+  out.push(`  Hora:            ${hora(s.creada, tz)} · válida hasta las ${hora(m.entrada.valida_hasta, tz)}`);
+  out.push(`  Posición:        ${m.lado} · estrategia ${NOMBRE[m.estrategia]}`);
+  out.push(`  Precio entrada:  limit ${f(m.entrada.limit)} (o a mercado ${f(m.entrada.mercado)})`);
+  out.push(`  Stop loss:       ${f(m.sl)}`);
+  for (const t of m.tps) out.push(`  TP${t.n}:             ${f(t.precio)} → cierra ${t.cerrar_pct} % (${cant(t.contratos)})`);
+  out.push(`  Apalancamiento:  ${m.apalancamiento}x AISLADO · margen ${usdt(m.margen)} · ${s.exchange === 'BINANCE' ? `${m.cantidad_moneda} ${s.base}` : `${m.contratos} contratos`} (${usdt(m.nocional)})`);
+  out.push(`  Dinero:          SL ${usdt(-m.riesgo_usdt)} · solo TP1 ${signo(m.ganancia_tp1, 3)} · los 3 TP ${signo(m.ganancia_todos, 3)} USDT`);
+  out.push(`  Probabilidad:    ${pct(m.prob.pct)} de ganar (${m.prob.fuente})${m.historial?.n ? ` · resultado medio ${signo(m.historial.r_medio_neto)} R` : ''}`);
+  out.push(`  Tiempo:          si a las ${hora(m.cerrar_si_no_tp1_a_las, tz)} no tocó TP1, cierra · a las ${hora(m.cierre_total_a_las, tz)} cierra todo`);
+  return out;
 }
 
 export function informe(s, cfg) {
@@ -243,6 +307,7 @@ export function informe(s, cfg) {
   if (!P.viable) {
     out.push(`No hay plan: ${P.motivo}`);
     out.push('Prueba otra moneda con más movimiento (/cripto-escaner) o vuelve en unos minutos.');
+    out.push(...bloqueMejor(s, cfg, f, linea));
     return out.join('\n');
   }
   const etiqueta = s.recomendacion === 'NO OPERAR' ? `PLAN DE REFERENCIA ${s.lado} (NO recomendado ahora)` : `PLAN ${s.lado}`;
@@ -301,6 +366,7 @@ export function informe(s, cfg) {
     if (r.short_si_pierde) out.push(`  · una vela de 5 m cierra por debajo de ${f(r.short_si_pierde)} (posible SHORT)`);
     if (r.rebote_long_bajo) out.push(`  · el precio baja hasta ${f(r.rebote_long_bajo)} o sube hasta ${f(r.rebote_short_sobre)} (posible REVERSIÓN)`);
   }
+  out.push(...bloqueMejor(s, cfg, f, linea));
   out.push(linea);
   out.push('No es asesoría financiera: es un cálculo con datos públicos. Opera solo lo que puedas perder.');
   return out.join('\n');
