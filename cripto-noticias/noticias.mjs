@@ -2,6 +2,7 @@
 // cripto-noticias: titulares recientes de una moneda y del mercado, sentimiento y Fear & Greed.
 import { pathToFileURL } from 'node:url';
 import { Fuente, base } from '../lib/mexc.mjs';
+import { crearFuente, nombreExchange } from '../lib/fuentes.mjs';
 import { leerNoticias, miedoCodicia } from '../lib/noticias.mjs';
 import { leerConfig } from '../lib/config.mjs';
 import { args, hora, signo, salir } from '../lib/formato.mjs';
@@ -9,7 +10,7 @@ import { args, hora, signo, salir } from '../lib/formato.mjs';
 async function main() {
   const { pos, op } = args(process.argv.slice(2), { flags: ['json'], numeros: ['horas'] });
   const cfg = leerConfig(op.config);
-  const fuente = new Fuente({ offline: op.offline, grabar: op.grabar });
+  const fuente = crearFuente({ exchange: op.exchange, cfg, offline: op.offline, grabar: op.grabar });
   const monedas = pos.length ? pos.map(base) : ['BTC'];
   const fng = await miedoCodicia(fuente);
   const res = [];

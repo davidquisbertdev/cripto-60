@@ -4,11 +4,13 @@
 // y si el análisis cambió.
 import { pathToFileURL } from 'node:url';
 import { Fuente, cerradas } from '../lib/mexc.mjs';
+import { crearFuente, nombreExchange } from '../lib/fuentes.mjs';
 import { base as baseDe } from '../lib/mexc.mjs';
 import { analizarSimbolo } from '../lib/motor.mjs';
 import { simular } from '../lib/simulacion.mjs';
 import { redondear, repartir } from '../lib/plan.mjs';
 import { compararInstantanea } from '../lib/ballenas.mjs';
+import { filtroBTC } from '../lib/btc.mjs';
 import path from 'node:path';
 import { carpeta } from '../lib/config.mjs';
 import { leerConfig, leerJSON, rutaSenal } from '../lib/config.mjs';
@@ -104,6 +106,9 @@ export function evaluar(a, pos, cfg) {
   const ballenasContra = bw != null && L * bw <= -0.3;
   const movBallenas = pos.ballenas_senal && a.ballenas?.hl ? compararInstantanea(pos.ballenas_senal, a.ballenas.hl) : null;
   const movContra = movBallenas && L * movBallenas.delta_neto_usd < -1e6;
+  // BTC: si arrastra en contra de la posición (con dirección o moviéndose ahora), se reduce
+  const fb = filtroBTC(a.btc, a.btc?.relacion, L, pos.estrategia === 'reversion' ? 'reversion' : 'tendencia');
+  const btcContra = fb.estado === 'en contra' && (fb.bloquea || fb.bajar > 0);
 
   let pnl = null;
   if (pos.contratos && pos.tam) {
@@ -156,10 +161,10 @@ export function evaluar(a, pos, cfg) {
   } else if (rec.hit >= 1) {
     accion = 'MANTENER con SL movido';
     motivo = `Ya tocó TP${rec.hit}. Asegúrate de haber cerrado el ${pos.reparto.slice(0, rec.hit).join(' % + ')} % y de tener el SL en ${rec.stop}${rec.hit === 1 ? ' (entrada: ya no puedes perder)' : ' (TP1)'}.`;
-    if (debil || enContra || ballenasContra || movContra) { accion = 'REDUCIR'; motivo += ` ${ballenasContra || movContra ? 'Las ballenas se mueven en contra' : `El impulso se debilitó (confianza ${d.confianza})`}: cierra otra parte o sube el SL a ${medio}.`; }
-  } else if (debil || enContra || ballenasContra || movContra || (pSig != null && pStop != null && pSig + pStop >= 10 && pSig / (pSig + pStop) < 0.4)) {
+    if (debil || enContra || ballenasContra || movContra || btcContra) { accion = 'REDUCIR'; motivo += ` ${btcContra ? 'BTC empuja en contra' : ballenasContra || movContra ? 'Las ballenas se mueven en contra' : `El impulso se debilitó (confianza ${d.confianza})`}: cierra otra parte o sube el SL a ${medio}.`; }
+  } else if (debil || enContra || ballenasContra || movContra || btcContra || (pSig != null && pStop != null && pSig + pStop >= 10 && pSig / (pSig + pStop) < 0.4)) {
     accion = 'REDUCIR';
-    motivo = `${debil ? `La confianza bajó (${pos.confianza_senal ?? '—'} → ${d.confianza}/100). ` : ''}${enContra ? `El análisis empieza a inclinarse a ${d.sesgo}. ` : ''}${ballenasContra ? `Las ballenas están en contra (${a.ballenas.lectura}). ` : ''}${movContra ? `Desde tu señal las ballenas movieron ${(movBallenas.delta_neto_usd / 1e6).toFixed(1)} M USD hacia ${movBallenas.delta_neto_usd > 0 ? 'LONG' : 'SHORT'}. ` : ''}Desde aquí: ${sig.toUpperCase()} ${pct(pSig)} frente a stop ${pct(pStop)}. Cierra la mitad o acerca el SL a ${medio}.`;
+    motivo = `${debil ? `La confianza bajó (${pos.confianza_senal ?? '—'} → ${d.confianza}/100). ` : ''}${enContra ? `El análisis empieza a inclinarse a ${d.sesgo}. ` : ''}${ballenasContra ? `Las ballenas están en contra (${a.ballenas.lectura}). ` : ''}${btcContra ? `BTC ${a.btc.lectura} (${signo(a.btc.puntuacion)}) arrastra en contra de tu ${pos.lado}. ` : ''}${movContra ? `Desde tu señal las ballenas movieron ${(movBallenas.delta_neto_usd / 1e6).toFixed(1)} M USD hacia ${movBallenas.delta_neto_usd > 0 ? 'LONG' : 'SHORT'}. ` : ''}Desde aquí: ${sig.toUpperCase()} ${pct(pSig)} frente a stop ${pct(pStop)}. Cierra la mitad o acerca el SL a ${medio}.`;
   } else {
     accion = 'MANTENER';
     motivo = `El plan sigue en pie: análisis ${d.sesgo} ${d.confianza}/100, TP1 ${pct(pSig)} vs SL ${pct(pStop)}.`;
@@ -178,6 +183,7 @@ export function evaluar(a, pos, cfg) {
     macro_nuevas: nuevasMacro.slice(0, 4).map(({ titulo, fecha, fuente }) => ({ titulo, fecha, fuente })),
     simulacion: sim, prob_siguiente_tp: pSig, prob_stop: pStop, siguiente: sig ? sig.toUpperCase() : null,
     ballenas: a.ballenas ? { puntuacion: a.ballenas.puntuacion, lectura: a.ballenas.lectura, cobertura: a.ballenas.cobertura, frases: a.ballenas.frases, en_contra: ballenasContra, desde_senal: movBallenas } : null,
+    btc: a.btc ? { lectura: a.btc.lectura, puntuacion: a.btc.puntuacion, cambio_15m_pct: a.btc.cambio_15m_pct, presion: a.btc.presion, relacion: a.btc.relacion, estado: fb.estado, en_contra: btcContra, texto: fb.texto } : null,
   };
 }
 
@@ -199,6 +205,10 @@ export function informe(e, cfg) {
   out.push(`Análisis ahora: ${e.analisis.sesgo} ${e.analisis.nivel} (${e.analisis.confianza}/100)${p.confianza_senal != null ? ` · en la señal: ${p.confianza_senal}/100` : ''}`);
   for (const r of e.analisis.razones) out.push(`  · ${r}`);
   for (const r of e.analisis.alertas) out.push(`  ! ${r}`);
+  if (e.btc) {
+    out.push(`BTC ahora: ${e.btc.lectura} (${signo(e.btc.puntuacion)}) · 15 min ${signo(e.btc.cambio_15m_pct)} %${e.btc.relacion ? ` · correlación ${e.btc.relacion.correlacion}` : ''} → ${e.btc.estado.toUpperCase()} de tu ${p.lado}${e.btc.en_contra ? ' ← vigila' : ''}`);
+    if (e.btc.texto) out.push(`  · ${e.btc.texto}`);
+  }
   if (e.ballenas?.cobertura) {
     out.push(`Ballenas ahora: ${e.ballenas.lectura} (${signo(e.ballenas.puntuacion)})${e.ballenas.en_contra ? ' ← EN CONTRA de tu posición' : ''}`);
     for (const x of e.ballenas.frases.slice(0, 2)) out.push(`  · ${x}`);
@@ -209,7 +219,7 @@ export function informe(e, cfg) {
   for (const n of e.noticias_nuevas) out.push(`  · ${hora(n.fecha, tz)} ${n.titulo} [${n.fuente}] ${signo(n.sentimiento)}`);
   for (const n of e.macro_nuevas) out.push(`  · (mercado) ${hora(n.fecha, tz)} ${n.titulo}`);
   out.push(linea);
-  out.push('No es asesoría financiera. Las órdenes las pones tú en MEXC.');
+  out.push('No es asesoría financiera. Las órdenes las pones tú en tu exchange.');
   return out.join('\n');
 }
 
@@ -219,7 +229,7 @@ async function main() {
   });
   if (!pos[0]) throw new Error('Uso: posicion.mjs SOL [--entrada X --sl Y --tp1 A --tp2 B --tp3 C --lado long --hace 10m]');
   const cfg = leerConfig(op.config);
-  const fuente = new Fuente({ offline: op.offline, grabar: op.grabar });
+  const fuente = crearFuente({ exchange: op.exchange, cfg, offline: op.offline, grabar: op.grabar });
   const p = cargarPosicion(op, cfg, fuente.ahora(), pos[0]);
   const a = await analizarSimbolo(fuente, pos[0], { conNoticias: !op.sin_noticias, conBallenas: !op.sin_ballenas, carpetaCache: path.join(carpeta(cfg), 'cache') });
   a.velas1m_vivo = await fuente.velas(a.simbolo, '1m', 2000); // misma petición que el motor: incluye la vela en curso

@@ -172,3 +172,17 @@ test('CLI: contrato que no es cripto da error claro', () => {
     assert.throws(() => execFileSync(process.execPath, [path.join(RAIZ, 'cripto-senal', 'senal.mjs'), 'SOXL', '--capital', '10', '--offline', dir, '--no-guardar'], { encoding: 'utf8', stdio: 'pipe' }), /no es una criptomoneda/);
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
+
+test('la señal trae siempre la MEJOR ENTRADA, también con NO OPERAR', async () => {
+  for (const [fx, sym] of [['sol', 'SOL'], ['near', 'NEAR']]) {
+    const s = await senalDe(fx, sym, { capital: 20 });
+    const m = s.mejor_entrada;
+    assert.ok(m, `${sym}: falta mejor_entrada`);
+    assert.ok(['LONG', 'SHORT'].includes(m.lado));
+    assert.equal(m.tps.length, 3);
+    assert.ok(m.apalancamiento >= 1 && m.apalancamiento <= cfg.apalancamiento_max);
+    assert.ok(m.prob.pct >= 0 && m.prob.pct <= 100);
+    if (s.recomendacion !== 'NO OPERAR') assert.equal(m.lado, s.lado);
+    assert.match(informe(s, cfg), /MEJOR ENTRADA/);
+  }
+});

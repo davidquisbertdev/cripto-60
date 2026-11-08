@@ -1,10 +1,11 @@
 #!/usr/bin/env node
 // cripto-ballenas: qué hace el dinero grande en una moneda. Posiciones y operaciones de las ballenas
 // de Hyperliquid (billeteras públicas), top traders frente a minoristas, open interest, flujo agresivo,
-// operaciones grandes y muros del libro de MEXC. Compara con la revisión anterior.
+// operaciones grandes y muros del libro del exchange. Compara con la revisión anterior.
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { Fuente, simbolo as simboloDe, base as baseDe, cerradas, esCripto } from '../lib/mexc.mjs';
+import { crearFuente, nombreExchange } from '../lib/fuentes.mjs';
 import { analizarBallenas, compararInstantanea } from '../lib/ballenas.mjs';
 import { leerConfig, leerJSON, escribirJSON, carpeta } from '../lib/config.mjs';
 import { args, hora, signo, duracion, precio as fp, salir } from '../lib/formato.mjs';
@@ -52,7 +53,7 @@ export function texto(r, cfg) {
   }
   if (r.muros && (r.muros.compra || r.muros.venta)) {
     out.push(linea);
-    out.push(`MUROS EN MEXC (±3 %): ${r.muros.compra ? `compra ${f(r.muros.compra.precio)} (${M(r.muros.compra.usd)} USD)` : 'sin muro de compra'} · ${r.muros.venta ? `venta ${f(r.muros.venta.precio)} (${M(r.muros.venta.usd)} USD)` : 'sin muro de venta'}`);
+    out.push(`MUROS EN ${(r.exchange ?? 'MEXC').toUpperCase()} (±3 %): ${r.muros.compra ? `compra ${f(r.muros.compra.precio)} (${M(r.muros.compra.usd)} USD)` : 'sin muro de compra'} · ${r.muros.venta ? `venta ${f(r.muros.venta.precio)} (${M(r.muros.venta.usd)} USD)` : 'sin muro de venta'}`);
   }
   out.push(linea);
   out.push('Las ballenas también se equivocan y pueden estar cubriendo otras posiciones. Úsalo como confirmación, no como señal única.');
@@ -63,7 +64,7 @@ async function main() {
   const { pos, op } = args(process.argv.slice(2), { flags: ['json', 'no_guardar'], numeros: ['ballenas'] });
   if (!pos[0]) throw new Error('Uso: ballenas.mjs SOL [--ballenas 50] [--json]');
   const cfg = leerConfig(op.config);
-  const fuente = new Fuente({ offline: op.offline, grabar: op.grabar });
+  const fuente = crearFuente({ exchange: op.exchange, cfg, offline: op.offline, grabar: op.grabar });
   const r = await informeBallenas(fuente, pos[0], cfg, { n: op.ballenas ?? 50, guardar: !op.no_guardar });
   if (op.json) { const { frases, ...resto } = r; console.log(JSON.stringify({ ...resto, frases }, null, 2)); }
   else console.log(texto(r, cfg));
