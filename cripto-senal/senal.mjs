@@ -8,6 +8,7 @@ import { analizarSimbolo } from '../lib/motor.mjs';
 import { calcularPlan, redondear, stopLoss } from '../lib/plan.mjs';
 import { simular } from '../lib/simulacion.mjs';
 import { historialSenal } from '../lib/historial.mjs';
+import { filtroBTC } from '../lib/btc.mjs';
 import { leerConfig, leerJSON, escribirJSON, rutaDiario, rutaSenal, estadoDiario, carpeta } from '../lib/config.mjs';
 import { args, precio as fp, usdt, pct, signo, hora, duracion, salir } from '../lib/formato.mjs';
 
@@ -69,6 +70,7 @@ function evaluarEstrategia(a, cfg, op, { estrategia, lado, nivel, motivos, capit
 
 const NOMBRE = { tendencia: 'TENDENCIA', reversion: 'REVERSIÓN a la media' };
 const ORDEN = { ALTA: 3, MEDIA: 2, BAJA: 1, 'NO OPERAR': 0 };
+const nivelPorConfianza = (c) => (c < 40 ? 'NO OPERAR' : c < 50 ? 'BAJA' : c < 65 ? 'MEDIA' : 'ALTA');
 
 export async function generarSenal(a, op, cfg) {
   const ahora = a.ahora;
@@ -101,8 +103,16 @@ export async function generarSenal(a, op, cfg) {
     let nivel = bajar(d.nivel, bajarComun);
     const motivos = [...comunes, ...d.alertas];
     if (op.lado && lado !== d.sesgo) { nivel = bajar(nivel, 2); motivos.push(`Pediste ${lado} pero ${e === 'reversion' ? 'la reversión' : 'el análisis'} se inclina a ${d.sesgo}.`); }
+    // Filtro de BTC: las altcoins siguen a BTC; contra un BTC con dirección se baja o se bloquea
+    const fb = filtroBTC(a.btc, a.btc?.relacion, lado === 'LONG' ? 1 : -1, e);
+    const dd = { ...d, confianza: Math.round(Math.max(5, Math.min(e === 'tendencia' && d.lateral ? 64 : 90, d.confianza + fb.ajuste_conf))) };    if (fb.texto) motivos.unshift(`BTC: ${fb.texto}`);
+    if (fb.bloquea) nivel = 'NO OPERAR';
+    else {
+      nivel = bajar(nivel, fb.bajar);
+      if (ORDEN[nivelPorConfianza(dd.confianza)] < ORDEN[nivel]) nivel = nivelPorConfianza(dd.confianza);
+    }
     const r = evaluarEstrategia(a, cfg, op, { estrategia: e, lado, nivel, motivos, capital, diario });
-    evaluadas.push({ ...r, d });
+    evaluadas.push({ ...r, d: dd, btc: fb });
   }
   // Elección: primero las recomendables, luego la de mejor historial real, luego la de más confianza
   const valorHist = (x) => (x.historial?.n >= cfg.historial_min_ops ? x.historial.r_medio_neto : -0.05);
@@ -142,7 +152,8 @@ export async function generarSenal(a, op, cfg) {
     precio: a.precio, decimales: a.decimales, entrada, plan, simulacion: sim, historial, sl_probados: g.slProbados,
     objetivo_media: g.estrategia === 'reversion' ? a.reversion?.medio ?? null : null,
     alternativa: alt ? { estrategia: alt.estrategia, lado: alt.lado, nivel: alt.nivel, confianza: alt.d.confianza, historial: resumenHist(alt.historial) } : null,
-    estrategias_evaluadas: evaluadas.map((x) => ({ estrategia: x.estrategia, lado: x.lado, nivel: x.nivel, confianza: x.d.confianza, historial: resumenHist(x.historial) })),
+    estrategias_evaluadas: evaluadas.map((x) => ({ estrategia: x.estrategia, lado: x.lado, nivel: x.nivel, confianza: x.d.confianza, btc: x.btc?.estado ?? null, historial: resumenHist(x.historial) })),
+    btc_filtro: g.btc ? { estado: g.btc.estado, bloquea: g.btc.bloquea, ajuste_confianza: g.btc.ajuste_conf, texto: g.btc.texto } : null,
     espera_max_min: esperaMin, cerrar_si_no_tp1_a_las: esperaMin ? ahora + esperaMin * 60e3 : null,
     duracion_max_min: cfg.duracion_max_min, cierre_total_a_las: ahora + cfg.duracion_max_min * 60e3, reentrada,
     contexto: {
@@ -187,6 +198,13 @@ export function informe(s, cfg) {
   if (c.btc) ctx.push(`BTC ${signo(c.btc.puntuacion)}`);
   if (c.fng) ctx.push(`Fear & Greed ${c.fng.valor} (${c.fng.clase})`);
   out.push(`Contexto: ${ctx.join(' · ')}`);
+  if (c.btc) {
+    const b = c.btc, rel = b.relacion;
+    const efecto = s.btc_filtro ? ` → ${s.btc_filtro.estado.toUpperCase()} del ${s.lado}` : '';
+    out.push(`BITCOIN: ${b.lectura}${b.fuerza ? ` ${b.fuerza}` : ''} (${signo(b.puntuacion)}) · precio ${b.precio}${efecto}`);
+    for (const x of b.frases ?? []) out.push(`  · ${x}`);
+    if (rel) out.push(`  · ${s.base} sigue a BTC: correlación ${rel.correlacion} y beta ${rel.beta} (si BTC se mueve 1 %, ${s.base} suele moverse ~${rel.beta} %) · peso de BTC en la señal ${Math.round(100 * b.peso)} %`);
+  }
   if (s.noticias) {
     out.push(`Noticias 48 h: ${s.noticias.propias.length} de ${s.base}, sentimiento ${signo(s.noticias.sentimiento)}`);
     for (const n of s.noticias.propias.slice(0, 3)) out.push(`  · ${hora(n.fecha, tz)} ${n.titulo} [${n.fuente}]`);

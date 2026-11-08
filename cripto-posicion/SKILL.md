@@ -56,7 +56,8 @@ Opciones: `--lado`, `--entrada`, `--sl`, `--tp1`, `--tp2`, `--tp3`,
 6. **REDUCIR**: si la confianza bajó 15 puntos o más respecto a la señal, si el
    análisis empieza a girar, si **las ballenas están en contra** (puntuación de
    0.3 o más contra tu lado) o **movieron más de 1 M USD contra tu lado desde
-   la señal**, o si desde aquí la probabilidad del siguiente TP es menos del
+   la señal**, si **BTC arrastra en contra** (fuerte, moviéndose ahora o con
+   su tendencia 15m + 1h contra tu lado; di siempre la línea "BTC ahora"), o si desde aquí la probabilidad del siguiente TP es menos del
    40 % de la suma "TP o stop". Da un SL más cercano (a mitad de camino).
 7. **MANTENER**: el plan sigue en pie. Di el tiempo que queda y la hora límite.
 

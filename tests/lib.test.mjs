@@ -274,3 +274,36 @@ test('noticias: sentimiento y filtro por moneda', () => {
   assert.ok(r.evento_riesgo);
   assert.ok(r.sentimiento < 0);
 });
+
+test('BTC: correlación y beta de 5m frente a BTC', async () => {
+  const { relacionConBTC } = await import('../lib/btc.mjs');
+  const btc = [], alt = [];
+  let pb = 75000, pa = 90;
+  for (let i = 0; i < 120; i++) {
+    const r = Math.sin(i * 1.7) * 0.002;
+    pb *= 1 + r; pa *= 1 + 2 * r;
+    btc.push({ t: i * 300e3, c: pb }); alt.push({ t: i * 300e3, c: pa });
+  }
+  const rel = relacionConBTC(alt, btc);
+  assert.ok(rel.correlacion > 0.99);
+  assert.ok(Math.abs(rel.beta - 2) < 0.05);
+  assert.equal(relacionConBTC(alt.slice(0, 10), btc), null);
+});
+
+test('BTC: bloquea una reversión contra la tendencia mayor de BTC y avisa en tendencia', async () => {
+  const { filtroBTC } = await import('../lib/btc.mjs');
+  const rel = { correlacion: 0.72, beta: 1.7 };
+  const bajista = { puntuacion: -0.16, tendencia_mayor: -0.41, lectura: 'NEUTRAL', presion: 0 };
+  const rev = filtroBTC(bajista, rel, 1, 'reversion');
+  assert.equal(rev.bloquea, true);
+  assert.equal(rev.estado, 'en contra');
+  const tend = filtroBTC(bajista, rel, 1, 'tendencia');
+  assert.equal(tend.bloquea, false);
+  assert.equal(tend.bajar, 1);
+  assert.ok(tend.ajuste_conf < 0);
+  assert.equal(filtroBTC(bajista, rel, -1, 'tendencia').estado, 'neutral');
+  const alcista = { puntuacion: 0.45, tendencia_mayor: 0.3, lectura: 'ALCISTA', presion: 1 };
+  assert.equal(filtroBTC(alcista, rel, 1).estado, 'a favor');
+  assert.equal(filtroBTC(alcista, { correlacion: 0.2 }, -1).ajuste_conf, -5); // poco ligada: solo aviso
+  assert.equal(filtroBTC(null, rel, 1).estado, 'sin datos');
+});

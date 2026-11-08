@@ -3,7 +3,8 @@ name: cripto-senal
 description: >-
   Señal INTRADÍA CORTA para futuros perpetuos de criptomonedas en MEXC
   (operaciones de 15 a 60 minutos, con objetivo de ganancia en USDT). Analiza una moneda en 1m, 5m
-  y 15m (más 1h de contexto): tendencia, momentum, RSI, ADX, ATR, swings, BTC,
+  y 15m (más 1h de contexto): tendencia, momentum, RSI, ADX, ATR, swings,
+  SIEMPRE Bitcoin (lectura, correlación y si acompaña o va en contra),
   funding, libro, noticias y ballenas. Responde LONG, SHORT o NO OPERAR con
   entrada (limit o mercado), stop loss con espacio calibrado por tiempo,
   TP1/TP2/TP3 (cierra 50 %, 75 %, 100 %), APALANCAMIENTO calculado para el
@@ -56,6 +57,11 @@ Otras opciones: `--json`, `--sin-noticias`, `--semilla N`, `--no-guardar`,
    si está disponible y dila. En operaciones de minutos, las noticias viejas no importan.
 4. Responde en español y corto:
    - **Veredicto**: LONG / SHORT / NO OPERAR y la confianza, con 2 razones.
+   - **Bitcoin (siempre)**: la línea BITCOIN del informe: lectura de BTC
+     (ALCISTA, BAJISTA o NEUTRAL), su tendencia mayor 15m + 1h si sale, cuánto
+     sigue la moneda a BTC (correlación y beta) y si BTC está A FAVOR o EN
+     CONTRA de la operación. Las altcoins siguen a BTC: si va en contra, dilo
+     primero.
    - **La orden**: entrada limit (o mercado), margen aislado, **apalancamiento
      y por qué** (la línea bajo APALANCAMIENTO), contratos, SL, y TP1 (cierra
      50 %), TP2 (75 %) y TP3 (100 %).
@@ -95,9 +101,14 @@ Otras opciones: `--json`, `--sin-noticias`, `--semilla N`, `--no-guardar`,
 
 - **Puntuación** de -1 a +1 por marco (tendencia con EMAs y pendiente,
   momentum con MACD y RSI), con pesos 5m 35 %, 1m 25 %, 15m 25 % y 1h 15 %.
-  BTC (5m y 15m) cuenta un 15 %. El funding extremo, el libro, las noticias y
-  las **ballenas** (15 %, con prioridad al flujo de los últimos 15 min) la
-  ajustan.
+  **BTC siempre se revisa** (1m, 5m, 15m y 1h, ver `/cripto-btc`) y pesa
+  10 % + 20 % × la correlación de la moneda con BTC (con 0.7, un 24 %). El
+  funding extremo, el libro, las noticias y las **ballenas** (15 %, con
+  prioridad al flujo de los últimos 15 min) la ajustan.
+- **Filtro de BTC** (moneda con correlación ≥ 0.5): una **reversión** contra
+  BTC, con BTC fuerte, moviéndose ahora o con su tendencia 15m + 1h en contra,
+  sale **NO OPERAR**. Si no, -15 de confianza. En **tendencia**, BTC en contra
+  resta 10 y, si es fuerte, baja un nivel. BTC a favor suma 5.
 - **Confianza** de 0 a 100: fuerza de la puntuación y acuerdo entre marcos. Se
   descuenta si el ADX de 15m indica mercado lateral (entonces el máximo es
   MEDIA), si el precio está sobreextendido, si el RSI de 1m dice que el impulso

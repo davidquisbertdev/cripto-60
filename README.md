@@ -21,7 +21,8 @@ Fear & Greed de alternative.me.
 
 | comando | qué hace |
 | --- | --- |
-| `/cripto-senal` | Analiza una moneda (5m, 15m, 1h, 4h, BTC, funding, libro de órdenes, noticias) y da la orden completa, o NO OPERAR con los niveles a vigilar. |
+| `/cripto-senal` | Analiza una moneda (1m, 5m, 15m, 1h, siempre con BTC de guía, funding, libro de órdenes, noticias) y da la orden completa, o NO OPERAR con los niveles a vigilar. |
+| `/cripto-btc` | Qué hace Bitcoin (1m, 5m, 15m, 1h y tendencia mayor) y cuánto arrastra a una altcoin (correlación y beta). La señal y la revisión de posición lo usan siempre: una reversión contra BTC sale NO OPERAR. |
 | `/cripto-posicion` | Revisa tu posición abierta: MANTENER, MOVER SL, REDUCIR o CERRAR, según el precio, el tiempo, las noticias nuevas y si el análisis cambió. |
 | `/cripto-ballenas` | Qué hacen las ballenas: posiciones reales de las billeteras grandes de Hyperliquid, qué abrieron o cerraron, qué cambió desde la última revisión, top traders frente a minoristas, open interest, flujo y muros. Lo usan también la señal y la revisión de posición. |
 | `/cripto-noticias` | Titulares recientes de la moneda y del mercado, sentimiento, alertas de riesgo y Fear & Greed. |
