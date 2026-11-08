@@ -4,6 +4,7 @@
 // y si el análisis cambió.
 import { pathToFileURL } from 'node:url';
 import { Fuente, cerradas } from '../lib/mexc.mjs';
+import { crearFuente, nombreExchange } from '../lib/fuentes.mjs';
 import { base as baseDe } from '../lib/mexc.mjs';
 import { analizarSimbolo } from '../lib/motor.mjs';
 import { simular } from '../lib/simulacion.mjs';
@@ -218,7 +219,7 @@ export function informe(e, cfg) {
   for (const n of e.noticias_nuevas) out.push(`  · ${hora(n.fecha, tz)} ${n.titulo} [${n.fuente}] ${signo(n.sentimiento)}`);
   for (const n of e.macro_nuevas) out.push(`  · (mercado) ${hora(n.fecha, tz)} ${n.titulo}`);
   out.push(linea);
-  out.push('No es asesoría financiera. Las órdenes las pones tú en MEXC.');
+  out.push('No es asesoría financiera. Las órdenes las pones tú en tu exchange.');
   return out.join('\n');
 }
 
@@ -228,7 +229,7 @@ async function main() {
   });
   if (!pos[0]) throw new Error('Uso: posicion.mjs SOL [--entrada X --sl Y --tp1 A --tp2 B --tp3 C --lado long --hace 10m]');
   const cfg = leerConfig(op.config);
-  const fuente = new Fuente({ offline: op.offline, grabar: op.grabar });
+  const fuente = crearFuente({ exchange: op.exchange, cfg, offline: op.offline, grabar: op.grabar });
   const p = cargarPosicion(op, cfg, fuente.ahora(), pos[0]);
   const a = await analizarSimbolo(fuente, pos[0], { conNoticias: !op.sin_noticias, conBallenas: !op.sin_ballenas, carpetaCache: path.join(carpeta(cfg), 'cache') });
   a.velas1m_vivo = await fuente.velas(a.simbolo, '1m', 2000); // misma petición que el motor: incluye la vela en curso

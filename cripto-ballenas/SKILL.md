@@ -8,7 +8,7 @@ description: >-
   desde la revisión anterior, los top traders de Binance frente a los
   minoristas, el open interest con el precio (longs o shorts nuevos, cierres),
   el flujo agresivo comprador o vendedor, las operaciones grandes y los muros
-  del libro de MEXC. Da una lectura ALCISTA, BAJISTA o NEUTRAL que
+  del libro del exchange (Binance o MEXC). Da una lectura ALCISTA, BAJISTA o NEUTRAL que
   /cripto-senal y /cripto-posicion ya incluyen. Úsala cuando el usuario diga
   "¿qué hacen las ballenas en SOL?", "¿las ballenas están comprando?",
   "¿se están moviendo las ballenas?", "smart money", "billeteras grandes",
@@ -39,8 +39,8 @@ posiciones, para comparar en la siguiente.
 | **Top traders frente a minoristas** (10 %) | Binance (velas de 5 min): % en long del 20 % de cuentas con más margen, y de todas las cuentas. Si la moneda no está en Binance: Bybit (solo el total) | ballenas aumentando longs en 30 min es alcista. Minoristas mucho más largos que las ballenas es bajista (barrida probable) |
 | **Open interest + precio, 15 min** (20 %) | contratos abiertos | OI y precio suben: longs nuevos. OI sube y el precio baja: shorts nuevos. OI baja: cierres (movimiento débil) |
 | **Flujo taker, 15 min** (25 %) | volumen de compra agresiva frente a venta agresiva | quién paga el spread |
-| **MEXC: operaciones grandes** (15 %) | operaciones de 25 k USD o más en los últimos minutos | quién empuja ahora mismo |
-| **Muros de MEXC** | órdenes grandes en el libro a ±3 % del precio | posibles soportes y resistencias. No suman a la puntuación: los muros se pueden retirar |
+| **Exchange: operaciones grandes** (15 %) | operaciones de 25 k USD o más en los últimos minutos | quién empuja ahora mismo |
+| **Muros del exchange** | órdenes grandes en el libro a ±3 % del precio | posibles soportes y resistencias. No suman a la puntuación: los muros se pueden retirar |
 
 Los pesos están pensados para operaciones cortas (15-60 min): manda el flujo de los últimos 30 min; las posiciones de fondo de las ballenas cambian despacio y pesan menos. La puntuación va de -1 a +1 y la cobertura indica qué parte de las fuentes
 tenía datos. En `/cripto-senal` las ballenas suman un 15 % a la puntuación. Si

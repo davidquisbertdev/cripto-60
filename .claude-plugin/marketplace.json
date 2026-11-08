@@ -1,14 +1,14 @@
 {
   "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
   "name": "cripto-trader-skill",
-  "description": "Futuros cripto en MEXC con gestión de riesgo",
+  "description": "Futuros cripto (Binance o MEXC) con gestión de riesgo",
   "owner": {
     "name": "david"
   },
   "plugins": [
     {
       "name": "cripto-trader-skill",
-      "description": "Siete skills para futuros cripto en MEXC: señal (LONG/SHORT/NO OPERAR con SL, TP1-TP3, apalancamiento, probabilidades y espera máxima, siempre con Bitcoin de guía), Bitcoin frente a las altcoins (correlación y filtro), revisión de posición, ballenas (Hyperliquid on-chain, top traders, open interest), noticias, escáner y diario de capital.",
+      "description": "Siete skills para futuros cripto (datos de Binance por defecto, o MEXC): señal (LONG/SHORT/NO OPERAR con SL, TP1-TP3, apalancamiento, probabilidades y espera máxima, siempre con Bitcoin de guía), Bitcoin frente a las altcoins (correlación y filtro), revisión de posición, ballenas (Hyperliquid on-chain, top traders, open interest), noticias, escáner y diario de capital.",
       "source": "./",
       "category": "productivity"
     }

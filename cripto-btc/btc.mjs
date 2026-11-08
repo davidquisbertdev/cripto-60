@@ -3,13 +3,14 @@
 // (correlación y beta de 5m) y si BTC acompaña un LONG o un SHORT en ella.
 import { pathToFileURL } from 'node:url';
 import { Fuente, simbolo, base as baseDe, cerradas } from '../lib/mexc.mjs';
+import { crearFuente, nombreExchange } from '../lib/fuentes.mjs';
 import { analizarBTC, relacionConBTC, filtroBTC, pesoBTC } from '../lib/btc.mjs';
 import { leerConfig } from '../lib/config.mjs';
 import { args, signo, hora, salir } from '../lib/formato.mjs';
 
 export async function informeBTC(fuente, moneda = null) {
   const btc = await analizarBTC(fuente);
-  if (!btc) throw new Error('No se pudieron leer las velas de BTC en MEXC.');
+  if (!btc) throw new Error(`No se pudieron leer las velas de BTC (${nombreExchange(fuente.exchange)}).`);
   let alt = null;
   if (moneda && baseDe(moneda) !== 'BTC') {
     const sym = simbolo(moneda);
@@ -17,7 +18,7 @@ export async function informeBTC(fuente, moneda = null) {
     const rel = relacionConBTC(v5, btc.velas5m);
     alt = { simbolo: sym, base: baseDe(sym), relacion: rel, peso: +pesoBTC(rel).toFixed(2), long: filtroBTC(btc, rel, 1), short: filtroBTC(btc, rel, -1), long_rev: filtroBTC(btc, rel, 1, 'reversion'), short_rev: filtroBTC(btc, rel, -1, 'reversion') };
   }
-  const { velas5m, ...resto } = btc;
+  const { velas5m, series, ...resto } = btc;
   return { ahora: fuente.ahora(), btc: resto, alt };
 }
 
@@ -48,7 +49,7 @@ export function texto(r, cfg) {
 async function main() {
   const { pos, op } = args(process.argv.slice(2), { flags: ['json'] });
   const cfg = leerConfig(op.config);
-  const fuente = new Fuente({ offline: op.offline, grabar: op.grabar });
+  const fuente = crearFuente({ exchange: op.exchange, cfg, offline: op.offline, grabar: op.grabar });
   const r = await informeBTC(fuente, pos[0] ?? null);
   console.log(op.json ? JSON.stringify(r, null, 2) : texto(r, cfg));
 }

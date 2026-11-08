@@ -1,7 +1,7 @@
 ---
 name: cripto-posicion
 description: >-
-  Revisa una posición abierta (operaciones de 15 a 60 min) en futuros cripto de MEXC y dice qué hacer ahora:
+  Revisa una posición abierta (operaciones de 15 a 60 min) en futuros cripto (Binance o MEXC) y dice qué hacer ahora:
   MANTENER, MOVER SL, REDUCIR o CERRAR. Mira lo que hizo el precio desde la
   entrada (TPs o SL tocados, minuto a minuto), el tiempo transcurrido frente a
   la espera máxima de la señal, las noticias publicadas desde que se abrió, si
@@ -37,7 +37,7 @@ Opciones: `--lado`, `--entrada`, `--sl`, `--tp1`, `--tp2`, `--tp3`,
 
 1. **CERRADA (SL)**, **CERRADA (stop movido)** o **COMPLETADA**: si las velas de
    1 minuto muestran que ya tocó el SL, el stop movido o todos los TP. Si la
-   posición sigue abierta en MEXC, debe cerrarse ya.
+   posición sigue abierta en el exchange, debe cerrarse ya.
 2. **CERRAR**: si desde la entrada salió una noticia en contra (hack,
    deslistado o sentimiento claramente contrario).
 2b. **CERRAR (asegura ganancia)** en una **reversión**: si el precio ya volvió
@@ -70,9 +70,9 @@ Opciones: `--lado`, `--entrada`, `--sl`, `--tp1`, `--tp2`, `--tp3`,
 3. Las noticias solo importan si son de los últimos minutos. Búscalas con
    WebSearch solo si el precio hizo algo raro (una vela enorme).
 4. Responde corto: la **ACCIÓN** en mayúsculas, el porqué en una o dos frases,
-   qué tocar exactamente en MEXC (cerrar X %, mover el SL a Y), el tiempo que
+   qué tocar exactamente en el exchange (cerrar X %, mover el SL a Y), el tiempo que
    queda para el TP1 y las probabilidades desde aquí.
 5. Si se cerró (por TP, SL o tiempo), sugiere registrar el resultado:
    `/cripto-diario registrar SOL --pnl <USDT>`.
 
-No es asesoría financiera. Tú no tocas la cuenta: el usuario ejecuta en MEXC.
+No es asesoría financiera. Tú no tocas la cuenta: el usuario ejecuta en su exchange.

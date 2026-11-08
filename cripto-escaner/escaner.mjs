@@ -1,8 +1,9 @@
 #!/usr/bin/env node
-// cripto-escaner: recorre los futuros USDT más líquidos de MEXC y ordena las monedas con el setup
+// cripto-escaner: recorre los futuros USDT más líquidos (Binance o MEXC) y ordena las monedas con el setup
 // más claro (LONG o SHORT) según el mismo análisis multi-temporalidad de cripto-senal.
 import { pathToFileURL } from 'node:url';
 import { Fuente, cerradas, esCripto, cambio24h } from '../lib/mexc.mjs';
+import { crearFuente, nombreExchange } from '../lib/fuentes.mjs';
 import { analizarMarco, combinar, puntuacionBTC } from '../lib/analisis.mjs';
 import { puntuarReversion, decidirReversion } from '../lib/reversion.mjs';
 import { leerConfig } from '../lib/config.mjs';
@@ -56,8 +57,8 @@ export async function escanear(fuente, { top = 30, minVolumen = 5e6, ratioMin = 
 
 async function main() {
   const { op } = args(process.argv.slice(2), { flags: ['json'], numeros: ['top', 'min_volumen', 'mostrar'] });
-  leerConfig(op.config);
-  const fuente = new Fuente({ offline: op.offline, grabar: op.grabar, pausa: op.offline ? 0 : 60 });
+  const cfg = leerConfig(op.config);
+  const fuente = crearFuente({ exchange: op.exchange, cfg, offline: op.offline, grabar: op.grabar, pausa: op.offline ? 0 : 60 });
   const r = await escanear(fuente, { top: op.top ?? 30, minVolumen: op.min_volumen ?? 5e6 });
   if (op.json) return console.log(JSON.stringify(r, null, 2));
   console.log(`BTC ahora (5m/15m): ${signo(r.btc)} (${r.btc >= 0.25 ? 'alcista' : r.btc <= -0.25 ? 'bajista' : 'neutral'}) · ${r.analizadas} futuros analizados · ${r.aptas} aptos para scalping`);

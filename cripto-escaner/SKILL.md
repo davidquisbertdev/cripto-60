@@ -1,7 +1,7 @@
 ---
 name: cripto-escaner
 description: >-
-  Escáner de operaciones cortas (15-60 min) de futuros cripto en MEXC: toma los perpetuos USDT con más
+  Escáner de operaciones cortas (15-60 min) de futuros cripto (Binance por defecto, o MEXC): toma los perpetuos USDT con más
   volumen (solo cripto, sin acciones, metales ni stablecoins), los analiza en
   1m, 5m y 15m con el contexto de BTC, comprueba si son aptos para operaciones cortas
   (volatilidad de 5m frente a sus comisiones y spread), muestra la lectura de

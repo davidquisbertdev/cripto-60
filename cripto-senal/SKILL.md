@@ -1,7 +1,7 @@
 ---
 name: cripto-senal
 description: >-
-  Señal INTRADÍA CORTA para futuros perpetuos de criptomonedas en MEXC
+  Señal INTRADÍA CORTA para futuros perpetuos de criptomonedas (datos de Binance por defecto, o MEXC)
   (operaciones de 15 a 60 minutos, con objetivo de ganancia en USDT). Analiza una moneda en 1m, 5m
   y 15m (más 1h de contexto): tendencia, momentum, RSI, ADX, ATR, swings,
   SIEMPRE Bitcoin (lectura, correlación y si acompaña o va en contra),
@@ -21,7 +21,7 @@ argument-hint: "MONEDA --capital USDT [--margen USDT] [--objetivo USDT] [--comis
 
 # cripto-senal (intradía 15-60 min)
 
-El usuario opera a mano en MEXC operaciones de **15 a 60 minutos**, buscando
+El usuario opera a mano operaciones de **15 a 60 minutos**, buscando
 **unos 3 USDT por operación** con 15-20 USDT de margen (más adelante, más margen
 con las ganancias). Quiere un SL con espacio, que un pequeño retroceso no lo
 saque. Tú analizas y le dices
@@ -38,7 +38,19 @@ node "${CLAUDE_SKILL_DIR}/senal.mjs" ENA --capital 10 --comision 0    # moneda c
 node "${CLAUDE_SKILL_DIR}/senal.mjs" ETH --capital 50 --lado long     # forzar un lado (baja la confianza si va en contra)
 node "${CLAUDE_SKILL_DIR}/senal.mjs" SOL --capital 10 --sin-ballenas  # más rápido (unos 3 s en lugar de 12)
 node "${CLAUDE_SKILL_DIR}/senal.mjs" SOL --capital 10 --estrategia reversion   # solo una estrategia
+node "${CLAUDE_SKILL_DIR}/senal.mjs" SOL --capital 10 --exchange mexc   # datos y comisiones de MEXC en lugar de Binance
 ```
+
+**Exchange**: por defecto los datos salen de **Binance** futuros USDⓈ-M (el de
+más liquidez: el libro más profundo y el precio de referencia del mercado). Con
+`--exchange mexc`, o con `"exchange": "MEXC"` en `trader/config.json`, se usa
+MEXC. En Binance:
+- Comisiones estándar VIP 0: maker 0.02 % y taker 0.05 % (sin descuento de
+  BNB). Si tu cuenta tiene otras, usa `--comision`.
+- El tamaño se da en **monedas** ("Cantidad 119 NEAR"), no en contratos.
+- La API pública no da los tramos de apalancamiento: el plan topa en 30x, pero
+  recuerda al usuario que confirme en la app el apalancamiento máximo de la
+  moneda y la liquidación.
 
 Otras opciones: `--json`, `--sin-noticias`, `--semilla N`, `--no-guardar`,
 `--offline DIR`, `--grabar DIR`. Si el usuario no dice el capital y existe
@@ -124,8 +136,8 @@ Otras opciones: `--json`, `--sin-noticias`, `--semilla N`, `--no-guardar`,
   el resto (100 %). Tras el TP1, SL a la entrada; tras el TP2, SL al TP1.
 - **Comisiones**: el TP1 tiene que cubrir al menos 3 veces la comisión de ida y
   vuelta del contrato; si no, NO OPERAR. Se usa la comisión de la ficha del
-  contrato. Si MEXC tiene una promoción de 0 comisión y la confirmaste, usa
-  `--comision 0`.
+  contrato (MEXC) o la estándar de Binance. Si MEXC tiene una promoción de 0
+  comisión y la confirmaste, usa `--comision 0`.
 - **Apalancamiento (la lógica del usuario)**: con el SL más cerca se puede usar
   más apalancamiento con la misma pérdida en USDT, y con menos margen hace falta
   más apalancamiento para el mismo objetivo. El cálculo:
@@ -144,8 +156,17 @@ Otras opciones: `--json`, `--sin-noticias`, `--semilla N`, `--no-guardar`,
   + 1m) dio la misma dirección con fuerza, aplica el mismo plan sobre lo que
   pasó de verdad, con comisiones. Con 12 o más operaciones: por debajo de -0.03 R,
   NO OPERAR (nunca se recomienda algo que pierde en promedio); entre -0.03 y
-  +0.03 R, baja la confianza. **Esto mide si la
+  +0.03 R, baja la confianza. Con menos de 12, baja un nivel. **Esto mide si la
   señal tiene ventaja ahora en esa moneda.**
+- **El historial también aplica el filtro de BTC**: en cada operación pasada
+  se lee BTC tal como estaba en ese momento y se quitan las que el filtro
+  habría bloqueado. Las quitadas se miden aparte (línea "Filtro BTC en el
+  historial": cuántas evitó, su resultado y si el filtro AYUDA o NO ayuda en
+  esa moneda). Si el historial filtrado tiene menos de 12 operaciones, se juzga
+  con el completo, para que el filtro nunca esconda un historial que pierde.
+  Si la señal de ahora está bloqueada por BTC pero las operaciones que el
+  filtro evitó vienen ganando (12 o más y +0.03 R o más), el bloqueo se levanta
+  y solo baja un nivel. Dile al usuario qué dice esa línea.
 - **Tiempos**: la entrada caduca en 5 min. Espera del TP1: el p75 de las
   simulaciones, entre 10 y 30 min. Cierre total a los 60 min.
 - **Alertas de corto plazo**: funding a punto de cobrarse (10 min o menos), spread

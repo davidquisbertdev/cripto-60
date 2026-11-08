@@ -307,3 +307,48 @@ test('BTC: bloquea una reversión contra la tendencia mayor de BTC y avisa en te
   assert.equal(filtroBTC(alcista, { correlacion: 0.2 }, -1).ajuste_conf, -5); // poco ligada: solo aviso
   assert.equal(filtroBTC(null, rel, 1).estado, 'sin datos');
 });
+
+test('Binance: ficha del contrato con el formato de MEXC y solo cripto', async () => {
+  const { FuenteBinance } = await import('../lib/binance.mjs');
+  const filtros = [{ filterType: 'PRICE_FILTER', tickSize: '0.0010' }, { filterType: 'LOT_SIZE', stepSize: '0.01', minQty: '0.01' }, { filterType: 'MIN_NOTIONAL', notional: '5' }];
+  const c = FuenteBinance.contrato({ symbol: 'SOLUSDT', baseAsset: 'SOL', status: 'TRADING', contractType: 'PERPETUAL', underlyingType: 'COIN', filters: filtros });
+  assert.equal(c.symbol, 'SOL_USDT');
+  assert.equal(c.contractSize, 0.01);
+  assert.equal(c.minVol, 1);
+  assert.equal(c.priceUnit, 0.001);
+  assert.equal(c.state, 0);
+  assert.ok(esCripto(c));
+  const accion = FuenteBinance.contrato({ symbol: 'TSLAUSDT', baseAsset: 'TSLA', status: 'TRADING', contractType: 'TRADIFI_PERPETUAL', underlyingType: 'EQUITY', filters: filtros });
+  assert.equal(esCripto(accion), false);
+});
+
+test('fuentes: offline sin exchange grabado usa MEXC; por defecto Binance', async () => {
+  const { crearFuente } = await import('../lib/fuentes.mjs');
+  const path = await import('node:path');
+  const { fileURLToPath } = await import('node:url');
+  const fx = path.resolve(path.dirname(fileURLToPath(import.meta.url)), 'fixtures', 'sol');
+  assert.equal(crearFuente({ offline: fx }).exchange, 'MEXC');
+  assert.equal(crearFuente({}).exchange, 'BINANCE');
+  assert.equal(crearFuente({ exchange: 'mexc' }).exchange, 'MEXC');
+  assert.throws(() => crearFuente({ exchange: 'kraken' }), /no soportado/);
+});
+
+test('historial con filtro de BTC: separa las operaciones bloqueadas y las mide aparte', async () => {
+  const velas = [];
+  let p = 100;
+  for (let i = 0; i < 1700; i++) { // caídas y rebotes: hay estiramientos para la reversión LONG
+    const o = p; p = 100 + 3 * Math.sin(i / 40) + 0.4 * Math.sin(i / 3);
+    velas.push({ t: i * 60e3, o, h: Math.max(o, p) + 0.05, l: Math.min(o, p) - 0.05, c: p, v: 10, cerrada: true });
+  }
+  const base = { lado: 'LONG', estrategia: 'reversion', slATR: 1.2, tpsR: [1, 1.8, 2.6], reparto: [50, 25, 25], limiteTP1: 30, duracion: 60 };
+  const sin = historialSenal(velas, base);
+  assert.ok(sin.n > 0);
+  assert.equal(sin.filtro_btc, null);
+  // BTC siempre bajista fuerte en 15m y 1h: bloquea todas las reversiones LONG
+  const serie = (seg, n) => Array.from({ length: n }, (_, i) => { const c = 80000 - i * 40; return { t: i * seg * 1000, o: c + 40, h: c + 60, l: c - 20, c, v: 1, cerrada: true }; });
+  const series = { c1: null, c5: serie(300, 400), c15: serie(900, 300), c1h: serie(3600, 300) };
+  const con = historialSenal(velas, { ...base, btc: { series, rel: { correlacion: 0.8 } } });
+  assert.ok(con.filtro_btc.evitadas > 0);
+  assert.ok(con.n < sin.n);
+  assert.ok(con.filtro_btc.r_medio_sin_filtro != null);
+});

@@ -54,3 +54,12 @@ En español y corto: la lectura de BTC con la razón (marcos, cambio de 15 min y
 mueve por cada 1 % de BTC y si BTC acompaña un LONG o un SHORT. Si BTC está
 NEUTRAL y lateral, dilo: la altcoin se mueve por su cuenta y pesa más su propio
 análisis. No es asesoría financiera.
+
+## En el historial de la señal
+
+El historial de ~28 h de `/cripto-senal` lee BTC tal como estaba en cada
+operación pasada y quita las que el filtro habría bloqueado; las mide aparte
+para decir si el filtro AYUDA o NO ayuda ahora en esa moneda. Si las evitadas
+vienen ganando, el bloqueo se levanta (solo baja un nivel).
+
+Por defecto los datos salen de Binance (`--exchange mexc` para MEXC).

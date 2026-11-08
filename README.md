@@ -1,6 +1,6 @@
 # Cripto Trader skill
 
-Skills de Claude para operar **futuros perpetuos de criptomonedas en MEXC** de
+Skills de Claude para operar **futuros perpetuos de criptomonedas** (datos de **Binance** por defecto, o MEXC con `--exchange mexc`) de
 forma manual, en operaciones de **15 a 60 minutos** que buscan unos **3 USDT**
 cada una: le pides una señal ("analiza SOL, tengo 10 USDT") y te dice si es
 **LONG, SHORT o NO OPERAR**, con entrada, stop loss, **TP1, TP2 y TP3**, qué %
@@ -9,10 +9,10 @@ probabilidades y **cuánto tiempo esperar como máximo** antes de cerrar.
 
 La idea no es hacerse millonario de la noche a la mañana, sino hacer crecer el
 capital poco a poco con una gestión de riesgo estricta. Las operaciones las
-haces tú en MEXC: nada de esto toca tu cuenta.
+haces tú en tu exchange: nada de esto toca tu cuenta.
 
 Las herramientas son Node.js (18 o superior) sin dependencias y leen datos
-públicos sin API key: la API de futuros de MEXC; las posiciones on-chain de las
+públicos sin API key: la API de futuros USDⓈ-M de Binance (o la de MEXC); las posiciones on-chain de las
 ballenas de Hyperliquid; los ratios de top traders y el open interest de
 Binance (o Bybit); los RSS de Cointelegraph, Decrypt y CoinDesk, y el índice
 Fear & Greed de alternative.me.
@@ -26,7 +26,7 @@ Fear & Greed de alternative.me.
 | `/cripto-posicion` | Revisa tu posición abierta: MANTENER, MOVER SL, REDUCIR o CERRAR, según el precio, el tiempo, las noticias nuevas y si el análisis cambió. |
 | `/cripto-ballenas` | Qué hacen las ballenas: posiciones reales de las billeteras grandes de Hyperliquid, qué abrieron o cerraron, qué cambió desde la última revisión, top traders frente a minoristas, open interest, flujo y muros. Lo usan también la señal y la revisión de posición. |
 | `/cripto-noticias` | Titulares recientes de la moneda y del mercado, sentimiento, alertas de riesgo y Fear & Greed. |
-| `/cripto-escaner` | Ordena los futuros cripto más líquidos de MEXC por claridad del setup. |
+| `/cripto-escaner` | Ordena los futuros cripto más líquidos (Binance o MEXC) por claridad del setup. |
 | `/cripto-diario` | Registra tus resultados, lleva el capital y para la operativa si el día va mal. |
 
 ## Ejemplos
@@ -75,7 +75,7 @@ analiza mi posición de NEAR        (4 minutos después)
 ```
 
 → `/cripto-escaner`: las monedas que más se mueven frente a sus comisiones,
-marcando las que MEXC tiene con **0 comisión**.
+marcando, en MEXC, las que tienen **0 comisión**.
 
 ## Gestión de riesgo
 
@@ -151,8 +151,8 @@ la mayoría pierda. Si el historial real sale negativo, cree en el historial.
 **Un stop es un plan, no una garantía**: en un movimiento brusco puede
 ejecutarse peor.
 
-**Datos gratuitos**: la API pública de MEXC y los RSS pueden fallar o retrasarse.
-Comprueba el precio en MEXC antes de entrar.
+**Datos gratuitos**: las APIs públicas de Binance y MEXC y los RSS pueden fallar o retrasarse.
+Comprueba el precio en tu exchange antes de entrar.
 
 Basado en [day-trader-skill](https://github.com/Jakeschincariol/day-trader-skill)
 (MIT), reescrito para futuros cripto.

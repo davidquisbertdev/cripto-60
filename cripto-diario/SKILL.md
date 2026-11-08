@@ -24,7 +24,7 @@ node "${CLAUDE_SKILL_DIR}/diario.mjs" retiro --capital 20
 node "${CLAUDE_SKILL_DIR}/diario.mjs" borrar                          # deshace el último registro
 ```
 
-Se guarda en `trader/diario.json`. El PnL va en USDT, neto (lo que muestra MEXC
+Se guarda en `trader/diario.json`. El PnL va en USDT, neto (lo que muestra el exchange
 al cerrar, ya con comisiones), y es negativo si fue una pérdida.
 
 ## Reglas de protección (`trader/config.json`)

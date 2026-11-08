@@ -1,9 +1,10 @@
 #!/usr/bin/env node
-// cripto-senal: analiza una moneda de futuros MEXC y da LONG / SHORT / NO OPERAR con entrada, SL,
+// cripto-senal: analiza una moneda de futuros (Binance o MEXC) y da LONG / SHORT / NO OPERAR con entrada, SL,
 // TP1-TP3, % a cerrar en cada TP, apalancamiento, margen, probabilidades y tiempo máximo de espera.
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { Fuente } from '../lib/mexc.mjs';
+import { crearFuente, nombreExchange } from '../lib/fuentes.mjs';
 import { analizarSimbolo } from '../lib/motor.mjs';
 import { calcularPlan, redondear, stopLoss } from '../lib/plan.mjs';
 import { simular } from '../lib/simulacion.mjs';
@@ -16,7 +17,7 @@ const BAJAR = { ALTA: 'MEDIA', MEDIA: 'BAJA', BAJA: 'NO OPERAR', 'NO OPERAR': 'N
 
 // Evalúa UNA estrategia (tendencia o reversión) para un lado: calibra el SL por tiempo, simula y mide
 // el historial real de esa misma estrategia en la moneda. Devuelve el plan y el nivel final.
-function evaluarEstrategia(a, cfg, op, { estrategia, lado, nivel, motivos, capital, diario }) {
+function evaluarEstrategia(a, cfg, op, { estrategia, lado, nivel, motivos, capital, diario, fb = null, nivelSinBTC = null }) {
   motivos = [...motivos];
   const atr = a.marcos['5m'].atr;
   const n5 = a.niveles5;
@@ -50,18 +51,35 @@ function evaluarEstrategia(a, cfg, op, { estrategia, lado, nivel, motivos, capit
   const nivel0 = nivel;
   if (elegido.sim) {
     sim = simDe(plan, op.simulaciones ?? cfg.simulaciones);
-    if (sim.prob.cierre_por_tiempo >= cfg.cierre_tiempo_no_operar_pct && nivel !== 'NO OPERAR') { nivel = 'NO OPERAR'; motivos.push(`El ${sim.prob.cierre_por_tiempo} % de las simulaciones se cierra por tiempo sin TP1 (TP1 solo ${sim.prob.tp1} %): el precio no se mueve lo suficiente ahora.`); }
-    else if (sim.prob.cierre_por_tiempo > cfg.cierre_tiempo_max_pct && nivel !== 'NO OPERAR') { nivel = BAJAR[nivel]; motivos.push(`El ${sim.prob.cierre_por_tiempo} % de las simulaciones se cierra por tiempo sin TP1: el precio se mueve poco ahora.`); }
     historial = historialSenal(a.velas1m, {
       lado, estrategia, slATR: elegido.c.dist / atr, slPctMin: cfg.sl_pct_min, tpsR: cfg.tps_r, reparto: cfg.reparto_tps,
       limiteTP1: cfg.espera_max_min, duracion: cfg.duracion_max_min, comisionRT,
+      btc: a.btcSeries ? { series: a.btcSeries, rel: a.btc?.relacion } : null,
     });
     const nombre = estrategia === 'reversion' ? 'la reversión' : 'esta señal';
-    if (historial.n >= cfg.historial_min_ops) {
+    // Bloqueo de BTC adaptativo: si en esta moneda las operaciones que el filtro evita vienen ganando,
+    // el bloqueo no se sostiene con datos: se levanta y solo se baja un nivel.
+    const fh = historial.filtro_btc;
+    let levantado = false;
+    if (fb?.bloquea && fh?.evitadas >= cfg.historial_min_ops && fh.r_medio_evitadas >= cfg.historial_r_bueno && nivelSinBTC && nivelSinBTC !== 'NO OPERAR') {
+      levantado = true;
+      nivel = BAJAR[nivelSinBTC];
+      motivos.push(`El filtro de BTC no está funcionando ahora en ${a.base}: las ${fh.evitadas} operaciones que habría evitado ganaron ${signo(fh.r_medio_evitadas)} R. Se levanta el bloqueo y se baja un nivel.`);
+    }
+    if (sim.prob.cierre_por_tiempo >= cfg.cierre_tiempo_no_operar_pct && nivel !== 'NO OPERAR') { nivel = 'NO OPERAR'; motivos.push(`El ${sim.prob.cierre_por_tiempo} % de las simulaciones se cierra por tiempo sin TP1 (TP1 solo ${sim.prob.tp1} %): el precio no se mueve lo suficiente ahora.`); }
+    else if (sim.prob.cierre_por_tiempo > cfg.cierre_tiempo_max_pct && nivel !== 'NO OPERAR') { nivel = BAJAR[nivel]; motivos.push(`El ${sim.prob.cierre_por_tiempo} % de las simulaciones se cierra por tiempo sin TP1: el precio se mueve poco ahora.`); }
+    // Qué historial juzga: el filtrado por BTC si tiene operaciones suficientes; si no, el completo
+    // (con las que el filtro evitó), para que el filtro nunca esconda un historial que pierde.
+    const nTotal = historial.n + (fh?.evitadas ?? 0);
+    const juez = historial.n >= cfg.historial_min_ops ? { n: historial.n, r: historial.r_medio_neto, que: '' }
+      : fh && nTotal >= cfg.historial_min_ops ? { n: nTotal, r: fh.r_medio_sin_filtro, que: ' (historial completo, sin filtro de BTC: el filtrado tiene pocas operaciones)' } : null;
+    if (levantado) { /* el historial que cuenta es el de las operaciones contra BTC (ya revisado) */ }
+    else if (juez) {
       // nunca se recomienda una jugada que en el historial reciente pierde en promedio
-      if (historial.r_medio_neto < cfg.historial_r_min && nivel !== 'NO OPERAR') { nivel = 'NO OPERAR'; motivos.push(`Historial: en las últimas ${historial.horas} h ${nombre} perdió en promedio (${signo(historial.r_medio_neto)} R tras comisiones en ${historial.n} operaciones).`); }
-      else if (historial.r_medio_neto < cfg.historial_r_bueno && nivel !== 'NO OPERAR') { nivel = BAJAR[nivel]; motivos.push(`Historial casi plano (${signo(historial.r_medio_neto)} R en ${historial.n} operaciones): ventaja mínima, se baja la confianza.`); }
-    } else motivos.push(`Historial con solo ${historial.n} operaciones comparables: poco fiable, ve con tamaño pequeño.`);
+      if (juez.r < cfg.historial_r_min && nivel !== 'NO OPERAR') { nivel = 'NO OPERAR'; motivos.push(`Historial: en las últimas ${historial.horas} h ${nombre} perdió en promedio (${signo(juez.r)} R tras comisiones en ${juez.n} operaciones)${juez.que}.`); }
+      else if (juez.r < cfg.historial_r_bueno && nivel !== 'NO OPERAR') { nivel = BAJAR[nivel]; motivos.push(`Historial casi plano (${signo(juez.r)} R en ${juez.n} operaciones)${juez.que}: ventaja mínima, se baja la confianza.`); }
+    } else if (nivel !== 'NO OPERAR') { nivel = BAJAR[nivel]; motivos.push(`Historial con solo ${nTotal} operaciones comparables: poco fiable, se baja la confianza y ve con tamaño pequeño.`); }
+    else motivos.push(`Historial con solo ${nTotal} operaciones comparables: poco fiable.`);
     if (nivel !== nivel0) plan = calcularPlan({ ...base, nivel, slDist: elegido.c.dist, slRegla: elegido.c.regla });
   }
   const slProbados = probados.map((x) => ({ regla: x.c.regla, viable: !!x.sim, sl_pct: x.plan.sl_pct ?? null, tp1: x.sim?.prob.tp1 ?? null, sl: x.sim?.prob.sl_antes_tp1 ?? null, tiempo: x.sim?.prob.cierre_por_tiempo ?? null }));
@@ -106,12 +124,13 @@ export async function generarSenal(a, op, cfg) {
     // Filtro de BTC: las altcoins siguen a BTC; contra un BTC con dirección se baja o se bloquea
     const fb = filtroBTC(a.btc, a.btc?.relacion, lado === 'LONG' ? 1 : -1, e);
     const dd = { ...d, confianza: Math.round(Math.max(5, Math.min(e === 'tendencia' && d.lateral ? 64 : 90, d.confianza + fb.ajuste_conf))) };    if (fb.texto) motivos.unshift(`BTC: ${fb.texto}`);
+    const nivelSinBTC = nivel;
     if (fb.bloquea) nivel = 'NO OPERAR';
     else {
       nivel = bajar(nivel, fb.bajar);
       if (ORDEN[nivelPorConfianza(dd.confianza)] < ORDEN[nivel]) nivel = nivelPorConfianza(dd.confianza);
     }
-    const r = evaluarEstrategia(a, cfg, op, { estrategia: e, lado, nivel, motivos, capital, diario });
+    const r = evaluarEstrategia(a, cfg, op, { estrategia: e, lado, nivel, motivos, capital, diario, fb, nivelSinBTC });
     evaluadas.push({ ...r, d: dd, btc: fb });
   }
   // Elección: primero las recomendables, luego la de mejor historial real, luego la de más confianza
@@ -146,7 +165,7 @@ export async function generarSenal(a, op, cfg) {
 
   const recomendado = nivel !== 'NO OPERAR' && plan.viable;
   return {
-    tipo: 'senal', version: 4, modo: 'intradia-corto', estrategia: g.estrategia, simbolo: a.simbolo, base: a.base, exchange: 'MEXC', creada: ahora,
+    tipo: 'senal', version: 4, modo: 'intradia-corto', estrategia: g.estrategia, simbolo: a.simbolo, base: a.base, exchange: a.exchange ?? 'MEXC', creada: ahora,
     recomendacion: recomendado ? lado : 'NO OPERAR', lado, nivel, confianza: d.confianza, puntuacion: d.puntuacion,
     sesgo_analisis: d.sesgo, razones: d.razones, alertas: motivos, capital,
     precio: a.precio, decimales: a.decimales, entrada, plan, simulacion: sim, historial, sl_probados: g.slProbados,
@@ -183,7 +202,7 @@ export function informe(s, cfg) {
   const f = (x) => fp(x, dec);
   const out = [];
   const linea = '─'.repeat(64);
-  out.push(`${s.simbolo} · INTRADÍA 15-60 min · futuros MEXC · ${hora(s.creada, tz)} · precio ${f(s.precio)}`);
+  out.push(`${s.simbolo} · INTRADÍA 15-60 min · futuros ${nombreExchange(s.exchange)} · ${hora(s.creada, tz)} · precio ${f(s.precio)}`);
   out.push(linea);
   const titulo = s.recomendacion === 'NO OPERAR'
     ? `SEÑAL: NO OPERAR  (el análisis se inclina a ${s.sesgo_analisis}, confianza ${s.confianza}/100)`
@@ -213,7 +232,7 @@ export function informe(s, cfg) {
     out.push(`Ballenas: ${s.ballenas.lectura} (${signo(s.ballenas.puntuacion)})`);
     for (const x of s.ballenas.frases.slice(0, 3)) out.push(`  · ${x}`);
     const m = s.ballenas.muros;
-    if (m?.compra || m?.venta) out.push(`  · Muros MEXC: ${m.compra ? `compra ${f(m.compra.precio)}` : '—'} / ${m.venta ? `venta ${f(m.venta.precio)}` : '—'}`);
+    if (m?.compra || m?.venta) out.push(`  · Muros ${nombreExchange(s.exchange)}: ${m.compra ? `compra ${f(m.compra.precio)}` : '—'} / ${m.venta ? `venta ${f(m.venta.precio)}` : '—'}`);
   }
   if (s.alertas.length) {
     out.push('Atención:');
@@ -232,15 +251,17 @@ export function informe(s, cfg) {
   out.push(`  Entrada    limit ${f(e.limit)} (comisión maker menor) o a mercado ${f(e.mercado)}`);
   out.push(`             no persigas: si ya está ${s.lado === 'LONG' ? 'por encima' : 'por debajo'} de ${f(e.no_perseguir)}, no entres · si a las ${hora(e.valida_hasta, tz)} no entraste, descártala`);
   out.push(`  Stop loss  ${f(P.sl)}  (${s.lado === 'LONG' ? '-' : '+'}${P.sl_pct} %)  ${P.sl_regla}`);
+  const tamPaso = P.contratos ? P.cantidad_moneda / P.contratos : 1;
   for (const t of P.tps) {
     const acum = P.tps.slice(0, t.n).reduce((x, y) => x + y.cerrar_pct, 0);
-    const cierre = t.contratos ? `cierra ${t.cerrar_pct} % → ${acum} % cerrado (${t.contratos} contr.)` : 'sin contratos (posición mínima)';
+    const cant = s.exchange === 'BINANCE' ? `${+(t.contratos * tamPaso).toFixed(6)} ${s.base}` : `${t.contratos} contr.`;
+    const cierre = t.contratos ? `cierra ${t.cerrar_pct} % → ${acum} % cerrado (${cant})` : 'sin contratos (posición mínima)';
     out.push(`  TP${t.n}        ${f(t.precio)}  (${s.lado === 'LONG' ? '+' : '-'}${t.movimiento_pct} %, ${t.r}R)  ${cierre} → ${signo(t.ganancia_usdt, 3)} USDT (${signo(t.roe_pct, 1)} % del margen)`);
   }
   out.push(`  Al tocar TP1 mueve el SL a la entrada (${f(P.entrada)}); al tocar TP2, el SL al TP1 (${f(P.tps[0].precio)}).`);
   out.push(`  APALANCAMIENTO ${P.apalancamiento}x AISLADO (máx. seguro ${P.apalancamiento_max_seguro}x) · margen ${usdt(P.margen)}`);
   out.push(`             ${P.apalancamiento_razon}`);
-  out.push(`  Tamaño ${P.contratos} contratos = ${P.cantidad_moneda} ${s.base} (${usdt(P.nocional)} de posición)`);
+  out.push(s.exchange === 'BINANCE' ? `  Cantidad ${P.cantidad_moneda} ${s.base} (${usdt(P.nocional)} de posición) · ponla en la orden en ${s.base}` : `  Tamaño ${P.contratos} contratos = ${P.cantidad_moneda} ${s.base} (${usdt(P.nocional)} de posición)`);
   out.push(`  Liquidación aprox. ${f(P.liquidacion)} (más allá del SL)`);
   out.push(`  Si salta el SL pierdes ${usdt(-P.riesgo_usdt)} = ${P.riesgo_pct_real} % del capital (comisiones incluidas)`);
   const es = P.escenarios;
@@ -253,10 +274,14 @@ export function informe(s, cfg) {
     out.push(`  TP1 ${pct(sim.prob.tp1)} · TP2 ${pct(sim.prob.tp2)} · TP3 ${pct(sim.prob.tp3)} · SL antes del TP1 ${pct(sim.prob.sl_antes_tp1)} · cierre por tiempo sin TP1 ${pct(sim.prob.cierre_por_tiempo)}`);
     const h = s.historial;
     if (h?.n) {
-      out.push(`HISTORIAL REAL de esta señal en ${s.base} (últimas ${h.horas} h, ${h.n} operaciones con el mismo plan, comisiones incluidas)`);
+      out.push(`HISTORIAL REAL de esta señal en ${s.base} (últimas ${h.horas} h, ${h.n} operaciones con el mismo plan, comisiones incluidas${h.filtro_btc ? ', con el filtro de BTC' : ''})`);
       out.push(`  ganadoras ${pct(h.acierto_pct)} · llegaron a TP1 ${pct(h.tp1_pct)} · SL ${pct(h.sl_pct)} · cerradas por tiempo ${pct(h.tiempo_pct)} · duración media ${h.minutos_medio} min`);
       out.push(`  resultado medio ${signo(h.r_medio_neto)} R ≈ ${signo(h.r_medio_neto * P.riesgo_usdt, 3)} USDT por operación → 10 operaciones ≈ ${signo(10 * h.r_medio_neto * P.riesgo_usdt, 2)} USDT`);
     } else if (h) out.push('HISTORIAL: no hubo señales comparables en las últimas horas.');
+    const fh = h?.filtro_btc;
+    if (fh) out.push(fh.evitadas
+      ? `  Filtro BTC en el historial: evitó ${fh.evitadas} operaciones (ganadoras ${pct(fh.acierto_evitadas_pct)}, ${signo(fh.r_medio_evitadas)} R) · sin filtro el resultado medio sería ${signo(fh.r_medio_sin_filtro)} R → el filtro ${fh.r_medio_evitadas < (h.r_medio_neto ?? 0) ? 'AYUDA' : 'NO ayuda'} ahora en ${s.base}`
+      : '  Filtro BTC en el historial: no bloqueó ninguna operación (ya incluido).');
     if (s.estrategias_evaluadas.length === 1 && s.estrategia === 'tendencia' && s.contexto.reversion)
       out.push(`  Reversión: sin setup ahora (precio a ${signo(s.contexto.reversion.z)} desviaciones de su media de 5m; hace falta un estiramiento mayor).`);
     for (const x of s.estrategias_evaluadas.filter((x) => x.estrategia !== s.estrategia)) {
@@ -286,7 +311,7 @@ async function main() {
   if (op.estrategia) op.estrategia = op.estrategia.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
   if (!pos[0]) throw new Error('Uso: senal.mjs SOL --capital 10 [--objetivo 3] [--lado long|short] [--json]');
   const cfg = leerConfig(op.config);
-  const fuente = new Fuente({ offline: op.offline, grabar: op.grabar });
+  const fuente = crearFuente({ exchange: op.exchange, cfg, offline: op.offline, grabar: op.grabar });
   const a = await analizarSimbolo(fuente, pos[0], { conNoticias: !op.sin_noticias, conBallenas: !op.sin_ballenas, carpetaCache: path.join(carpeta(cfg), 'cache') });
   if (op.comision != null) { // comisión real confirmada en la app (en %), p. ej. 0 en monedas en promoción
     a.contrato = { ...a.contrato, takerFeeRate: op.comision / 100, makerFeeRate: op.comision / 100 };
