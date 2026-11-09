@@ -1,0 +1,536 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-11-09T11:51:31.586889+00:00",
+  "title": "Design System: Cripto60",
+  "extensions": {
+    "colorMeta": {
+      "bg": {
+        "role": "neutral",
+        "displayName": "Fondo de noche",
+        "canonical": "#0c0b12",
+        "tonalRamp": [
+          "#030405",
+          "#050609",
+          "#07090c",
+          "#090c10",
+          "#303236",
+          "#6d6e71",
+          "#aaabac",
+          "#dadbdc"
+        ]
+      },
+      "surface-1": {
+        "role": "neutral",
+        "displayName": "Superficie 1",
+        "canonical": "#13111b",
+        "tonalRamp": [
+          "#040507",
+          "#08090d",
+          "#0b0e12",
+          "#0e1218",
+          "#35383e",
+          "#707377",
+          "#acadb0",
+          "#dbdcdd"
+        ]
+      },
+      "surface-2": {
+        "role": "neutral",
+        "displayName": "Superficie 2",
+        "canonical": "#1a1725",
+        "tonalRamp": [
+          "#060709",
+          "#0a0d11",
+          "#0f1218",
+          "#14181f",
+          "#3a3e46",
+          "#74777c",
+          "#aeb0b3",
+          "#dcddde"
+        ]
+      },
+      "surface-3": {
+        "role": "neutral",
+        "displayName": "Superficie 3",
+        "canonical": "#221e2f",
+        "tonalRamp": [
+          "#08090c",
+          "#0e1116",
+          "#14181f",
+          "#1a1f29",
+          "#41464f",
+          "#797c83",
+          "#b1b3b7",
+          "#dddee0"
+        ]
+      },
+      "line": {
+        "role": "neutral",
+        "displayName": "Filete",
+        "canonical": "#29243a",
+        "tonalRamp": [
+          "#090b0e",
+          "#101319",
+          "#171c24",
+          "#1f252f",
+          "#454b55",
+          "#7c8087",
+          "#b2b5b9",
+          "#dedfe1"
+        ]
+      },
+      "line-strong": {
+        "role": "neutral",
+        "displayName": "Filete fuerte",
+        "canonical": "#3a3350",
+        "tonalRamp": [
+          "#0c0f12",
+          "#161b21",
+          "#202630",
+          "#2a323f",
+          "#515865",
+          "#848992",
+          "#b7bac0",
+          "#e0e2e4"
+        ]
+      },
+      "text": {
+        "role": "neutral",
+        "displayName": "Texto",
+        "canonical": "#ece9f4",
+        "tonalRamp": [
+          "#3a3b3c",
+          "#686a6d",
+          "#97999d",
+          "#c5c9ce",
+          "#ebeff4",
+          "#f1f4f7",
+          "#f7f8fa",
+          "#fcfcfd"
+        ]
+      },
+      "text-2": {
+        "role": "neutral",
+        "displayName": "Texto 2",
+        "canonical": "#aea7c2",
+        "tonalRamp": [
+          "#2a2c30",
+          "#4b5056",
+          "#6d737d",
+          "#8e96a3",
+          "#b4bdc9",
+          "#cad0d9",
+          "#e0e4e9",
+          "#f2f3f6"
+        ]
+      },
+      "text-3": {
+        "role": "neutral",
+        "displayName": "Texto 3",
+        "canonical": "#8f88a8",
+        "tonalRamp": [
+          "#212429",
+          "#3c424a",
+          "#565f6b",
+          "#717c8c",
+          "#97a2b2",
+          "#b6bec9",
+          "#d4d9e0",
+          "#edeff2"
+        ]
+      },
+      "accent": {
+        "role": "primary",
+        "displayName": "Morado de mando",
+        "canonical": "#a78bfa",
+        "tonalRamp": [
+          "#132340",
+          "#223f73",
+          "#315ca6",
+          "#4178d9",
+          "#679eff",
+          "#94bbff",
+          "#c0d7ff",
+          "#e4eeff"
+        ]
+      },
+      "accent-hover": {
+        "role": "primary",
+        "displayName": "Morado de mando, hover",
+        "canonical": "#c4b5fd",
+        "tonalRamp": [
+          "#1a2840",
+          "#304873",
+          "#4569a6",
+          "#5a89d9",
+          "#80afff",
+          "#a6c7ff",
+          "#cbdeff",
+          "#e9f1ff"
+        ]
+      },
+      "accent-fill": {
+        "role": "primary",
+        "displayName": "Morado de botón",
+        "canonical": "#6d28d9",
+        "tonalRamp": [
+          "#0c1c3b",
+          "#15326a",
+          "#1f4899",
+          "#285ec8",
+          "#4e85ee",
+          "#82a9f3",
+          "#b6cdf8",
+          "#e0e9fc"
+        ]
+      },
+      "accent-fill-hover": {
+        "role": "primary",
+        "displayName": "Morado de botón, hover",
+        "canonical": "#7c3aed",
+        "tonalRamp": [
+          "#0f1f3d",
+          "#1b386e",
+          "#28519f",
+          "#3469d0",
+          "#5a90f6",
+          "#8bb0f9",
+          "#bbd1fc",
+          "#e2ebfe"
+        ]
+      },
+      "accent-ink": {
+        "role": "primary",
+        "displayName": "Tinta sobre morado",
+        "canonical": "#ffffff"
+      },
+      "gain": {
+        "role": "secondary",
+        "displayName": "Verde de ganancia",
+        "canonical": "#2ebd85",
+        "tonalRamp": [
+          "#0c2f21",
+          "#15553c",
+          "#1e7b56",
+          "#27a171",
+          "#4dc797",
+          "#82d7b6",
+          "#b6e8d4",
+          "#e0f5ed"
+        ]
+      },
+      "loss": {
+        "role": "secondary",
+        "displayName": "Rojo de pérdida",
+        "canonical": "#f6465d",
+        "tonalRamp": [
+          "#3e1217",
+          "#6f1f2a",
+          "#a02e3c",
+          "#d13c4f",
+          "#f76275",
+          "#fa909e",
+          "#fcbec6",
+          "#fee3e7"
+        ]
+      },
+      "warn": {
+        "role": "tertiary",
+        "displayName": "Ámbar de aviso",
+        "canonical": "#e5a93b",
+        "tonalRamp": [
+          "#392a0f",
+          "#674c1b",
+          "#956e26",
+          "#c39032",
+          "#e9b658",
+          "#efcb89",
+          "#f6e1ba",
+          "#fbf2e2"
+        ]
+      },
+      "warn-text": {
+        "role": "tertiary",
+        "displayName": "Ámbar de aviso, texto",
+        "canonical": "#f2bd57",
+        "tonalRamp": [
+          "#3c2f16",
+          "#6d5527",
+          "#9d7b39",
+          "#cea14a",
+          "#f4c770",
+          "#f7d79a",
+          "#fae8c4",
+          "#fdf5e6"
+        ]
+      },
+      "neutral-mark": {
+        "role": "neutral",
+        "displayName": "Gris de marca neutra",
+        "canonical": "#5a6478",
+        "tonalRamp": [
+          "#16191e",
+          "#282d36",
+          "#3a414e",
+          "#4c5566",
+          "#737b8c",
+          "#9ca2ae",
+          "#c5c9d0",
+          "#e6e8eb"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Veredicto",
+        "purpose": "Palabra del veredicto y de la acción de posición."
+      },
+      "headline": {
+        "displayName": "Dinero",
+        "purpose": "Cifras de pérdida en el SL y ganancia en los TP."
+      },
+      "title": {
+        "displayName": "Título",
+        "purpose": "Barra superior, capital, cuenta regresiva."
+      },
+      "body": {
+        "displayName": "Cuerpo",
+        "purpose": "Texto, filas, tablas y botones."
+      },
+      "label": {
+        "displayName": "Clave",
+        "purpose": "Claves de dato y cabeceras de tabla."
+      },
+      "tag": {
+        "displayName": "Etiqueta",
+        "purpose": "Etiquetas de lado y de confianza."
+      }
+    },
+    "shadows": [
+      {
+        "name": "flotante",
+        "value": "0 8px 24px rgba(0,0,0,0.35), 0 1px 2px rgba(0,0,0,0.3)",
+        "purpose": "Solo tooltip, toast y diálogo (tema oscuro)."
+      },
+      {
+        "name": "flotante-claro",
+        "value": "0 8px 24px rgba(15,23,42,0.1), 0 1px 2px rgba(15,23,42,0.08)",
+        "purpose": "Lo mismo en el tema claro."
+      },
+      {
+        "name": "foco-campo",
+        "value": "0 0 0 3px var(--accent-soft)",
+        "purpose": "Anillo de foco de campos."
+      }
+    ],
+    "motion": [
+      {
+        "name": "ease",
+        "value": "cubic-bezier(0.16, 1, 0.3, 1)",
+        "purpose": "Entrada de hoja inferior (0.28s), toast (0.3s) y velos (0.2s)."
+      },
+      {
+        "name": "estado",
+        "value": "0.15s",
+        "purpose": "Cambios de fondo, borde y color en hover."
+      },
+      {
+        "name": "reloj",
+        "value": "width 1s linear",
+        "purpose": "Barra del reloj que se vacía."
+      },
+      {
+        "name": "reducido",
+        "value": "prefers-reduced-motion: duraciones a 0.01ms",
+        "purpose": "Respeta movimiento reducido."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "sm",
+        "value": "640px",
+        "purpose": "Rejillas a una columna, cifras de veredicto y dinero más pequeñas."
+      },
+      {
+        "name": "nav",
+        "value": "900px",
+        "purpose": "Sin barra lateral; barra de pestañas inferior y hoja «Más»."
+      },
+      {
+        "name": "main",
+        "value": "1180px",
+        "purpose": "Rejilla principal + lateral pasa a una columna reordenada por urgencia."
+      }
+    ],
+    "themes": {
+      "default": "dark",
+      "light": {
+        "selector": ":root[data-theme='light']",
+        "colors": {
+          "bg": "#f5f4f9",
+          "surface-1": "#ffffff",
+          "surface-2": "#f3f1f8",
+          "surface-3": "#e9e6f2",
+          "line": "#e3dfee",
+          "line-strong": "#cdc7de",
+          "text": "#120f1a",
+          "text-2": "#4b4560",
+          "text-3": "#5f5876",
+          "accent": "#6d28d9",
+          "accent-hover": "#5b21b6",
+          "accent-fill": "#6d28d9",
+          "accent-fill-hover": "#5b21b6",
+          "gain": "#1a9a6c",
+          "gain-text": "#0d7f56",
+          "loss": "#e43f50",
+          "loss-text": "#c42536",
+          "warn": "#d8962a",
+          "warn-text": "#94600c",
+          "neutral-mark": "#9aa4b4"
+        }
+      }
+    },
+    "softTints": {
+      "accent-soft": "rgba(76,141,255,0.14)",
+      "gain-soft": "rgba(46,189,133,0.14)",
+      "loss-soft": "rgba(246,70,93,0.14)",
+      "warn-soft": "rgba(229,169,59,0.14)"
+    }
+  },
+  "components": [
+    {
+      "name": "Botón principal",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Acción principal de la zona: Analizar, Entré, Guardar.",
+      "html": "<button class=\"ds-btn ds-btn-primary\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><circle cx=\"11\" cy=\"11\" r=\"8\"/><path d=\"m21 21-4.3-4.3\"/></svg>Analizar</button>",
+      "css": ".ds-btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:36px;padding:0 16px;border-radius:6px;font-family:'Inter Variable',Inter,system-ui,sans-serif;font-weight:600;font-size:.875rem;cursor:pointer;white-space:nowrap;transition:background .15s,border-color .15s,transform .1s}.ds-btn-primary{background:var(--accent-fill,#6d28d9);border:1px solid var(--accent-fill,#6d28d9);color:#fff}.ds-btn-primary:hover{background:var(--accent-fill-hover,#7c3aed);border-color:var(--accent-fill-hover,#7c3aed)}.ds-btn:active{transform:translateY(1px)}.ds-btn:focus-visible{outline:2px solid var(--accent,#a78bfa);outline-offset:2px}"
+    },
+    {
+      "name": "Botón secundario",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Acción secundaria: Copiar niveles, Reintentar.",
+      "html": "<button class=\"ds-btn-sec\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><rect x=\"8\" y=\"2\" width=\"8\" height=\"4\" rx=\"1\"/><path d=\"M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2\"/></svg>Copiar niveles</button>",
+      "css": ".ds-btn-sec{display:inline-flex;align-items:center;gap:8px;height:36px;padding:0 16px;border-radius:6px;border:1px solid var(--line-2,#3a3350);background:var(--s2,#1a1725);color:var(--text,#ece9f4);font-family:'Inter Variable',Inter,system-ui,sans-serif;font-weight:600;font-size:.875rem;cursor:pointer;transition:background .15s}.ds-btn-sec:hover{background:var(--s3,#221e2f)}.ds-btn-sec:active{transform:translateY(1px)}.ds-btn-sec:focus-visible{outline:2px solid var(--accent,#a78bfa);outline-offset:2px}"
+    },
+    {
+      "name": "Botón fantasma",
+      "kind": "button",
+      "refersTo": "button-ghost",
+      "description": "Acción terciaria sin peso visual.",
+      "html": "<button class=\"ds-btn-ghost\">Cancelar</button>",
+      "css": ".ds-btn-ghost{height:36px;padding:0 16px;border-radius:6px;border:1px solid transparent;background:transparent;color:var(--text-2,#aea7c2);font-family:'Inter Variable',Inter,system-ui,sans-serif;font-weight:600;font-size:.875rem;cursor:pointer;transition:background .15s}.ds-btn-ghost:hover{background:var(--s2,#1a1725);color:var(--text,#ece9f4)}.ds-btn-ghost:focus-visible{outline:2px solid var(--accent,#a78bfa);outline-offset:2px}"
+    },
+    {
+      "name": "Campo con unidad",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Campo de 36 px con etiqueta encima y la unidad como sufijo.",
+      "html": "<label class=\"ds-field\"><span>Capital</span><span class=\"ds-wrap\"><input class=\"ds-input\" value=\"22.6\"/><span class=\"ds-suf\">USDT</span></span></label>",
+      "css": ".ds-field{display:grid;gap:6px;font-family:'Inter Variable',Inter,system-ui,sans-serif;max-width:240px}.ds-field>span:first-child{font-size:.8125rem;color:var(--text-2,#aea7c2);font-weight:500}.ds-wrap{position:relative;display:flex;align-items:center}.ds-input{height:36px;width:100%;padding:0 52px 0 12px;border-radius:6px;border:1px solid var(--line-2,#3a3350);background:var(--s2,#1a1725);color:var(--text,#ece9f4);font:inherit;font-size:.875rem;font-variant-numeric:tabular-nums;transition:border-color .15s,box-shadow .15s}.ds-input:hover{border-color:var(--text-3,#8f88a8)}.ds-input:focus{outline:none;border-color:var(--accent,#a78bfa);box-shadow:0 0 0 3px var(--accent-soft,rgba(76,141,255,.14))}.ds-suf{position:absolute;right:12px;color:var(--text-3,#8f88a8);font-size:.8125rem;pointer-events:none}"
+    },
+    {
+      "name": "Etiquetas de lado",
+      "kind": "chip",
+      "refersTo": "tag-gain",
+      "description": "LONG, SHORT y NO OPERAR: color con flecha o icono, nunca solo color.",
+      "html": "<span class=\"ds-tags\"><span class=\"ds-tag ds-gain\"><svg width=\"14\" height=\"14\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" aria-hidden=\"true\"><path d=\"M7 7h10v10\"/><path d=\"M7 17 17 7\"/></svg>LONG</span><span class=\"ds-tag ds-loss\"><svg width=\"14\" height=\"14\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" aria-hidden=\"true\"><path d=\"m7 7 10 10\"/><path d=\"M17 7v10H7\"/></svg>SHORT</span><span class=\"ds-tag\"><svg width=\"12\" height=\"12\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" aria-hidden=\"true\"><circle cx=\"12\" cy=\"12\" r=\"10\"/><path d=\"m4.9 4.9 14.2 14.2\"/></svg>NO OPERAR</span></span>",
+      "css": ".ds-tags{display:flex;gap:8px}.ds-tag{display:inline-flex;align-items:center;gap:4px;height:22px;padding:0 8px;border-radius:4px;font-family:'Inter Variable',Inter,system-ui,sans-serif;font-size:.75rem;font-weight:650;letter-spacing:.02em;background:var(--s3,#221e2f);color:var(--text-2,#aea7c2)}.ds-gain{background:var(--gain-soft,rgba(46,189,133,.14));color:var(--gain-text,#2ebd85)}.ds-loss{background:var(--loss-soft,rgba(246,70,93,.14));color:var(--loss-text,#f6465d)}"
+    },
+    {
+      "name": "Panel",
+      "kind": "card",
+      "refersTo": "panel",
+      "description": "Contenedor con cabecera y filas de dato separadas por filetes de 1 px.",
+      "html": "<section class=\"ds-panel\"><header class=\"ds-ph\"><h2>Historial real</h2><span>últimas 27 h</span></header><div class=\"ds-row\"><span>Operaciones con este plan</span><b>16</b></div><div class=\"ds-row\"><span>Ganadoras</span><b>63 %</b></div><div class=\"ds-row\"><span>Resultado medio (con comisiones)</span><b class=\"ds-up\">+0.05 R</b></div></section>",
+      "css": ".ds-panel{background:var(--s1,#13111b);border:1px solid var(--line,#29243a);border-radius:8px;max-width:360px;font-family:'Inter Variable',Inter,system-ui,sans-serif;font-size:.875rem;color:var(--text,#ece9f4)}.ds-ph{display:flex;align-items:center;min-height:46px;padding:12px 16px;border-bottom:1px solid var(--line,#29243a)}.ds-ph h2{margin:0;font-size:.875rem;font-weight:600}.ds-ph span{margin-left:auto;font-size:.8125rem;color:var(--text-2,#aea7c2)}.ds-row{display:flex;justify-content:space-between;margin:0 16px;padding:9px 0;border-bottom:1px solid var(--line,#29243a)}.ds-row:last-child{border-bottom:0}.ds-row span{color:var(--text-2,#aea7c2)}.ds-row b{font-weight:550;font-variant-numeric:tabular-nums}.ds-up{color:var(--gain-text,#2ebd85)}"
+    },
+    {
+      "name": "Navegación lateral",
+      "kind": "nav",
+      "refersTo": "nav-link-active",
+      "description": "Barra lateral de 220 px; el activo en superficie 3 con icono morado.",
+      "html": "<nav class=\"ds-nav\"><a class=\"ds-nl\" href=\"#\">Inicio</a><a class=\"ds-nl\" href=\"#\" aria-current=\"page\"><svg width=\"17\" height=\"17\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" aria-hidden=\"true\"><path d=\"M13 2 3 14h9l-1 8 10-12h-9l1-8z\"/></svg>Señal</a><a class=\"ds-nl\" href=\"#\">Posición<i class=\"ds-dot\"></i></a></nav>",
+      "css": ".ds-nav{width:220px;background:var(--s1,#13111b);border-right:1px solid var(--line,#29243a);padding:16px 12px;display:flex;flex-direction:column;gap:1px;font-family:'Inter Variable',Inter,system-ui,sans-serif;font-size:.875rem}.ds-nl{display:flex;align-items:center;gap:12px;padding:7px 8px;border-radius:6px;color:var(--text-2,#aea7c2);text-decoration:none;font-weight:500;transition:background .15s,color .15s}.ds-nl:hover{background:var(--s2,#1a1725);color:var(--text,#ece9f4)}.ds-nl[aria-current=page]{background:var(--s3,#221e2f);color:var(--text,#ece9f4)}.ds-nl[aria-current=page] svg{color:var(--accent,#a78bfa)}.ds-nl:focus-visible{outline:2px solid var(--accent,#a78bfa);outline-offset:2px}.ds-dot{margin-left:auto;width:7px;height:7px;border-radius:50%;background:var(--warn,#e5a93b)}"
+    },
+    {
+      "name": "Fila del reloj",
+      "kind": "custom",
+      "description": "Cuenta regresiva con barra que se vacía; ámbar cuando queda poco.",
+      "html": "<div class=\"ds-clock\"><div class=\"ds-cr\"><span class=\"w\">La entrada caduca</span><span class=\"a\">a las 07:51</span><span class=\"l\">4:58</span><i class=\"m\"><b style=\"width:96%\"></b></i></div><div class=\"ds-cr soon\"><span class=\"w\">Sin TP1, cierra</span><span class=\"a\">a las 08:08</span><span class=\"l\">0:42</span><i class=\"m\"><b style=\"width:8%\"></b></i></div></div>",
+      "css": ".ds-clock{background:var(--s1,#13111b);border:1px solid var(--line,#29243a);border-radius:8px;max-width:360px;font-family:'Inter Variable',Inter,system-ui,sans-serif;color:var(--text,#ece9f4)}.ds-cr{display:grid;grid-template-columns:1fr auto;gap:2px 12px;align-items:center;padding:12px 16px;border-bottom:1px solid var(--line,#29243a)}.ds-cr:last-child{border-bottom:0}.ds-cr .w{font-size:.8125rem;color:var(--text-2,#aea7c2)}.ds-cr .a{font-size:.8125rem;color:var(--text-3,#8f88a8);text-align:right}.ds-cr .l{font-size:1.25rem;font-weight:650;letter-spacing:-.01em;font-variant-numeric:tabular-nums}.ds-cr .m{grid-column:1/-1;height:3px;background:var(--s3,#221e2f);border-radius:2px;overflow:hidden;margin-top:6px;display:block}.ds-cr .m b{display:block;height:100%;background:var(--accent,#a78bfa)}.ds-cr.soon .l{color:var(--warn-text,#f2bd57)}.ds-cr.soon .m b{background:var(--warn,#e5a93b)}"
+    }
+  ],
+  "narrative": {
+    "northStar": "El terminal de guardia",
+    "overview": "La app de trading tal como la categoría ya la enseña: oscura, densa y hecha de números tabulares, con el verde y el rojo reservados para el resultado. Se usa de noche, al lado del exchange y con el reloj encima, así que la jerarquía es estricta: primero el veredicto y lo que se arriesga, luego los niveles y el reloj, y después el contexto. La vara de acabado es la de Bybit y Hyperliquid; se toma su nivel de oficio, nunca su marca, sus colores ni sus logotipos.\n\nLa profundidad sale de tres escalones de superficie sobre un fondo casi negro con tinte violeta y de filetes de 1 px, no de sombras ni de gradientes. Cada cifra lleva su unidad (USDT, %, x) y cada ganancia o pérdida su signo; los paneles son contenedores sobrios con cabecera y cuerpo, no tarjetas decorativas repetidas. El tema oscuro es el de serie; el claro existe como opción (`[data-theme='light']`) con los mismos roles.",
+    "keyCharacteristics": [
+      "Oscuro por defecto, claro opcional con los mismos tokens de rol.",
+      "Tres superficies escalonadas y filetes de 1 px; sombra solo en lo que flota.",
+      "Inter Variable autoalojada, cifras tabulares en todo dato numérico.",
+      "Verde y rojo solo para dirección y resultado, siempre con signo, texto o flecha.",
+      "Un morado propio para acción y selección; ámbar solo para avisos y relojes que vencen.",
+      "Densidad de terminal: controles de 36 px, filas de 9 a 10 px de relleno vertical."
+    ],
+    "rules": [
+      {
+        "name": "The Verde y Rojo con Significado Rule",
+        "body": "El verde y el rojo solo dicen dirección o resultado: ganancia y pérdida, LONG y SHORT, alcista y bajista. Nunca decoran, nunca marcan una sección ni un estado de sistema.",
+        "section": "colors"
+      },
+      {
+        "name": "The Nunca Solo Color Rule",
+        "body": "Verde y rojo están cerca para la visión de color deficiente, así que siempre van con signo (+ / −, con el signo menos tipográfico), con la palabra (LONG, SHORT, en contra) o con la flecha (↗ / ↘). Una cifra coloreada sin signo es un defecto.",
+        "section": "colors"
+      },
+      {
+        "name": "The Ámbar es Tiempo y Riesgo Rule",
+        "body": "El ámbar solo avisa: notas de riesgo, modo demo, posición abierta, reloj a punto de vencer. No es un segundo acento.",
+        "section": "colors"
+      },
+      {
+        "name": "The Un Solo Morado Rule",
+        "body": "El morado es el color de la acción y de la selección; no se usa para datos de mercado.",
+        "section": "colors"
+      },
+      {
+        "name": "The Cifra Tabular Rule",
+        "body": "Todo número que se compara o que cambia (precios, USDT, %, relojes, ejes) lleva cifras tabulares.",
+        "section": "typography"
+      },
+      {
+        "name": "The Punto Decimal Rule",
+        "body": "Los números se formatean con punto decimal y separador de miles con coma (formato en-US), como el exchange y el motor, para que los niveles se copien tal cual a la orden. Las horas y fechas sí van en español, en 24 h.",
+        "section": "typography"
+      },
+      {
+        "name": "The Cifra con Unidad Rule",
+        "body": "Ninguna cifra va sin unidad: USDT, %, x, R o la moneda.",
+        "section": "typography"
+      },
+      {
+        "name": "The Filete, no Sombra Rule",
+        "body": "Lo que está en la página se separa con un filete de 1 px; la sombra es exclusiva de lo que flota encima.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "**Do** separar zonas con filetes de 1 px y escalonar superficies (bg, surface-1, surface-2, surface-3) en vez de usar sombras.",
+      "**Do** acompañar cada verde o rojo con signo (+ / −), palabra o flecha.",
+      "**Do** formatear los números con punto decimal y cifras tabulares, y poner siempre la unidad.",
+      "**Do** usar el morado de botón (#6d28d9) para rellenos con texto blanco y el morado de mando (#a78bfa) para enlaces, foco y selección.",
+      "**Do** reservar el ámbar para avisos y relojes a punto de vencer.",
+      "**Do** ordenar cada pantalla por urgencia: veredicto y riesgo, luego niveles y reloj, luego contexto.",
+      "**Do** mantener los dos temas por roles: todo color sale de una variable de `base.css`."
+    ],
+    "donts": [
+      "**Don't** usar verde o rojo como decoración, color de sección o acento.",
+      "**Don't** usar coma decimal en precios o niveles: se copian a un exchange.",
+      "**Don't** poner sombra a paneles o elementos que no flotan.",
+      "**Don't** usar gradientes decorativos en paneles ni repetir tarjetas idénticas como relleno.",
+      "**Don't** mostrar una cifra sin unidad ni un resultado sin signo.",
+      "**Don't** tomar colores, marca ni logotipos de Bybit, Hyperliquid u otro exchange; solo su nivel de acabado."
+    ]
+  }
+}
