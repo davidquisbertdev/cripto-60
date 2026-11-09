@@ -51,9 +51,15 @@ export function Acceso() {
           <h2>{titulo}</h2>
           {ok ? <Nota tono="gain">{ok}</Nota> : (
             <>
-              <Campo etiqueta="Correo"><input className="input" type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} autoFocus /></Campo>
+              {/* autocomplete="username" (no "email"): le dice a Chrome que este es el identificador de
+                  un form de LOGIN y no un dato de contacto — así ofrece guardar la contraseña, no la dirección. */}
+              <Campo etiqueta="Correo" id="acceso-correo">
+                <input className="input" type="email" name="email" id="acceso-correo" autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} autoFocus />
+              </Campo>
               {modo === 'entrar' && (
-                <Campo etiqueta="Contraseña"><input className="input" type="password" autoComplete="current-password" value={clave} onChange={(e) => setClave(e.target.value)} /></Campo>
+                <Campo etiqueta="Contraseña" id="acceso-clave">
+                  <input className="input" type="password" name="password" id="acceso-clave" autoComplete="current-password" value={clave} onChange={(e) => setClave(e.target.value)} />
+                </Campo>
               )}
               {err && <Nota tono="warn">{err}</Nota>}
               <button className="btn btn-primary btn-lg" disabled={enviando}>{enviando ? 'Un momento…' : titulo}</button>

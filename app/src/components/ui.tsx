@@ -72,9 +72,9 @@ export function Esqueleto({ filas = 4, alto = 18 }: { filas?: number; alto?: num
   );
 }
 
-export function Campo({ etiqueta, hint, error, children }: { etiqueta: string; hint?: ReactNode; error?: string | null; children: ReactNode }) {
+export function Campo({ etiqueta, hint, error, id, children }: { etiqueta: string; hint?: ReactNode; error?: string | null; id?: string; children: ReactNode }) {
   return (
-    <label className="field">
+    <label className="field" htmlFor={id}>
       <span>{etiqueta}</span>
       {children}
       {error ? <span className="err">{error}</span> : hint ? <span className="hint">{hint}</span> : null}
