@@ -18,7 +18,4 @@ enable_signup = false
 enable_confirmations = true
 
 [functions.motor]
-# El proyecto firma las sesiones con claves asimétricas (ES256) y la verificación del gateway solo
-# entiende las antiguas (HS256): rechazaría a todos con 401. La función valida al usuario ella misma
-# (auth.getUser) y comprueba la suscripción antes de ejecutar nada.
-verify_jwt = false
+verify_jwt = true
