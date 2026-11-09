@@ -9,7 +9,7 @@ import demoDatos from '../demo/datos.json';
 
 export type Accion = 'estado' | 'senal' | 'posicion' | 'btc' | 'ballenas' | 'noticias' | 'escaner';
 export interface NuevaOperacion { simbolo: string; lado: 'LONG' | 'SHORT' | null; pnl: number; margen?: number | null; nota?: string | null; fecha?: string; senal_id?: number | null }
-export interface NuevaPosicion { base: string; lado: 'LONG' | 'SHORT'; entrada: number; sl: number; tps: number[]; contratos?: number | null; estrategia?: string; senal_id?: number | null }
+export interface NuevaPosicion { base: string; lado: 'LONG' | 'SHORT'; entrada: number; sl: number; tps: number[]; contratos?: number | null; estrategia?: string; senal_id?: number | null; duracion_max_min?: number | null }
 
 export interface Backend {
   demo: boolean;
@@ -21,6 +21,7 @@ export interface Backend {
   borrar(id: number): Promise<void>;
   abrirPosicion(p: NuevaPosicion): Promise<void>;
   cerrarPosicion(id: number): Promise<void>;
+  duracionPosicion(id: number, minutos: number | null): Promise<void>;
 }
 
 export class ErrorApi extends Error {}
@@ -63,6 +64,7 @@ function backendSupabase(): Backend {
       falla(error);
     },
     async cerrarPosicion(id) { const { error } = await sb.from('posiciones').update({ cerrada: new Date().toISOString() }).eq('id', id); falla(error); },
+    async duracionPosicion(id, minutos) { const { error } = await sb.from('posiciones').update({ duracion_max_min: minutos }).eq('id', id); falla(error); },
   };
 }
 
@@ -127,10 +129,11 @@ function backendDemo(): Backend {
     async borrar(id) { st.operaciones = st.operaciones.filter((o) => o.id !== id); guardar(); },
     async abrirPosicion(p) {
       if (st.posicion) throw new ErrorApi('Ya sigues una posición abierta. Ciérrala antes de abrir otra.');
-      st.posicion = { id: st.sig++, base: p.base, lado: p.lado, entrada: p.entrada, sl: p.sl, tps: p.tps, contratos: p.contratos ?? null, estrategia: (p.estrategia as 'tendencia') ?? 'tendencia', abierta: new Date().toISOString(), senal_id: null };
+      st.posicion = { id: st.sig++, base: p.base, lado: p.lado, entrada: p.entrada, sl: p.sl, tps: p.tps, contratos: p.contratos ?? null, estrategia: (p.estrategia as 'tendencia') ?? 'tendencia', abierta: new Date().toISOString(), senal_id: null, duracion_max_min: p.duracion_max_min ?? null };
       guardar();
     },
     async cerrarPosicion() { st.posicion = null; guardar(); },
+    async duracionPosicion(_id, minutos) { if (st.posicion) { st.posicion = { ...st.posicion, duracion_max_min: minutos }; guardar(); } },
   };
 }
 

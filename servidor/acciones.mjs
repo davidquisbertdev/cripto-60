@@ -20,7 +20,19 @@ export const ACCIONES = ['estado', 'senal', 'posicion', 'btc', 'ballenas', 'noti
 export const AJUSTES_EDITABLES = [
   'exchange', 'zona_horaria', 'objetivo_usdt', 'margen_base', 'reinversion_pct', 'apalancamiento_max',
   'riesgo_por_confianza', 'max_perdida_dia_pct', 'max_operaciones_dia', 'max_operaciones_hora', 'pausa_min',
+  'duracion_max_min', 'espera_max_min',
 ];
+
+export const DURACION_MIN = 15, DURACION_MAX = 1440;
+
+// Duración de una operación (min): cierre total a los `d` minutos. Si no se indica la espera del TP1,
+// se escala en la misma proporción (30 de 60 → 60 de 120).
+export function conDuracion(cfg, d, espera = null) {
+  const dur = Math.round(Math.min(Math.max(+d || cfg.duracion_max_min, DURACION_MIN), DURACION_MAX));
+  const esp = espera ?? (cfg.espera_max_min * dur) / cfg.duracion_max_min;
+  const espMax = Math.round(Math.min(Math.max(+esp || cfg.espera_max_min, 5), dur));
+  return { ...cfg, duracion_max_min: dur, espera_max_min: espMax, espera_min_min: Math.min(cfg.espera_min_min, espMax) };
+}
 
 export class ErrorUsuario extends Error {
   constructor(msg, estado = 400) { super(msg); this.estado = estado; }
@@ -37,7 +49,10 @@ export function configDe(propio = {}) {
   cfg.apalancamiento_max = Math.min(Math.max(1, Math.round(+cfg.apalancamiento_max || DEFAULTS.apalancamiento_max)), DEFAULTS.apalancamiento_tope);
   for (const k of ['ALTA', 'MEDIA', 'BAJA']) cfg.riesgo_por_confianza[k] = Math.min(+cfg.riesgo_por_confianza[k] || DEFAULTS.riesgo_por_confianza[k], DEFAULTS.riesgo_max_pct);
   cfg.max_perdida_dia_pct = Math.min(+cfg.max_perdida_dia_pct || DEFAULTS.max_perdida_dia_pct, DEFAULTS.max_perdida_dia_pct);
-  return cfg;
+  // duración por defecto de las operaciones (Ajustes); la espera del TP1 nunca la pasa
+  // (sin espera propia, se escala desde la del motor: 30 de 60 → 60 de 120)
+  const base = { ...cfg, duracion_max_min: DEFAULTS.duracion_max_min, espera_max_min: DEFAULTS.espera_max_min };
+  return conDuracion(base, limpio.duracion_max_min ?? DEFAULTS.duracion_max_min, +limpio.espera_max_min || null);
 }
 
 const num = (v, que, { min = -Infinity, max = Infinity, opcional = true } = {}) => {
@@ -65,7 +80,11 @@ async function contexto(db) {
  */
 export async function ejecutar(accion, params = {}, { db, fuente = null } = /** @type {any} */ ({})) {
   if (!ACCIONES.includes(accion)) throw new ErrorUsuario(`Acción desconocida: ${accion}`);
-  const { cfg, diarioDoc } = await contexto(db);
+  const { cfg: cfgUsuario, diarioDoc } = await contexto(db);
+  // duración de ESTA operación (min), si se pide otra distinta de la de Ajustes: el análisis entero
+  // (simulación, historial real, reloj) se hace con ella
+  const duracion = accion === 'senal' ? num(params.duracion, 'La duración', { min: DURACION_MIN, max: DURACION_MAX }) : undefined;
+  const cfg = duracion && duracion !== cfgUsuario.duracion_max_min ? conDuracion(cfgUsuario, duracion) : cfgUsuario;
   // Sin zona guardada, la del navegador del usuario (el servidor corre en UTC)
   if (!cfg.zona_horaria && params.zona) {
     try { new Intl.DateTimeFormat('es', { timeZone: params.zona }); cfg.zona_horaria = params.zona; } catch { /* zona inválida: se ignora */ }
@@ -114,6 +133,7 @@ export async function ejecutar(accion, params = {}, { db, fuente = null } = /** 
         contratos: num(params.contratos, 'Los contratos', { min: 0 }),
         reparto: Array.isArray(params.reparto) && params.reparto.length ? params.reparto.map((x, i) => num(x, `El % del TP${i + 1}`, { min: 1, max: 100, opcional: false })) : undefined,
         hace: params.hace || undefined,
+        duracion: num(params.duracion, 'La duración', { min: 5, max: DURACION_MAX }),
         abierta: params.abierta || undefined,
         estrategia: params.estrategia || undefined,
       };

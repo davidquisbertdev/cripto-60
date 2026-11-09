@@ -69,3 +69,21 @@ test('posicion a mano: 1, 2 o 3 TPs con su reparto', () => {
   assert.deepEqual(p1.reparto, [100, 0, 0]);
   assert.throws(() => cargarPosicion({ lado: 'long', entrada: 100, sl: 99, tp1: 101, tp2: 102, tp3: 103, reparto: [50, 20, 20] }, cfg, 0, 'SOL_USDT', null), /sumen 100/);
 });
+test('duración: por defecto en Ajustes y por operación', () => {
+  assert.equal(configDe({}).duracion_max_min, 60);
+  assert.equal(configDe({}).espera_max_min, 30);
+  const c = configDe({ duracion_max_min: 120 });
+  assert.equal(c.duracion_max_min, 120);
+  assert.equal(c.espera_max_min, 60); // la espera del TP1 se escala
+  assert.equal(configDe({ duracion_max_min: 120, espera_max_min: 200 }).espera_max_min, 120); // nunca más que la duración
+  assert.equal(configDe({ duracion_max_min: 99999 }).duracion_max_min, 1440);
+  const p = cargarPosicion({ lado: 'long', entrada: 100, sl: 99, tp1: 101, duracion: 120 }, configDe({}), 0, 'SOL_USDT', null);
+  assert.equal(p.duracion_max_min, 120);
+  assert.equal(p.espera_max_min, 60);
+});
+
+test('senal: la duración pedida se usa en el análisis y el reloj', async () => {
+  const s = await ejecutar('senal', { moneda: 'NEAR', capital: 10, duracion: 120 }, { db: dbMemoria(), fuente: fx('near') });
+  assert.equal(s.duracion_max_min, 120);
+  assert.equal(s.cierre_total_a_las - s.creada, 120 * 60e3);
+});

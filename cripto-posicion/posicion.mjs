@@ -37,6 +37,15 @@ export function cargarPosicion(op, cfg, ahora, sym, senal = undefined) {
   if (op.abierta) pos.abierta = parseFecha(op.abierta);
   if (op.hace) pos.abierta = ahora - parseDuracion(op.hace) * 60e3;
   if (op.espera) pos.espera_max_min = parseDuracion(op.espera);
+  if (op.duracion) {
+    // más (o menos) tiempo para la operación: el cierre total pasa a `duracion`; si no se indica la
+    // espera del TP1, se escala en la misma proporción (30 de 60 → 60 de 120)
+    const d = parseDuracion(op.duracion);
+    if (!(d >= 5 && d <= 1440)) throw new Error(`La duración debe estar entre 5 min y 24 h (${op.duracion}).`);
+    const prev = pos.duracion_max_min ?? cfg.duracion_max_min;
+    if (!op.espera) pos.espera_max_min = Math.max(5, Math.min(d, Math.round(((pos.espera_max_min ?? cfg.espera_max_min) * d) / prev)));
+    pos.duracion_max_min = d;
+  }
   if (op.estrategia) pos.estrategia = op.estrategia.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
   pos.estrategia = pos.estrategia ?? 'tendencia';
   if (!['tendencia', 'reversion'].includes(pos.estrategia)) throw new Error('--estrategia debe ser tendencia o reversion');
@@ -246,7 +255,7 @@ async function main() {
   const { pos, op } = args(process.argv.slice(2), {
     flags: ['json', 'sin_noticias', 'sin_ballenas'], numeros: ['entrada', 'sl', 'tp1', 'tp2', 'tp3', 'contratos'],
   });
-  if (!pos[0]) throw new Error('Uso: posicion.mjs SOL [--entrada X --sl Y --tp1 A --tp2 B --tp3 C --reparto 50,25,25 --lado long --hace 10m]');
+  if (!pos[0]) throw new Error('Uso: posicion.mjs SOL [--entrada X --sl Y --tp1 A --tp2 B --tp3 C --reparto 50,25,25 --lado long --hace 10m --duracion 2h]');
   const cfg = leerConfig(op.config);
   const fuente = crearFuente({ exchange: op.exchange, cfg, offline: op.offline, grabar: op.grabar });
   const p = cargarPosicion(op, cfg, fuente.ahora(), pos[0]);
