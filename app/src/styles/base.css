@@ -1,0 +1,116 @@
+/* Cripto60: tokens y base. Oscuro por defecto (se opera de noche, al lado del exchange); claro opcional. */
+:root {
+  color-scheme: dark;
+  --bg: #0c0b12;
+  --s1: #13111b;
+  --s2: #1a1725;
+  --s3: #221e2f;
+  --line: #29243a;
+  --line-2: #3a3350;
+  --text: #ece9f4;
+  --text-2: #aea7c2;
+  --text-3: #8f88a8;
+  --accent: #a78bfa;
+  --accent-hover: #c4b5fd;
+  --accent-ink: #ffffff;
+  --accent-fill: #6d28d9;
+  --accent-fill-hover: #7c3aed;
+  --accent-soft: rgba(167, 139, 250, 0.16);
+  --gain: #2ebd85;
+  --gain-text: #2ebd85;
+  --gain-soft: rgba(46, 189, 133, 0.14);
+  --loss: #f6465d;
+  --loss-text: #f6465d;
+  --loss-soft: rgba(246, 70, 93, 0.14);
+  --warn: #e5a93b;
+  --warn-text: #f2bd57;
+  --warn-soft: rgba(229, 169, 59, 0.14);
+  --neutral-mark: #5a6478;
+  --shadow: 0 8px 24px rgba(0, 0, 0, 0.35), 0 1px 2px rgba(0, 0, 0, 0.3);
+
+  --font: 'Inter Variable', Inter, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --fs-xs: 0.75rem;
+  --fs-sm: 0.8125rem;
+  --fs-md: 0.875rem;
+  --fs-lg: 1rem;
+  --fs-xl: 1.25rem;
+  --fs-2xl: 1.625rem;
+  --fs-3xl: 2.25rem;
+  --r-sm: 4px;
+  --r: 6px;
+  --r-lg: 8px;
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 20px;
+  --sp-6: 24px;
+  --sp-8: 32px;
+  --nav-w: 220px;
+  --ease: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+:root[data-theme='light'] {
+  color-scheme: light;
+  --bg: #f5f4f9;
+  --s1: #ffffff;
+  --s2: #f3f1f8;
+  --s3: #e9e6f2;
+  --line: #e3dfee;
+  --line-2: #cdc7de;
+  --text: #120f1a;
+  --text-2: #4b4560;
+  --text-3: #5f5876;
+  --accent: #6d28d9;
+  --accent-hover: #5b21b6;
+  --accent-fill: #6d28d9;
+  --accent-fill-hover: #5b21b6;
+  --accent-soft: rgba(109, 40, 217, 0.1);
+  --gain: #1a9a6c;
+  --gain-text: #0d7f56;
+  --gain-soft: rgba(26, 154, 108, 0.1);
+  --loss: #e43f50;
+  --loss-text: #c42536;
+  --loss-soft: rgba(228, 63, 80, 0.09);
+  --warn: #d8962a;
+  --warn-text: #94600c;
+  --warn-soft: rgba(216, 150, 42, 0.13);
+  --neutral-mark: #9aa4b4;
+  --shadow: 0 8px 24px rgba(15, 23, 42, 0.1), 0 1px 2px rgba(15, 23, 42, 0.08);
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+html, body, #root { height: 100%; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: var(--fs-md);
+  line-height: 1.5;
+  font-feature-settings: 'cv11', 'ss01';
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+h1, h2, h3, h4, p { margin: 0; }
+h1, h2, h3 { text-wrap: balance; letter-spacing: -0.01em; }
+a { color: var(--accent); text-underline-offset: 3px; text-decoration-thickness: 1px; }
+a:hover { color: var(--accent-hover); }
+button, input, select, textarea { font: inherit; color: inherit; }
+::selection { background: var(--accent-soft); color: var(--text); }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: var(--r-sm); }
+input, textarea { caret-color: var(--accent); }
+* { scrollbar-width: thin; scrollbar-color: var(--line-2) transparent; }
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb { background: var(--line-2); border-radius: 10px; border: 3px solid var(--bg); }
+::-webkit-scrollbar-track { background: transparent; }
+.num { font-variant-numeric: tabular-nums; font-feature-settings: 'tnum', 'cv11'; }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+.gain { color: var(--gain-text); }
+.loss { color: var(--loss-text); }
+.warn { color: var(--warn-text); }
+.muted { color: var(--text-2); }
+.faint { color: var(--text-3); }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}
