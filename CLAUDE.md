@@ -101,7 +101,9 @@ Inside `app/`: `npx tsc -b` (typecheck), `npx eslint src` (existing warnings onl
 - Use `git commit -F <file>` for messages with quotes (PowerShell here-strings split on `"`).
 - Engine modules used by the web/Edge Function must stay free of `node:fs` (`defaults`, `diario`, `plan`, analysis modules). I/O lives in `config.mjs`, `fuentes`/exchange modules, `formato.mjs`.
 - After changing anything the Edge Function imports, run `npm run motor:sync` before deploying.
-- The hosted project signs sessions with asymmetric keys (ES256). The Edge Function gateway's `verify_jwt` only understands legacy HS256 and returns 401 for every logged-in user, so `motor` runs with `verify_jwt = false` and validates the user itself (`auth.getUser`). Deploy with `npx supabase functions deploy motor --no-verify-jwt`.
+- `motor` keeps `verify_jwt = true` (owner's choice) and also validates the user itself (`auth.getUser`). The hosted project signs sessions with asymmetric keys (ES256); if logged-in calls ever get a gateway 401 `Invalid JWT`, that check is the suspect.
+- Logout (`salir` in `sesion.tsx`) must always end on the login screen: when the token can't be refreshed, supabase-js returns an error without clearing the stored session, so the app removes `sb-*-auth-token` from localStorage and reloads.
+- `firebase.json` serves `index.html` with `no-cache` so a deploy reaches users immediately (assets are hashed and cached for a year).
 - New Supabase columns need a new migration file and must be applied before the web uses them (otherwise `perfil()` fails and the app shows an error screen).
 
 ## Maintaining this file

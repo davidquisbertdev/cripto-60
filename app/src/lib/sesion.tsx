@@ -60,11 +60,16 @@ export function ProveedorSesion({ children }: { children: ReactNode }) {
   }, []);
 
   const aviso = useCallback((msg: string) => { setToast(msg); setTimeout(() => setToast(null), 3200); }, []);
-  // Cierra solo la sesión de este dispositivo: con scope global el servidor responde 403 si la sesión
-  // ya no existe allí (caducada o cerrada en otro lado), aunque igual se borre la local.
+  // Cierra la sesión de este dispositivo y SIEMPRE vuelve a la pantalla de entrar. Si el token caducó y no
+  // se puede renovar (403/400), supabase-js devuelve el error sin borrar la sesión guardada: se borra a mano.
   const salir = useCallback(async () => {
-    try { await supabase?.auth.signOut({ scope: 'local' }); } catch { /* la sesión local se descarta igual */ }
-    setPerfil(null); setEstado(null); setErrorPerfil(null);
+    let fallo = false;
+    try { const { error } = (await supabase?.auth.signOut({ scope: 'local' })) ?? {}; fallo = !!error; } catch { fallo = true; }
+    setPerfil(null); setEstado(null); setErrorPerfil(null); setSesion(null);
+    if (fallo) {
+      try { for (const k of Object.keys(localStorage)) if (/^sb-.*-auth-token/.test(k)) localStorage.removeItem(k); } catch { /* sin almacenamiento */ }
+      location.assign('/'); // recarga para que el cliente de Supabase arranque sin la sesión vieja
+    }
   }, []);
 
   const suscrita = backend.demo ? true : !perfil ? null : !!perfil.activo && (!perfil.suscripcion_hasta || Date.parse(perfil.suscripcion_hasta) > Date.now());
