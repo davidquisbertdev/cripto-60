@@ -42,7 +42,7 @@ function backendSupabase(): Backend {
       return data as T;
     },
     async perfil() {
-      const { data, error } = await sb.from('perfiles').select('id, nombre, capital_inicial, ajustes, acepto_aviso_en').single();
+      const { data, error } = await sb.from('perfiles').select('id, nombre, capital_inicial, ajustes, acepto_aviso_en, activo, suscripcion_hasta').single();
       falla(error);
       return { ...data, capital_inicial: data!.capital_inicial == null ? null : Number(data!.capital_inicial) } as Perfil;
     },

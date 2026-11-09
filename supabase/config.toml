@@ -11,7 +11,8 @@ major_version = 15
 [auth]
 site_url = "http://localhost:5173"
 additional_redirect_urls = ["http://localhost:5173"]
-enable_signup = true
+# Registro cerrado: las cuentas se crean al activar la suscripción (ver migrations/*_suscripcion.sql)
+enable_signup = false
 
 [auth.email]
 enable_confirmations = true

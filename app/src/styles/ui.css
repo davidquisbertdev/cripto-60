@@ -360,3 +360,43 @@ table.t { width: 100%; border-collapse: collapse; font-size: var(--fs-md); }
 .dialog { background: var(--s1); border: 1px solid var(--line-2); border-radius: var(--r-lg); box-shadow: var(--shadow); width: 100%; max-width: 440px; }
 .dialog .panel-b { display: grid; gap: var(--sp-4); }
 .dialog-actions { display: flex; justify-content: flex-end; gap: var(--sp-2); padding: var(--sp-3) var(--sp-4); border-top: 1px solid var(--line); }
+
+/* ---------- Suscripción ---------- */
+.sus { display: grid; gap: var(--sp-6); max-width: 1120px; }
+.sus-hero { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: var(--sp-6); align-items: center; }
+.sus-hero-txt { display: grid; gap: var(--sp-3); justify-items: start; }
+.sus-hero-txt h2 { font-size: var(--fs-3xl); line-height: 1.12; letter-spacing: -0.025em; font-weight: 750; max-width: 22ch; text-wrap: balance; }
+.sus-hero-txt p { font-size: var(--fs-lg); max-width: 52ch; }
+.sus-precio .panel-b { display: grid; gap: var(--sp-3); }
+.sus-precio { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.sus-monto { font-size: 3rem; font-weight: 750; letter-spacing: -0.03em; line-height: 1; }
+.sus-monto span { font-size: var(--fs-xl); font-weight: 600; color: var(--text-2); letter-spacing: 0; }
+.sus-incluye { list-style: none; margin: 0; padding: var(--sp-2) 0; display: grid; gap: var(--sp-2); border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+.sus-incluye li { display: flex; gap: var(--sp-2); align-items: flex-start; font-size: var(--fs-md); }
+.sus-incluye svg { color: var(--gain-text); flex: none; margin-top: 2px; }
+.sus-h { font-size: var(--fs-xl); font-weight: 650; margin-bottom: var(--sp-3); }
+.sus-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: var(--sp-3); }
+.sus-f .panel-b { display: grid; gap: var(--sp-2); align-content: start; }
+.sus-f h3 { font-size: var(--fs-lg); font-weight: 600; }
+.sus-f p { font-size: var(--fs-md); line-height: 1.55; }
+.sus-ico { width: 34px; height: 34px; border-radius: var(--r); display: grid; place-items: center; background: var(--accent-soft); color: var(--accent); }
+.sus-pago { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--sp-6); }
+.sus-pasos { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--sp-4); }
+.sus-pasos li { display: flex; gap: var(--sp-3); align-items: flex-start; line-height: 1.5; }
+.sus-n { flex: none; width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; background: var(--s3); font-weight: 700; font-size: var(--fs-sm); }
+.sus-datos { display: grid; gap: var(--sp-3); align-content: start; }
+.sus-q { border-bottom: 1px solid var(--line); }
+.sus-q:last-child { border-bottom: 0; }
+.sus-q summary { cursor: pointer; padding: var(--sp-3) var(--sp-4); font-weight: 600; }
+.sus-q p { padding: 0 var(--sp-4) var(--sp-4); max-width: 70ch; }
+.sus-pub { min-height: 100%; display: flex; flex-direction: column; }
+.sus-top { display: flex; align-items: center; gap: var(--sp-3); padding: var(--sp-3) var(--sp-6); border-bottom: 1px solid var(--line); background: var(--s1); position: sticky; top: 0; z-index: 5; }
+.sus-top .brand { padding: 0; }
+.sus-top .right { margin-left: auto; display: flex; gap: var(--sp-2); }
+.sus-main { margin: 0 auto; }
+@media (max-width: 900px) {
+  .sus-hero, .sus-pago { grid-template-columns: 1fr; }
+  .sus-hero-txt h2 { font-size: var(--fs-2xl); }
+  .sus-top { padding: var(--sp-3) var(--sp-4); }
+  .sus-main { padding-bottom: var(--sp-6); }
+}

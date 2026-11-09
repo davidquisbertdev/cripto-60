@@ -71,6 +71,10 @@ Deno.serve(async (req) => {
   const sb = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_ANON_KEY')!, { global: { headers: { Authorization: auth } } });
   const { data: u, error: eu } = await sb.auth.getUser();
   if (eu || !u?.user) return new Response(JSON.stringify({ error: 'La sesión caducó. Vuelve a entrar.' }), { status: 401, headers: h });
+  // Solo las cuentas con la suscripción al día usan el motor
+  const { data: activa, error: es } = await sb.rpc('suscripcion_activa');
+  if (es) { console.error(es); return new Response(JSON.stringify({ error: 'No se pudo comprobar tu suscripción. Prueba de nuevo en un minuto.' }), { status: 502, headers: h }); }
+  if (!activa) return new Response(JSON.stringify({ error: 'Tu suscripción no está activa. Renuévala para seguir usando Cripto60.', suscripcion: false }), { status: 402, headers: h });
 
   let cuerpo: { accion?: string; params?: Record<string, unknown> };
   try { cuerpo = await req.json(); } catch { return new Response(JSON.stringify({ error: 'Petición sin JSON válido.' }), { status: 400, headers: h }); }

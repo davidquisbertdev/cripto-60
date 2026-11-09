@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import {
-  Activity, Bitcoin, BookOpen, CandlestickChart, FileText, Home, LogOut, MoreHorizontal, Newspaper, PanelLeftClose, PanelLeftOpen, Radar, Settings, Waves, Zap, CheckCircle2,
+  Activity, Bitcoin, BookOpen, CandlestickChart, Crown, FileText, Home, LogOut, MoreHorizontal, Newspaper, PanelLeftClose, PanelLeftOpen, Radar, Settings, Waves, Zap, CheckCircle2,
 } from 'lucide-react';
 import { useSesion } from '../lib/sesion';
 import { useLocal } from '../lib/usar';
@@ -19,7 +19,7 @@ export const RUTAS = [
   { a: '/ajustes', t: 'Ajustes', i: Settings, g: 2 },
 ];
 const MOVIL = ['/', '/senal', '/posicion', '/diario'];
-const EXTRA: Record<string, string> = { '/terminos': 'Términos y condiciones' };
+const EXTRA: Record<string, string> = { '/terminos': 'Términos y condiciones', '/suscripcion': 'Suscripción' };
 
 function Enlace({ r, punto, onClick, corto }: { r: { a: string; t: string; i: typeof Home }; punto?: boolean; onClick?: () => void; corto?: boolean }) {
   const I = r.i;
@@ -67,6 +67,7 @@ export function Shell() {
             </div>
           )}
           <div className="nav-group">
+            <Enlace r={{ a: '/suscripcion', t: 'Suscripción', i: Crown }} corto={plegada} />
             <Enlace r={{ a: '/terminos', t: 'Términos y condiciones', i: FileText }} corto={plegada} />
             {!demo && (
               <button type="button" className="nav-link nav-salir" onClick={pedirSalir} title={plegada ? 'Cerrar sesión' : undefined} aria-label={plegada ? 'Cerrar sesión' : undefined}>
@@ -94,6 +95,7 @@ export function Shell() {
           <div className="sheet-back" onClick={() => setMas(false)} />
           <div className="sheet" role="dialog" aria-label="Más secciones">
             {RUTAS.filter((r) => !MOVIL.includes(r.a)).map((r) => <Enlace key={r.a} r={r} />)}
+            <Enlace r={{ a: '/suscripcion', t: 'Suscripción', i: Crown }} />
             <Enlace r={{ a: '/terminos', t: 'Términos y condiciones', i: FileText }} />
             {!demo && <button type="button" className="nav-link nav-salir" onClick={pedirSalir}><LogOut size={17} aria-hidden />Cerrar sesión</button>}
           </div>
@@ -104,7 +106,7 @@ export function Shell() {
   );
 }
 
-function ConfirmarSalida({ onCancelar, onSalir }: { onCancelar: () => void; onSalir: () => Promise<void> }) {
+export function ConfirmarSalida({ onCancelar, onSalir }: { onCancelar: () => void; onSalir: () => Promise<void> }) {
   const [saliendo, setSaliendo] = useState(false);
   const cancelar = useRef<HTMLButtonElement>(null);
   useEffect(() => {

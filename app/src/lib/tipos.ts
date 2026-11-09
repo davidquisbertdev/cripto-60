@@ -89,5 +89,5 @@ export interface Ajustes {
 }
 export interface Estado { ahora: number; cfg: Required<Ajustes> & Record<string, unknown>; diario: EstadoDiario | null; posicion_abierta: PosicionGuardada | null }
 export interface Operacion { id: number; fecha: string; simbolo: string; lado: Lado | null; pnl: number; margen: number | null; nota: string | null }
-export interface Perfil { id: string; nombre: string | null; capital_inicial: number | null; ajustes: Ajustes; acepto_aviso_en: string | null }
+export interface Perfil { id: string; nombre: string | null; capital_inicial: number | null; ajustes: Ajustes; acepto_aviso_en: string | null; activo?: boolean; suscripcion_hasta?: string | null }
 export interface PosicionGuardada { id: number; base: string; lado: Lado; entrada: number; sl: number; tps: number[]; contratos: number | null; estrategia: Estrategia; abierta: string; senal_id: number | null; duracion_max_min?: number | null }
