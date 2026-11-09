@@ -43,7 +43,7 @@ export interface Senal {
   btc_filtro: { estado: string; bloquea: boolean; texto: string | null } | null;
   espera_max_min: number | null; cerrar_si_no_tp1_a_las: number | null; duracion_max_min: number; cierre_total_a_las: number;
   reentrada?: { long_si_rompe: number; short_si_pierde: number; rebote_long_bajo: number; rebote_short_sobre: number } | null;
-  contexto: { funding: number | null; minutos_a_funding: number | null; spread_pct: number | null; cambio_24h_pct: number | null; cambio_15m_pct: number | null; atr5_pct: number; rsi: Record<string, number | null>; fng: { valor: number; clase: string; ayer?: number | null; semana?: number | null } | null; niveles5: { soporte: number; resistencia: number } };
+  contexto: { funding: number | null; minutos_a_funding: number | null; spread_pct: number | null; cambio_24h_pct: number | null; cambio_15m_pct: number | null; atr5_pct: number; rsi: Record<string, number | null>; macro?: ActivoMacro[] | null; fng: { valor: number; clase: string; ayer?: number | null; semana?: number | null } | null; niveles5: { soporte: number; resistencia: number } };
   noticias: { sentimiento: number; evento_riesgo: string | null; propias: Noticia[] } | null;
   ballenas: {
     puntuacion: number; lectura: string; frases: string[]; cobertura?: number;
@@ -70,6 +70,12 @@ export interface InformeBTC {
   ahora: number;
   btc: { precio: number; puntuacion: number; tendencia_mayor: number; lectura: string; fuerza: string; lateral: boolean; adx15m: number; cambio_15m_pct: number; cambio_1h_pct: number; rsi_5m: number; marcos: Record<string, { score: number; dir: string; rsi: number; adx: number }>; soporte_5m: number; resistencia_5m: number; frases: string[] };
   alt: { base: string; relacion: { correlacion: number; beta: number; velas: number }; peso: number; long: FiltroBTC; short: FiltroBTC; long_rev: FiltroBTC; short_rev: FiltroBTC } | null;
+  macro?: { ahora: number; activos: ActivoMacro[] } | null;
+}
+export interface ActivoMacro {
+  clave: 'oro' | 'petroleo'; nombre: string; simbolo: string; precio: number;
+  cambio_1h: number | null; cambio_4h: number | null; cambio_24h: number | null; cambio_7d: number | null;
+  correlacion_btc: number | null; choque: boolean; dia_volatil: boolean; frase: string; serie?: { t: number; c: number }[];
 }
 export interface PosBallena { dir: string; nombre: string | null; lado: Lado; valor: number; entrada: number; pnl: number; apalancamiento: number; liquidacion: number | null; cuenta: number; conviccion_pct: number }
 export interface Flujo { abrieron_long: number; cerraron_long: number; abrieron_short: number; cerraron_short: number; operaciones: number; neto: number }

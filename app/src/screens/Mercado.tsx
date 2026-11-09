@@ -4,13 +4,13 @@ import { Link } from 'react-router-dom';
 import { ArrowDown, ArrowUp, ExternalLink, Info, RefreshCw, ShieldAlert, Waves, X } from 'lucide-react';
 import { Pagina } from '../components/Shell';
 import { ErrorEstado, Esqueleto, Filas, KV, LadoTag, Nota, Panel, Vacio } from '../components/ui';
-import { MedidorDir, MedidorFNG } from '../components/graficos';
+import { LineaSerie, MedidorDir, MedidorFNG } from '../components/graficos';
 import { Sentimiento30 } from '../components/MercadoHoy';
 import { SelectorMoneda } from '../components/SelectorMoneda';
 import { backend } from '../lib/api';
 import { usePeticion } from '../lib/usar';
 import { nombreExchange, conSigno, hace, hora, millones, numero, pct, pctSigno, precio as fp, usdt } from '../lib/formato';
-import type { Billetera, FiltroBTC, InformeBallenas, InformeBTC, InformeEscaner, InformeNoticias, FilaEscaner, SenalResumen } from '../lib/tipos';
+import type { ActivoMacro, Billetera, FiltroBTC, InformeBallenas, InformeBTC, InformeEscaner, InformeNoticias, FilaEscaner, SenalResumen } from '../lib/tipos';
 import { useSesion } from '../lib/sesion';
 
 function Buscador({ valor, onBuscar, etiqueta = 'Moneda', placeholder = 'SOL' }: { valor: string; onBuscar: (m: string) => void; etiqueta?: string; placeholder?: string }) {
@@ -92,9 +92,42 @@ export function Btc() {
             )}
             <Panel titulo="Lectura"><ul className="list">{b.frases.map((f) => <li key={f}><Info size={14} aria-hidden />{f}</li>)}</ul></Panel>
           </div>
+          {r.datos?.macro?.activos.length ? <OroPetroleo activos={r.datos.macro.activos} /> : null}
         </div>
       )}
     </Pagina>
+  );
+}
+
+// Oro y petróleo: cómo se mueven y cuánto se parecen a BTC. Contexto macro: solo avisan (y bajan un poco
+// la confianza de la señal) cuando uno de los dos se mueve de golpe.
+function OroPetroleo({ activos }: { activos: ActivoMacro[] }) {
+  const dec = (x: number) => (x < 200 ? 2 : 1);
+  const corr = (c: number | null) => (c == null ? 'sin dato' : Math.abs(c) < 0.3 ? `${numero(c, 2)} · casi no se mueve con BTC` : `${numero(c, 2)} · se mueve ${c > 0 ? 'con' : 'al revés que'} BTC`);
+  return (
+    <section className="stack" style={{ gridColumn: '1 / -1' }} aria-label="Oro y petróleo">
+      <div className="grid g-2">
+        {activos.map((a) => (
+          <Panel key={a.clave} titulo={a.nombre} aside={a.choque ? <span className="tag tag-warn">movimiento brusco</span> : a.dia_volatil ? <span className="tag tag-warn">día volátil</span> : <span className="faint" style={{ fontSize: 12 }}>Binance · {a.simbolo}</span>}>
+            <div style={{ display: 'grid', gap: 12 }}>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap' }}>
+                <span className="num" style={{ fontSize: 26, fontWeight: 700 }}>{numero(a.precio, dec(a.precio))}</span>
+                <span className={`num strong ${(a.cambio_24h ?? 0) >= 0 ? 'gain' : 'loss'}`}>{pctSigno(a.cambio_24h)} <span className="faint" style={{ fontWeight: 400 }}>24 h</span></span>
+              </div>
+              {a.serie && a.serie.length > 2 && (
+                <LineaSerie puntos={a.serie.map((x) => ({ t: x.t, v: x.c }))} fmtV={(v) => numero(v, dec(v))} fmtT={(t) => hora(t)} etiqueta={`${a.nombre} en las últimas 24 h`} tono={(a.cambio_24h ?? 0) >= 0 ? 'var(--gain)' : 'var(--loss)'} alto={150} />
+              )}
+              <Filas items={[
+                { k: 'Cambio 1 h · 4 h', v: `${pctSigno(a.cambio_1h)} · ${pctSigno(a.cambio_4h)}`, cls: a.choque ? 'warn' : '' },
+                { k: 'Cambio 7 días', v: pctSigno(a.cambio_7d), cls: (a.cambio_7d ?? 0) >= 0 ? 'gain' : 'loss' },
+                { k: 'Correlación con BTC (1 h, 7 días)', v: corr(a.correlacion_btc) },
+              ]} />
+            </div>
+          </Panel>
+        ))}
+      </div>
+      <Nota>En operaciones de 15 a 60 min el oro y el petróleo casi nunca marcan la dirección de BTC, así que no suman ni restan a la puntuación. Sí cuentan cuando uno se mueve de golpe (1.2 % el oro o 2 % el petróleo en una hora): suele ser una noticia macro que también sacude a las cripto, y la señal lo avisa y baja 5 puntos la confianza.</Nota>
+    </section>
   );
 }
 

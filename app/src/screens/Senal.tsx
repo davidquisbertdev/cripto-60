@@ -289,6 +289,7 @@ function Resultado({ s, onSeguir, abierta }: { s: TSenal & { demo_nota?: string 
               { k: 'RSI 1m · 5m · 15m · 1h', v: ['1m', '5m', '15m', '1h'].map((k) => numero(s.contexto.rsi[k], 0)).join(' · ') },
               { k: 'Spread', v: pct(s.contexto.spread_pct, 3) },
               { k: 'Fear & Greed', v: s.contexto.fng ? `${s.contexto.fng.valor} · ${s.contexto.fng.clase}` : '—' },
+              ...(s.contexto.macro ?? []).map((x) => ({ k: `${x.nombre} 1 h · 24 h`, v: `${pctSigno(x.cambio_1h)} · ${pctSigno(x.cambio_24h)}${x.choque ? ' · brusco' : ''}`, cls: x.choque ? 'warn' : '' })),
               { k: 'Ballenas', v: s.ballenas?.lectura ?? '—', cls: (s.ballenas?.puntuacion ?? 0) > 0.15 ? 'gain' : (s.ballenas?.puntuacion ?? 0) < -0.15 ? 'loss' : '' },
             ]} />
           </Panel>

@@ -11,6 +11,7 @@ import { simular } from '../lib/simulacion.mjs';
 import { historialSenal } from '../lib/historial.mjs';
 import { filtroBTC } from '../lib/btc.mjs';
 import { efectoFNG } from '../lib/noticias.mjs';
+import { efectoMacro, macroResumen } from '../lib/macro.mjs';
 import { leerConfig, leerJSON, escribirJSON, rutaDiario, rutaSenal, estadoDiario, carpeta } from '../lib/config.mjs';
 import { args, precio as fp, usdt, pct, signo, hora, duracion, salir } from '../lib/formato.mjs';
 
@@ -144,7 +145,10 @@ export async function generarSenal(a, op, cfg) {
     // Fear & Greed: en los extremos avisa de ir con la masa (ajuste pequeño de confianza)
     const fg = efectoFNG(a.fng, lado);
     if (fg.texto) motivos.push(fg.texto);
-    const dd = { ...d, confianza: Math.round(Math.max(5, Math.min(e === 'tendencia' && d.lateral ? 64 : 90, d.confianza + fb.ajuste_conf + fg.ajuste_conf))) };
+    // oro y petróleo: un movimiento brusco (noticia macro) baja la confianza y avisa
+    const em = efectoMacro(a.macro, lado);
+    motivos.push(...em.textos);
+    const dd = { ...d, confianza: Math.round(Math.max(5, Math.min(e === 'tendencia' && d.lateral ? 64 : 90, d.confianza + fb.ajuste_conf + fg.ajuste_conf + em.ajuste_conf))) };
     if (fb.texto) motivos.unshift(`BTC: ${fb.texto}`);
     // Ballenas en long o en short frente a ESTE lado
     const eb = efectoBallenas(a.ballenas, lado);
@@ -254,7 +258,7 @@ export async function generarSenal(a, op, cfg) {
     duracion_max_min: cfg.duracion_max_min, cierre_total_a_las: ahora + cfg.duracion_max_min * 60e3, reentrada,
     contexto: {
       funding: a.funding, proximo_funding: a.proximo_funding, minutos_a_funding: minFunding == null ? null : Math.round(minFunding),
-      libro: a.libro, spread_pct: a.spread_pct, btc: a.btc, fng: a.fng ? { valor: a.fng.valor, clase: a.fng.clase, ayer: a.fng.ayer, semana: a.fng.semana ?? null } : null,
+      libro: a.libro, spread_pct: a.spread_pct, btc: a.btc, macro: macroResumen(a.macro), fng: a.fng ? { valor: a.fng.valor, clase: a.fng.clase, ayer: a.fng.ayer, semana: a.fng.semana ?? null } : null,
       cambio_24h_pct: a.cambio_24h, cambio_15m_pct: a.cambio_15m == null ? null : +a.cambio_15m.toFixed(2),
       rsi: Object.fromEntries(Object.entries(a.marcos).map(([k, m]) => [k, m?.rsi ?? null])),
       atr5: atr, atr5_pct: +((100 * atr) / a.precio).toFixed(3), adx15m: a.marcos['15m']?.adx, vol_rel_5m: vol5, lateral: a.decision.lateral,
@@ -321,6 +325,7 @@ export function informe(s, cfg) {
   const ctx = [`15 min ${signo(c.cambio_15m_pct)} %`, `24 h ${signo(c.cambio_24h_pct)} %`, `ATR 5m ${c.atr5_pct} %`, `funding ${c.funding == null ? '—' : (c.funding * 100).toFixed(4) + ' %'}${c.minutos_a_funding != null && c.minutos_a_funding <= 60 ? ` (cobro en ${c.minutos_a_funding} min)` : ''}`];
   if (c.btc) ctx.push(`BTC ${signo(c.btc.puntuacion)}`);
   if (c.fng) ctx.push(`Fear & Greed ${c.fng.valor} (${c.fng.clase})`);
+  for (const x of c.macro ?? []) ctx.push(`${x.nombre} ${signo(x.cambio_24h)} % 24 h${x.choque ? ' (BRUSCO)' : ''}`);
   out.push(`Contexto: ${ctx.join(' · ')}`);
   if (c.btc) {
     const b = c.btc, rel = b.relacion;

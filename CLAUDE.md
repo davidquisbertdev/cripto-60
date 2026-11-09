@@ -35,6 +35,7 @@ The product never touches the user's exchange account; orders are placed by hand
 | `lib/plan.mjs` | Trade plan: SL, TPs, contracts, leverage (from USDT target, capped by risk %, exchange max, liquidation ≥2× SL distance), scenarios in USDT. |
 | `lib/simulacion.mjs`, `historial.mjs` | Monte Carlo on real candles; ~28 h real backtest of the same signal with fees ("historial real manda": negative → NO OPERAR). |
 | `lib/ballenas.mjs`, `noticias.mjs` | Hyperliquid whales, top traders, OI, walls, `billeteraHL(dir)` (all positions of one wallet + 24 h activity; HL only returns the latest 2000 fills, hours for big whales, so open dates are not shown); leaderboard memoized in memory 12 h. RSS news + Fear & Greed (`miedoCodicia` with 30-day `historial`, `efectoFNG(fng, lado)`). |
+| `lib/macro.mjs` | Gold (XAUUSDT) and WTI oil (CLUSDT) from Binance TradFi perps: changes 1 h/4 h/24 h/7 d, 24 h curve, 1 h correlation with BTC over 7 d. `efectoMacro`: a sudden move (gold ≥1.2 % / oil ≥2 % in 1 h) → alert and −5 confidence; never in the score. Used by `analizarSimbolo` (`a.macro`), the signal (`contexto.macro`) and `informeBTC` (`macro`). |
 | `lib/diario.mjs`, `config.mjs`, `formato.mjs` | Journal state + daily brakes (pure); CLI config/journal files in `trader/`; formatting + arg parsing (`parseDuracion`). |
 | `cripto-senal/` | Signal (LONG/SHORT/NO OPERAR + MEJOR ENTRADA). `generarSenal(a, op, cfg)`. Per side it applies the BTC filter, `efectoFNG` and `efectoBallenas` (whales strongly against → one level down). Output `ballenas.hl` = whale LONG/SHORT split for the web. |
 | `cripto-posicion/` | Open-position review. `cargarPosicion(op, cfg, ahora, sym, senal)` (accepts `reparto`, `duracion`), `evaluar`. |
@@ -61,7 +62,7 @@ The product never touches the user's exchange account; orders are placed by hand
 - `src/lib/usar.ts`: `usePeticion` accepts a cache `clave`: re-entering a screen shows the cached response instantly without re-requesting it (BTC, Ballenas, wallet dialog, Noticias, Escáner); only the refresh button (`run`) fetches fresh. The cache lives in memory while the app session lasts.
 - `src/lib/tipos.ts`: TS types of engine output (only fields the web uses).
 - `src/components/`: `Shell` (collapsible sidebar, state in localStorage `cripto60-nav-plegada`; `ConfirmarSalida` logout modal), `ui.tsx` (Panel, Campo, Nota, KV, Filas…), `graficos.tsx` (Reloj, BarraProb, Escalera, CurvaCapital, LineaSerie, MedidorFNG, Histograma), `MercadoHoy` ("Cómo está el mercado hoy" panels on Inicio, uses `mercado`), `EditorTPs` (1–3 TPs + % split, used in Senal and Ajustes), `SelectorMoneda` (searchable coin combobox; Binance 24h tickers, fallback list, cached in sessionStorage).
-- `src/screens/`: `Inicio` (+ market of the day), `Senal` (coin — default BTC —, capital, margin, target, **duration**, **TPs for this signal**, whales panel), `Posicion` (followed position + manual review with 1–3 TPs and % split; change duration of the running trade), `Mercado` (Btc, Ballenas with wallet dialog `VerBilletera`, Noticias with F&G 30 d, Escaner with "Señal completa" column), `Cuenta` (Diario, Ajustes incl. leverage cap up to 500x, default duration/TP1 wait and TPs, Legal = Términos y condiciones), `Acceso`, `Suscripcion`.
+- `src/screens/`: `Inicio` (+ market of the day), `Senal` (coin — default BTC —, capital, margin, target, **duration**, **TPs for this signal**, whales panel), `Posicion` (followed position + manual review with 1–3 TPs and % split; change duration of the running trade), `Mercado` (Btc with gold/oil panels `OroPetroleo`, Ballenas with wallet dialog `VerBilletera`, Noticias with F&G 30 d, Escaner with "Señal completa" column), `Cuenta` (Diario, Ajustes incl. leverage cap up to 500x, default duration/TP1 wait and TPs, Legal = Términos y condiciones), `Acceso`, `Suscripcion`.
 - Payment QR image goes in `app/public/pago/binance-qr.png` (page shows a warning if missing).
 - Styles: `src/styles/base.css` (tokens, light/dark) and `ui.css` (components). Reuse existing classes (`panel`, `field`, `seg`, `chip`, `combo`, `dialog`, `sus-*`).
 
@@ -81,7 +82,7 @@ Admin flow after payment: create the user in Supabase Auth → Users, then run
 - Journal brakes: 2 losses in a row → 30 min pause + half risk; 4 losses or −20 % in the day → stop until tomorrow.
 - Duration: default 60 min (settings 15–1440); TP1 wait scales with it unless set. Per-trade override via `params.duracion` (signal) / `duracion` (position).
 - TPs: default 3 (50/25/25 % at 1R/1.8R/2.6R); 1–3 TPs with any split summing 100, in Ajustes or per signal. History, simulation and sizing use the same split.
-- Whales and Fear & Greed weigh in but never decide alone: whales strongly against a side → one level down; F&G extremes (≤20 / ≥80) going with the crowd → −5 confidence.
+- Whales and Fear & Greed weigh in but never decide alone: whales strongly against a side → one level down; F&G extremes (≤20 / ≥80) going with the crowd → −5 confidence. Gold/oil only count on a sudden 1 h move (−5 confidence + alert).
 
 ## Commands
 
