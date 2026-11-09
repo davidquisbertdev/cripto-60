@@ -51,7 +51,7 @@ export function Btc() {
   const b = r.datos?.btc, alt = r.datos?.alt;
   const fila = (que: string, f: FiltroBTC) => ({ k: que, v: f.bloquea ? 'bloqueado por BTC' : f.estado + (f.bajar ? ' · baja un nivel' : ''), cls: f.bloquea || f.estado === 'en contra' ? 'loss' : f.estado === 'a favor' ? 'gain' : '' });
   return (
-    <Pagina titulo="BTC" acciones={<><Buscador valor={moneda} onBuscar={setMoneda} etiqueta="Comparar con una altcoin" placeholder="Altcoin" /><button className="btn btn-sm icon-btn" onClick={r.run} disabled={r.cargando} aria-label="Actualizar"><RefreshCw size={14} /></button></>}>
+    <Pagina titulo="BTC" acciones={<><Buscador valor={moneda} onBuscar={setMoneda} etiqueta="Comparar con una altcoin" placeholder="Altcoin" /><button className="btn btn-sm icon-btn" onClick={r.run} disabled={r.cargando} aria-busy={r.cargando} aria-label={r.cargando ? 'Actualizando' : 'Actualizar'}><RefreshCw size={14} className={r.cargando ? 'girando' : undefined} aria-hidden /></button></>}>
       {r.cargando && !r.datos ? <Esqueleto filas={5} /> : r.error ? <ErrorEstado mensaje={r.error} reintentar={r.run} /> : b && (
         <div className="grid g-main">
           <div className="stack">
@@ -106,7 +106,7 @@ export function Ballenas() {
   const [billetera, setBilletera] = useState<string | null>(null);
   const comp: Record<string, string> = { hl_posiciones: 'Posiciones en Hyperliquid', hl_flujo: 'Flujo de las ballenas', top_traders: 'Top traders vs minoristas', taker: 'Compra/venta agresiva', open_interest: 'Open interest', grandes: 'Operaciones grandes' };
   return (
-    <Pagina titulo="Ballenas" acciones={<><Buscador valor={moneda} onBuscar={setMoneda} /><button className="btn btn-sm icon-btn" onClick={r.run} disabled={r.cargando} aria-label="Actualizar"><RefreshCw size={14} /></button></>}>
+    <Pagina titulo="Ballenas" acciones={<><Buscador valor={moneda} onBuscar={setMoneda} /><button className="btn btn-sm icon-btn" onClick={r.run} disabled={r.cargando} aria-busy={r.cargando} aria-label={r.cargando ? 'Actualizando' : 'Actualizar'}><RefreshCw size={14} className={r.cargando ? 'girando' : undefined} aria-hidden /></button></>}>
       {r.cargando && !b ? <Esqueleto filas={6} /> : r.error ? <ErrorEstado mensaje={r.error} reintentar={r.run} /> : b && (
         <div className="grid g-main">
           <div className="stack">
@@ -326,7 +326,7 @@ export function Escaner() {
     </th>
   );
   return (
-    <Pagina titulo="Escáner" acciones={<button className="btn btn-sm" onClick={r.run} disabled={r.cargando}><RefreshCw size={14} aria-hidden />{r.cargando ? 'Escaneando…' : 'Escanear'}</button>}>
+    <Pagina titulo="Escáner" acciones={<button className="btn btn-sm" onClick={r.run} disabled={r.cargando} aria-busy={r.cargando}><RefreshCw size={14} aria-hidden className={r.cargando ? 'girando' : undefined} />{r.cargando ? 'Escaneando…' : 'Escanear'}</button>}>
       {r.cargando && !e ? <Esqueleto filas={10} alto={14} /> : r.error ? <ErrorEstado mensaje={r.error} reintentar={r.run} /> : e && (
         <>
           <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>

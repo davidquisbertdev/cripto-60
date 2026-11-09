@@ -31,7 +31,7 @@ export function Sentimiento30({ fng }: { fng: FNG }) {
 export function MercadoHoy() {
   const r = usePeticion(() => backend.motor<InformeMercado>('mercado'), []);
   const m = r.datos;
-  const act = <button className="btn btn-sm icon-btn" onClick={r.run} disabled={r.cargando} aria-label="Actualizar el mercado"><RefreshCw size={14} /></button>;
+  const act = <button className="btn btn-sm icon-btn" onClick={r.run} disabled={r.cargando} aria-busy={r.cargando} aria-label={r.cargando ? 'Actualizando el mercado' : 'Actualizar el mercado'}><RefreshCw size={14} className={r.cargando ? 'girando' : undefined} aria-hidden /></button>;
   if (r.cargando && !m) return <Panel titulo="Cómo está el mercado hoy"><Esqueleto filas={4} /></Panel>;
   if (r.error) return <Panel titulo="Cómo está el mercado hoy"><ErrorEstado mensaje={r.error} reintentar={r.run} /></Panel>;
   if (!m) return null;

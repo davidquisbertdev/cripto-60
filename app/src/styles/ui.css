@@ -439,3 +439,9 @@ table.t { width: 100%; border-collapse: collapse; font-size: var(--fs-md); }
 .link-btn { background: none; border: 0; padding: 0; color: var(--accent); font: inherit; cursor: pointer; text-align: left; }
 .link-btn:hover { color: var(--accent-hover); text-decoration: underline; }
 .link-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 2px; }
+
+/* Icono de recargar girando mientras carga (sin movimiento: parpadeo suave) */
+@keyframes girar { to { transform: rotate(360deg); } }
+@keyframes latir { 50% { opacity: 0.35; } }
+.girando { animation: girar 0.9s linear infinite; transform-origin: center; }
+@media (prefers-reduced-motion: reduce) { .girando { animation: latir 1.2s ease-in-out infinite; } }
