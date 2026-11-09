@@ -60,7 +60,12 @@ export function ProveedorSesion({ children }: { children: ReactNode }) {
   }, []);
 
   const aviso = useCallback((msg: string) => { setToast(msg); setTimeout(() => setToast(null), 3200); }, []);
-  const salir = useCallback(async () => { await supabase?.auth.signOut(); setPerfil(null); setEstado(null); setErrorPerfil(null); }, []);
+  // Cierra solo la sesión de este dispositivo: con scope global el servidor responde 403 si la sesión
+  // ya no existe allí (caducada o cerrada en otro lado), aunque igual se borre la local.
+  const salir = useCallback(async () => {
+    try { await supabase?.auth.signOut({ scope: 'local' }); } catch { /* la sesión local se descarta igual */ }
+    setPerfil(null); setEstado(null); setErrorPerfil(null);
+  }, []);
 
   const suscrita = backend.demo ? true : !perfil ? null : !!perfil.activo && (!perfil.suscripcion_hasta || Date.parse(perfil.suscripcion_hasta) > Date.now());
 
