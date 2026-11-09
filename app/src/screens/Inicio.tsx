@@ -89,7 +89,7 @@ function Alta() {
             <ShieldCheck size={16} aria-hidden />
             <div style={{ display: 'grid', gap: 6 }}>
               <span><strong>No es asesoría financiera.</strong> Los futuros apalancados pueden liquidarte y la mayoría de quienes hacen trading pierden dinero. Opera solo lo que puedas perder. Las órdenes las pones tú en tu exchange: esta app nunca toca tu cuenta.</span>
-              <Link to="/legal">Leer la letra pequeña completa</Link>
+              <Link to="/terminos">Leer los términos y condiciones</Link>
             </div>
           </div>
           <label style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>

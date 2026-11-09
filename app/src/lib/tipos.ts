@@ -59,7 +59,7 @@ export interface EvalPosicion {
   noticias_nuevas: Noticia[];
   ballenas: { lectura: string; en_contra: boolean; frases: string[] } | null;
   btc: { lectura: string; estado: string; en_contra: boolean; texto: string | null } | null;
-  posicion: { lado: Lado; entrada: number; sl: number; tps: number[]; abierta: number; espera_max_min: number; duracion_max_min: number; estrategia: Estrategia; contratos: number | null };
+  posicion: { lado: Lado; entrada: number; sl: number; tps: number[]; reparto?: number[]; abierta: number; espera_max_min: number; duracion_max_min: number; estrategia: Estrategia; contratos: number | null };
 }
 export interface FiltroBTC { estado: string; ajuste_conf: number; bloquea: boolean; bajar: number; texto: string | null }
 export interface InformeBTC {
@@ -85,8 +85,9 @@ export interface InformeEscaner { ahora: number; exchange: string; btc: number; 
 export interface Ajustes {
   exchange?: 'BINANCE' | 'BYBIT' | 'MEXC'; zona_horaria?: string | null; objetivo_usdt?: number; margen_base?: number; reinversion_pct?: number; apalancamiento_max?: number;
   riesgo_por_confianza?: { ALTA: number; MEDIA: number; BAJA: number }; max_perdida_dia_pct?: number; max_operaciones_dia?: number; max_operaciones_hora?: number; pausa_min?: number;
+  duracion_max_min?: number; espera_max_min?: number;
 }
 export interface Estado { ahora: number; cfg: Required<Ajustes> & Record<string, unknown>; diario: EstadoDiario | null; posicion_abierta: PosicionGuardada | null }
 export interface Operacion { id: number; fecha: string; simbolo: string; lado: Lado | null; pnl: number; margen: number | null; nota: string | null }
-export interface Perfil { id: string; nombre: string | null; capital_inicial: number | null; ajustes: Ajustes; acepto_aviso_en: string | null }
-export interface PosicionGuardada { id: number; base: string; lado: Lado; entrada: number; sl: number; tps: number[]; contratos: number | null; estrategia: Estrategia; abierta: string; senal_id: number | null }
+export interface Perfil { id: string; nombre: string | null; capital_inicial: number | null; ajustes: Ajustes; acepto_aviso_en: string | null; activo?: boolean; suscripcion_hasta?: string | null }
+export interface PosicionGuardada { id: number; base: string; lado: Lado; entrada: number; sl: number; tps: number[]; contratos: number | null; estrategia: Estrategia; abierta: string; senal_id: number | null; duracion_max_min?: number | null }

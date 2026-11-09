@@ -37,6 +37,15 @@ export function cargarPosicion(op, cfg, ahora, sym, senal = undefined) {
   if (op.abierta) pos.abierta = parseFecha(op.abierta);
   if (op.hace) pos.abierta = ahora - parseDuracion(op.hace) * 60e3;
   if (op.espera) pos.espera_max_min = parseDuracion(op.espera);
+  if (op.duracion) {
+    // más (o menos) tiempo para la operación: el cierre total pasa a `duracion`; si no se indica la
+    // espera del TP1, se escala en la misma proporción (30 de 60 → 60 de 120)
+    const d = parseDuracion(op.duracion);
+    if (!(d >= 5 && d <= 1440)) throw new Error(`La duración debe estar entre 5 min y 24 h (${op.duracion}).`);
+    const prev = pos.duracion_max_min ?? cfg.duracion_max_min;
+    if (!op.espera) pos.espera_max_min = Math.max(5, Math.min(d, Math.round(((pos.espera_max_min ?? cfg.espera_max_min) * d) / prev)));
+    pos.duracion_max_min = d;
+  }
   if (op.estrategia) pos.estrategia = op.estrategia.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
   pos.estrategia = pos.estrategia ?? 'tendencia';
   if (!['tendencia', 'reversion'].includes(pos.estrategia)) throw new Error('--estrategia debe ser tendencia o reversion');
@@ -48,7 +57,25 @@ export function cargarPosicion(op, cfg, ahora, sym, senal = undefined) {
   pos.abierta = pos.abierta ?? ahora;
   pos.espera_max_min = pos.espera_max_min ?? cfg.espera_max_min;
   pos.duracion_max_min = pos.duracion_max_min ?? cfg.duracion_max_min;
-  const repDefecto = pos.tps.length === 3 ? cfg.reparto_tps : pos.tps.length === 2 ? [50, 50, 0] : [100, 0, 0];
+  // reparto a mano (% que cierra cada TP, uno por TP, suma 100); si no, el del plan según cuántos TPs hay
+  let repDefecto = pos.tps.length === 3 ? cfg.reparto_tps : pos.tps.length === 2 ? [50, 50, 0] : [100, 0, 0];
+  if (op.reparto) {
+    const r = (Array.isArray(op.reparto) ? op.reparto : String(op.reparto).split(/[,\s/]+/).filter(Boolean)).map(Number);
+    if (r.length !== pos.tps.length || r.some((x) => !(x > 0)) || Math.abs(r.reduce((x, y) => x + y, 0) - 100) > 0.01)
+      throw new Error(`El reparto de los TP debe tener ${pos.tps.length} porcentaje(s) mayores que 0 que sumen 100.`);
+    repDefecto = [...r, 0, 0].slice(0, 3);
+    pos.partes = null; // las partes de la señal ya no valen con otro reparto
+    if (pos.contratos) {
+      // contratos enteros por TP según el reparto; el último TP se lleva el resto
+      let resto = pos.contratos;
+      pos.partes = repDefecto.map((x, i) => {
+        if (i >= pos.tps.length) return 0;
+        const c = i === pos.tps.length - 1 ? resto : Math.min(resto, Math.round((pos.contratos * x) / 100));
+        resto -= c;
+        return c;
+      });
+    }
+  }
   if (pos.contratos && !pos.partes) pos.partes = repartir(pos.contratos, repDefecto).map((c, i) => (i < pos.tps.length ? c : 0));
   pos.reparto = pos.partes && pos.contratos ? pos.partes.map((c) => (100 * c) / pos.contratos) : repDefecto;
   while (pos.tps.length < 3) pos.tps.push(L * Infinity); // TP que no existe: inalcanzable
@@ -228,7 +255,7 @@ async function main() {
   const { pos, op } = args(process.argv.slice(2), {
     flags: ['json', 'sin_noticias', 'sin_ballenas'], numeros: ['entrada', 'sl', 'tp1', 'tp2', 'tp3', 'contratos'],
   });
-  if (!pos[0]) throw new Error('Uso: posicion.mjs SOL [--entrada X --sl Y --tp1 A --tp2 B --tp3 C --lado long --hace 10m]');
+  if (!pos[0]) throw new Error('Uso: posicion.mjs SOL [--entrada X --sl Y --tp1 A --tp2 B --tp3 C --reparto 50,25,25 --lado long --hace 10m --duracion 2h]');
   const cfg = leerConfig(op.config);
   const fuente = crearFuente({ exchange: op.exchange, cfg, offline: op.offline, grabar: op.grabar });
   const p = cargarPosicion(op, cfg, fuente.ahora(), pos[0]);

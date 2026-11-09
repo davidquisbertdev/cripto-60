@@ -10,6 +10,9 @@ interface Ctx {
   sesion: Session | null;
   demo: boolean;
   perfil: Perfil | null;
+  /** null mientras carga el perfil; en modo demo siempre true */
+  suscrita: boolean | null;
+  errorPerfil: string | null;
   estado: Estado | null;
   refrescar: () => Promise<void>;
   salir: () => Promise<void>;
@@ -25,6 +28,7 @@ export function ProveedorSesion({ children }: { children: ReactNode }) {
   const [perfil, setPerfil] = useState<Perfil | null>(null);
   const [estado, setEstado] = useState<Estado | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  const [errorPerfil, setErrorPerfil] = useState<string | null>(null);
   const dentro = !supabase || !!sesion;
 
   useEffect(() => {
@@ -36,8 +40,13 @@ export function ProveedorSesion({ children }: { children: ReactNode }) {
 
   const refrescar = useCallback(async () => {
     if (!dentro) return;
-    const [p, e] = await Promise.all([backend.perfil(), backend.motor<Estado>('estado').catch(() => null)]);
+    let p: Perfil;
+    try { p = await backend.perfil(); setErrorPerfil(null); }
+    catch (x) { setErrorPerfil((x as Error).message || 'No se pudo leer tu cuenta.'); return; }
     setPerfil(p);
+    // sin suscripción el motor responde 402: no se le llama
+    const activa = backend.demo || (!!p.activo && (!p.suscripcion_hasta || Date.parse(p.suscripcion_hasta) > Date.now()));
+    const e = activa ? await backend.motor<Estado>('estado').catch(() => null) : null;
     if (e) { setEstado(e); fijarZona(p.ajustes?.zona_horaria || null); }
   }, [dentro]);
 
@@ -51,7 +60,9 @@ export function ProveedorSesion({ children }: { children: ReactNode }) {
   }, []);
 
   const aviso = useCallback((msg: string) => { setToast(msg); setTimeout(() => setToast(null), 3200); }, []);
-  const salir = useCallback(async () => { await supabase?.auth.signOut(); setPerfil(null); setEstado(null); }, []);
+  const salir = useCallback(async () => { await supabase?.auth.signOut(); setPerfil(null); setEstado(null); setErrorPerfil(null); }, []);
 
-  return <C.Provider value={{ listo, sesion, demo: backend.demo, perfil, estado, refrescar, salir, aviso, toast }}>{children}</C.Provider>;
+  const suscrita = backend.demo ? true : !perfil ? null : !!perfil.activo && (!perfil.suscripcion_hasta || Date.parse(perfil.suscripcion_hasta) > Date.now());
+
+  return <C.Provider value={{ listo, sesion, demo: backend.demo, perfil, suscrita, errorPerfil, estado, refrescar, salir, aviso, toast }}>{children}</C.Provider>;
 }

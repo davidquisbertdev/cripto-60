@@ -1,10 +1,11 @@
 import { useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
-import { CandlestickChart } from 'lucide-react';
+import { CandlestickChart, Crown } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { Campo, Nota } from '../components/ui';
 
-type Modo = 'entrar' | 'crear' | 'recuperar';
+// Solo entrar o recuperar la contraseña: las cuentas nuevas se crean al activar una suscripción.
+type Modo = 'entrar' | 'recuperar';
 
 export function Acceso() {
   const [modo, setModo] = useState<Modo>('entrar');
@@ -17,17 +18,13 @@ export function Acceso() {
   const enviar = async (e: FormEvent) => {
     e.preventDefault();
     if (!/^\S+@\S+\.\S+$/.test(email)) { setErr('Escribe un correo válido.'); return; }
-    if (modo !== 'recuperar' && clave.length < 8) { setErr('La contraseña debe tener al menos 8 caracteres.'); return; }
+    if (modo === 'entrar' && clave.length < 8) { setErr('La contraseña debe tener al menos 8 caracteres.'); return; }
     setErr(null); setOk(null); setEnviando(true);
     const sb = supabase!;
     try {
       if (modo === 'entrar') {
         const { error } = await sb.auth.signInWithPassword({ email, password: clave });
         if (error) throw new Error(error.message === 'Invalid login credentials' ? 'Correo o contraseña incorrectos.' : error.message);
-      } else if (modo === 'crear') {
-        const { error } = await sb.auth.signUp({ email, password: clave, options: { emailRedirectTo: location.origin } });
-        if (error) throw error;
-        setOk('Te enviamos un correo para confirmar la cuenta. Ábrelo y vuelve aquí para entrar.');
       } else {
         const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo: location.origin });
         if (error) throw error;
@@ -37,7 +34,8 @@ export function Acceso() {
     finally { setEnviando(false); }
   };
 
-  const titulo = { entrar: 'Entrar', crear: 'Crear cuenta', recuperar: 'Recuperar contraseña' }[modo];
+  const cambiar = (m: Modo) => { setModo(m); setOk(null); setErr(null); };
+  const titulo = modo === 'entrar' ? 'Entrar' : 'Recuperar contraseña';
   return (
     <div className="auth">
       <div className="auth-side">
@@ -54,22 +52,21 @@ export function Acceso() {
           {ok ? <Nota tono="gain">{ok}</Nota> : (
             <>
               <Campo etiqueta="Correo"><input className="input" type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} autoFocus /></Campo>
-              {modo !== 'recuperar' && (
-                <Campo etiqueta="Contraseña" hint={modo === 'crear' ? 'Al menos 8 caracteres.' : undefined}>
-                  <input className="input" type="password" autoComplete={modo === 'crear' ? 'new-password' : 'current-password'} value={clave} onChange={(e) => setClave(e.target.value)} />
-                </Campo>
+              {modo === 'entrar' && (
+                <Campo etiqueta="Contraseña"><input className="input" type="password" autoComplete="current-password" value={clave} onChange={(e) => setClave(e.target.value)} /></Campo>
               )}
               {err && <Nota tono="warn">{err}</Nota>}
               <button className="btn btn-primary btn-lg" disabled={enviando}>{enviando ? 'Un momento…' : titulo}</button>
             </>
           )}
-          <div className="divider">o</div>
           <div style={{ display: 'grid', gap: 6, justifyItems: 'start', fontSize: 14 }}>
-            {modo !== 'entrar' && <button type="button" className="btn btn-ghost btn-sm" onClick={() => { setModo('entrar'); setOk(null); setErr(null); }}>Ya tengo cuenta: entrar</button>}
-            {modo !== 'crear' && <button type="button" className="btn btn-ghost btn-sm" onClick={() => { setModo('crear'); setOk(null); setErr(null); }}>Crear una cuenta nueva</button>}
-            {modo === 'entrar' && <button type="button" className="btn btn-ghost btn-sm" onClick={() => { setModo('recuperar'); setOk(null); setErr(null); }}>Olvidé mi contraseña</button>}
+            {modo === 'entrar'
+              ? <button type="button" className="btn btn-ghost btn-sm" onClick={() => cambiar('recuperar')}>Olvidé mi contraseña</button>
+              : <button type="button" className="btn btn-ghost btn-sm" onClick={() => cambiar('entrar')}>Volver a entrar</button>}
           </div>
-          <p className="faint" style={{ fontSize: 12 }}>Al crear la cuenta aceptas la <Link to="/legal">letra pequeña</Link>.</p>
+          <div className="divider">¿Sin cuenta?</div>
+          <Link className="btn btn-block" to="/suscripcion"><Crown size={16} aria-hidden />Ver la suscripción: 100 USDT al mes</Link>
+          <p className="faint" style={{ fontSize: 12 }}>Las cuentas se crean al activar la suscripción. Al entrar aceptas los <Link to="/terminos">términos y condiciones</Link>.</p>
         </form>
       </div>
     </div>

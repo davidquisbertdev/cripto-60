@@ -1,14 +1,18 @@
-// Diario, Ajustes y Letra pequeña.
+// Diario, Ajustes y Términos y condiciones.
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { BookOpen, Download, Plus, Trash2 } from 'lucide-react';
 import { Pagina } from '../components/Shell';
 import { Campo, ErrorEstado, Esqueleto, Filas, KV, LadoTag, Nota, Panel, Vacio } from '../components/ui';
 import { CurvaCapital } from '../components/graficos';
+import { SelectorMoneda } from '../components/SelectorMoneda';
 import { backend, reiniciarDemo } from '../lib/api';
 import { useSesion } from '../lib/sesion';
 import { usePeticion } from '../lib/usar';
 import { diaClave, nombreExchange, fechaCorta, fechaHora, pct, tono, usdt, usdtSigno, zonaNavegador } from '../lib/formato';
 import type { Ajustes as TAjustes, Lado } from '../lib/tipos';
+import { DEFAULTS } from '../../../lib/defaults.mjs';
+
+const TOPE_LEV = DEFAULTS.apalancamiento_tope;
 
 // ---------------- Diario ----------------
 export function Diario() {
@@ -98,7 +102,7 @@ function Registrar({ onHecho }: { onHecho: () => Promise<void> }) {
     <Panel titulo="Registrar operación">
       <form onSubmit={enviar} style={{ display: 'grid', gap: 12 }} noValidate>
         <div className="form-row">
-          <Campo etiqueta="Moneda"><input className="input" value={f.simbolo} onChange={(e) => setF({ ...f, simbolo: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '') })} placeholder="SOL" /></Campo>
+          <Campo etiqueta="Moneda"><SelectorMoneda valor={f.simbolo} onCambio={(m) => setF((x) => ({ ...x, simbolo: m }))} placeholder="SOL" /></Campo>
           <div className="field"><span>Lado</span><div className="seg" role="group" aria-label="Lado">{(['LONG', 'SHORT'] as Lado[]).map((l) => <button type="button" key={l} aria-pressed={f.lado === l} onClick={() => setF({ ...f, lado: l })}>{l}</button>)}</div></div>
         </div>
         <Campo etiqueta="Resultado" hint="Con comisiones, el que muestra tu exchange. Negativo si perdiste.">
@@ -133,6 +137,9 @@ export function Ajustes() {
     e.preventDefault();
     const c = Number(capital.replace(',', '.'));
     if (!(c > 0)) { setErr('El capital inicial debe ser mayor que 0.'); return; }
+    const dur = a.duracion_max_min ?? cfg.duracion_max_min;
+    if (!(dur >= 15 && dur <= 1440)) { setErr('La duración de la operación va de 15 a 1440 minutos.'); return; }
+    if (a.espera_max_min != null && !(a.espera_max_min >= 5 && a.espera_max_min <= dur)) { setErr(`La espera del TP1 va de 5 min a la duración (${dur} min).`); return; }
     setErr(null); setGuardando(true);
     try { await backend.guardarPerfil({ ajustes: a, capital_inicial: c }); await refrescar(); aviso('Ajustes guardados'); }
     catch (x) { setErr((x as Error).message); }
@@ -164,13 +171,29 @@ export function Ajustes() {
                 {num('margen_base', 'Margen base', 'USDT', 'Lo que pones por operación.', 100000)}
                 {num('reinversion_pct', 'Reinversión de ganancias', '%', 'Se suma al margen sugerido.', 100)}
               </div>
+              <div className="form-row">
+                <Campo etiqueta="Duración de la operación" hint={`Cierre total. Por defecto ${DEFAULTS.duracion_max_min} min; en cada señal o posición puedes pedir otra.`}>
+                  <div className="input-wrap"><input className="input num" type="number" min={15} max={1440} step={5} value={String(a.duracion_max_min ?? cfg.duracion_max_min)} onChange={(e) => setA({ ...a, duracion_max_min: e.target.value === '' ? undefined : Number(e.target.value), espera_max_min: undefined })} /><span className="suf">min</span></div>
+                  <div className="chips" role="group" aria-label="Duraciones rápidas">
+                    {[30, 60, 90, 120, 240].map((x) => <button type="button" key={x} className="chip" aria-pressed={Number(a.duracion_max_min ?? cfg.duracion_max_min) === x} onClick={() => setA({ ...a, duracion_max_min: x, espera_max_min: undefined })}>{x} min</button>)}
+                  </div>
+                </Campo>
+                <Campo etiqueta="Sin TP1, cerrar a los" hint={a.espera_max_min == null ? `Se ajusta sola: la mitad de la duración (${Math.round(((a.duracion_max_min ?? cfg.duracion_max_min) * DEFAULTS.espera_max_min) / DEFAULTS.duracion_max_min)} min).` : 'Nunca más que la duración.'}>
+                  <div className="input-wrap"><input className="input num" type="number" min={5} max={1440} step={5} value={String(a.espera_max_min ?? Math.round(((a.duracion_max_min ?? cfg.duracion_max_min) * DEFAULTS.espera_max_min) / DEFAULTS.duracion_max_min))} onChange={n('espera_max_min')} /><span className="suf">min</span></div>
+                </Campo>
+              </div>
             </div>
           </Panel>
           <Panel titulo="Riesgo">
             <div style={{ display: 'grid', gap: 16 }}>
-              <Nota>Estos frenos solo pueden ser <strong>más estrictos</strong> que los del motor: 30x de apalancamiento, 10 % de pérdida por operación y 20 % por día como máximo. Un valor mayor se recorta.</Nota>
+              <Nota>Las pérdidas solo pueden ser <strong>más estrictas</strong> que las del motor: 10 % por operación y 20 % por día como máximo. El apalancamiento lo eliges tú, pero el plan nunca pasa el máximo de la moneda en el exchange ni deja la liquidación a menos del doble de distancia que el SL.</Nota>
               <div className="form-row">
-                {num('apalancamiento_max', 'Apalancamiento máximo', 'x', 'Tope del motor: 30x.', 30)}
+                <Campo etiqueta="Apalancamiento máximo" hint={`Por defecto ${DEFAULTS.apalancamiento_max}x, hasta ${TOPE_LEV}x. Con más apalancamiento la liquidación queda más cerca.`}>
+                  <div className="input-wrap"><input className="input num" type="number" min={1} max={TOPE_LEV} step={1} value={String(v('apalancamiento_max') ?? '')} onChange={n('apalancamiento_max')} /><span className="suf">x</span></div>
+                  <div className="chips" role="group" aria-label="Valores rápidos">
+                    {[30, 50, 100, 200, 500].map((x) => <button type="button" key={x} className="chip" aria-pressed={Number(v('apalancamiento_max')) === x} onClick={() => setA({ ...a, apalancamiento_max: x })}>{x}x</button>)}
+                  </div>
+                </Campo>
                 {num('max_perdida_dia_pct', 'Pérdida máxima del día', '%', 'Al llegar, se para hasta mañana.', 20)}
               </div>
               <div className="form-row">
@@ -201,7 +224,7 @@ export function Ajustes() {
             ]} />
             {demo && <button type="button" className="btn btn-sm" style={{ marginTop: 12 }} onClick={() => { reiniciarDemo(); location.reload(); }}>Reiniciar la demo</button>}
           </Panel>
-          <Panel titulo="Reglas fijas del plan">
+          <Panel titulo="Reglas del plan">
             <Filas items={[
               { k: 'SL', v: '0.3 % a 0.8 %, calibrado por tiempo' },
               { k: 'TPs', v: '1R · 1.8R · 2.6R' },
@@ -218,10 +241,10 @@ export function Ajustes() {
   );
 }
 
-// ---------------- Letra pequeña ----------------
+// ---------------- Términos y condiciones ----------------
 export function Legal() {
   return (
-    <Pagina titulo="Letra pequeña">
+    <Pagina titulo="Términos y condiciones">
       <article className="prose">
         <p><strong>No es asesoría financiera.</strong> Cripto60 es software que lee datos públicos y hace cálculos. Los futuros apalancados pueden liquidarte, y la mayoría de quienes hacen trading pierden dinero. Opera solo lo que puedas perder.</p>
         <h2>La confianza no es una probabilidad</h2>

@@ -82,7 +82,8 @@ marcando, en MEXC, las que tienen **0 comisión**.
 - **SL con espacio**: entre 0.3 % y 0.8 % (de 0.9 a 2 ATR de 5m), elegido para que
   la operación se resuelva en 15 a 30 min y un pequeño retroceso no te saque.
 - **TPs a 1R, 1.8R y 2.6R**: el TP1 cierra el 50 %, el TP2 el 75 % y el TP3 el
-  100 %. Tras el TP1, SL a la entrada.
+  100 %. Tras el TP1, SL a la entrada. Al revisar una posición abierta a mano
+  puedes indicar **1, 2 o 3 TPs** y el % que cierra cada uno (`--reparto 70,30`).
 - **Apalancamiento calculado para tu objetivo** (3 USDT por defecto):
   posición = objetivo / movimiento medio de los TP; apalancamiento = posición /
   margen. **Menos margen o un SL más cerca = más apalancamiento** para la misma
@@ -90,12 +91,17 @@ marcando, en MEXC, las que tienen **0 comisión**.
   en MNT bastaron 10x.
 - **Frenos que el objetivo nunca rompe**: la pérdida en el SL no pasa del 10 % /
   7 % / 4 % del capital (confianza ALTA / MEDIA / BAJA); la liquidación queda
-  siempre al menos al doble de distancia que el SL; el tope es de 30x. Si no
-  llegas a 3 USDT, el informe te dice cuánto y por qué.
+  siempre al menos al doble de distancia que el SL; el apalancamiento máximo es
+  de 30x por defecto y puedes subirlo hasta **500x** (`apalancamiento_max`), pero
+  nunca pasa el máximo de la moneda en el exchange ni acerca la liquidación al SL.
+  Si no llegas a 3 USDT, el informe te dice cuánto y por qué.
 - **La cara B, siempre visible**: para ganar unos 3 USDT con 20 de margen, si salta
   el SL pierdes unos 1.4-2 USDT.
 - **Reloj**: la entrada caduca en 5 min; sin TP1 en 10 a 30 min, se cierra; a los
-  60 min se cierra todo.
+  60 min se cierra todo. La **duración** se cambia por defecto (`duracion_max_min`,
+  de 15 a 1440 min) o en cada operación (`--duracion 2h`); la espera del TP1 se
+  ajusta en la misma proporción (30 de 60 → 60 de 120) y la simulación, el
+  historial real y el reloj se calculan con esa duración.
 - **Diario**: con 2 pérdidas seguidas, pausa de 30 min y riesgo a la mitad; con 4,
   o un 20 % perdido en el día, se para hasta mañana. **Margen sugerido** = 20 +
   50 % de lo ganado: el tamaño crece con tus ganancias.
@@ -127,6 +133,7 @@ Los datos se guardan en `trader/`, en la carpeta donde trabajes:
 ```bash
 node cripto-senal/senal.mjs SOL --capital 10 --objetivo 3
 node cripto-posicion/posicion.mjs SOL --entrada 89.52 --hace 7m
+node cripto-posicion/posicion.mjs SOL --lado long --entrada 89.5 --sl 89.1 --tp1 89.9 --tp2 90.3 --reparto 70,30 --duracion 2h
 node cripto-ballenas/ballenas.mjs SOL
 node cripto-noticias/noticias.mjs SOL MNT --horas 48
 node cripto-escaner/escaner.mjs --top 30
@@ -136,8 +143,19 @@ npm test                                  # tests offline con datos reales graba
 
 ## App web
 
-Además de las skills, el mismo motor tiene una interfaz web (`app/`): Inicio, Señal, Posición, BTC,
-Ballenas, Noticias, Escáner, Diario, Ajustes y Letra pequeña, en móvil y escritorio.
+Además de las skills, el mismo motor tiene una interfaz web, **Cripto60** (`app/`), en móvil y
+escritorio: Inicio, Señal, Posición, BTC, Ballenas, Noticias, Escáner, Diario, Ajustes, Suscripción
+y Términos y condiciones.
+
+- **Señal**: moneda (selector con buscador de los perpetuos USDT de Binance), capital, margen,
+  objetivo y **duración** de la operación.
+- **Posición**: sigue la posición en la que entraste o revisa una a mano con **1, 2 o 3 TPs** y su
+  reparto; puedes **alargar la operación en curso** (p. ej. de 60 a 120 min) y se vuelve a analizar.
+- **Ajustes**: exchange, zona horaria, capital, objetivo, margen, **duración por defecto** y espera
+  del TP1, **apalancamiento máximo** (30x por defecto, hasta 500x) y frenos de pérdida.
+- **Menú lateral plegable** (solo iconos) y confirmación antes de cerrar sesión.
+
+Cómo está hecha:
 
 - **Frontend**: Vite + React + TypeScript en `app/`, publicado en Firebase Hosting.
 - **Backend**: Supabase. Cuentas con Supabase Auth; diario, señales, posición abierta y ajustes en
@@ -148,20 +166,55 @@ Ballenas, Noticias, Escáner, Diario, Ajustes y Letra pequeña, en móvil y escr
 
 ```bash
 npm run web:dev                       # la web en http://localhost:5173 (modo demo)
+npm run web:build                     # comprobación de tipos y build de producción
 npm test                              # tests del motor y de las acciones del servidor
 ```
 
-Para ponerla en producción:
+### Suscripción
+
+El acceso a la web es de pago: **100 USDT al mes con Binance Pay**, sin renovación automática.
+El registro libre está cerrado: no hay botón de crear cuenta.
+
+- La página `/suscripcion` (pública) muestra el precio, qué incluye, el **QR de Binance Pay**
+  (`app/public/pago/binance-qr.png`, descargable) y los pasos: pagar, poner el correo en la nota
+  y mandar el comprobante por WhatsApp. Los datos públicos de pago están en `app/.env`
+  (`VITE_BINANCE_NOMBRE`, `VITE_BINANCE_QR`, `VITE_CONTACTO_URL`, `VITE_CONTACTO_TEXTO`).
+- Cada perfil tiene `activo` y `suscripcion_hasta` (`null` = sin fecha de fin). Sin suscripción
+  activa, la Edge Function responde 402 y la web solo muestra la página para renovar. El usuario
+  no puede cambiar su propia suscripción.
+- Al recibir un pago: crea el usuario en Supabase (Authentication → Users → Add user) y actívalo
+  en el SQL Editor:
+
+```sql
+update public.perfiles set activo = true, suscripcion_hasta = now() + interval '30 days'
+where id = (select id from auth.users where email = 'correo@ejemplo.com');
+```
+
+Para renovar, suma 30 días a `suscripcion_hasta`.
+
+### Producción
 
 1. Crea un proyecto en [Supabase](https://supabase.com) e instala la CLI (`brew install supabase/tap/supabase`).
-2. `supabase link --project-ref <ref>` y `supabase db push` (crea las tablas y las políticas).
-3. `npm run deploy:funciones` (copia el motor a la función y la despliega). Opcional: limita el
+2. Crea tu propia cuenta (Authentication → Users → Add user) **antes** de las migraciones: la de la
+   suscripción deja activas, sin fecha de fin, las cuentas que ya existen.
+3. `supabase link --project-ref <ref>` y `supabase db push` (crea las tablas, las políticas y la suscripción).
+4. En Authentication → Sign In / Providers, desactiva **Allow new users to sign up**.
+5. `npm run deploy:funciones` (copia el motor a la función y la despliega). Opcional: limita el
    origen con `supabase secrets set ORIGENES_PERMITIDOS=https://tu-app.web.app`.
-4. En Authentication → URL Configuration, pon la URL de tu web como Site URL.
-5. Copia `app/.env.example` a `app/.env.local` con la URL y la anon key del proyecto.
-6. Pon tu proyecto de Firebase en `.firebaserc` y `npm run deploy:web`.
+6. En Authentication → URL Configuration, pon la URL de tu web como Site URL.
+7. Copia `app/.env.example` a `app/.env.local` con la URL y la anon key del proyecto.
+8. Pon tu proyecto de Firebase en `.firebaserc` y `npm run deploy:web`.
 
-## Letra pequeña
+Si creaste tu cuenta después de las migraciones, actívala con el SQL de arriba usando
+`suscripcion_hasta = null`.
+
+## Para desarrollar con Claude
+
+`CLAUDE.md` describe el proyecto (estructura, motor, web, Supabase, comandos y convenciones) para
+que cada sesión de Claude Code lo conozca sin explorarlo. Se actualiza en el mismo commit que
+cualquier cambio que afecte lo que describe.
+
+## Términos y condiciones
 
 **No es asesoría financiera.** Es software que lee datos públicos y hace
 cálculos. Los futuros apalancados pueden liquidarte, y la mayoría de quienes

@@ -4,12 +4,12 @@ import { ArrowDownRight, ArrowUpRight, CircleSlash, Clipboard, Eye, Search, Shie
 import { Pagina } from '../components/Shell';
 import { Campo, ErrorEstado, Esqueleto, Filas, KV, LadoTag, NivelTag, Nota, Panel, Vacio } from '../components/ui';
 import { BarraProb, COL, Reloj } from '../components/graficos';
+import { SelectorMoneda } from '../components/SelectorMoneda';
 import { backend } from '../lib/api';
 import { useSesion } from '../lib/sesion';
 import { nombreExchange, estrategiaNombre, hace, hora, numero, pct, pctSigno, precio as fp, usdt, usdtSigno, conSigno } from '../lib/formato';
 import type { Bloqueo, Lado, Senal as TSenal, TP } from '../lib/tipos';
 
-const MONEDAS = ['BTC', 'ETH', 'SOL', 'XRP', 'NEAR', 'ENA', 'HYPE', 'ARB', 'TAO', 'MNT', '1000PEPE', 'DOGE'];
 type Res = (TSenal & { demo_nota?: string | null }) | Bloqueo;
 
 export function Senal() {
@@ -20,6 +20,8 @@ export function Senal() {
   const [capital, setCapital] = useState('');
   const [margen, setMargen] = useState('');
   const [objetivo, setObjetivo] = useState('');
+  const [duracion, setDuracion] = useState('');
+  const [errDur, setErrDur] = useState<string | null>(null);
   const [res, setRes] = useState<Res | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [cargando, setCargando] = useState(false);
@@ -32,7 +34,7 @@ export function Senal() {
     if (relleno.current || !estado) return;
     relleno.current = true;
     if (estado.diario) setCapital(String(estado.diario.capital));
-    if (estado.cfg) setObjetivo(String(estado.cfg.objetivo_usdt));
+    if (estado.cfg) { setObjetivo(String(estado.cfg.objetivo_usdt)); setDuracion(String(estado.cfg.duracion_max_min)); }
   }, [estado]);
 
   const analizar = async (e?: FormEvent, capitalInicial?: string) => {
@@ -42,9 +44,12 @@ export function Senal() {
     const cap = capitalInicial ?? capital;
     setErrCampo(null);
     if (!(Number(cap.replace(',', '.')) > 0)) { setErrCapital('Indica tu capital en USDT, por ejemplo 20.'); return; }
-    setErrCapital(null); setError(null); setCargando(true);
+    setErrCapital(null);
+    const dur = duracion.trim() === '' ? undefined : Number(duracion);
+    if (dur !== undefined && !(dur >= 15 && dur <= 1440)) { setErrDur('Entre 15 y 1440 minutos.'); return; }
+    setErrDur(null); setError(null); setCargando(true);
     try {
-      const r = await backend.motor<Res>('senal', { moneda: m, capital: cap, margen: margen || undefined, objetivo: objetivo || (estado?.cfg ? String(estado.cfg.objetivo_usdt) : undefined) });
+      const r = await backend.motor<Res>('senal', { moneda: m, capital: cap, margen: margen || undefined, objetivo: objetivo || (estado?.cfg ? String(estado.cfg.objetivo_usdt) : undefined), duracion: dur });
       setRes(r);
     } catch (x) { setError((x as Error).message); setRes(null); }
     finally { setCargando(false); }
@@ -54,7 +59,7 @@ export function Senal() {
 
   const seguir = async (s: TSenal) => {
     try {
-      await backend.abrirPosicion({ base: s.base, lado: s.plan.lado, entrada: s.plan.entrada, sl: s.plan.sl, tps: s.plan.tps.map((t) => t.precio), contratos: s.plan.contratos, estrategia: s.estrategia, senal_id: typeof s.id === 'number' ? s.id : null });
+      await backend.abrirPosicion({ base: s.base, lado: s.plan.lado, entrada: s.plan.entrada, sl: s.plan.sl, tps: s.plan.tps.map((t) => t.precio), contratos: s.plan.contratos, estrategia: s.estrategia, senal_id: typeof s.id === 'number' ? s.id : null, ...(estado && s.duracion_max_min !== estado.cfg.duracion_max_min ? { duracion_max_min: s.duracion_max_min } : {}) });
       await refrescar();
       nav('/posicion');
     } catch (x) { aviso((x as Error).message); }
@@ -65,8 +70,7 @@ export function Senal() {
       <form className="panel" onSubmit={analizar} noValidate>
         <div className="panel-b form-row">
           <Campo etiqueta="Moneda" error={errCampo}>
-            <input className="input" list="monedas" value={moneda} onChange={(e) => setMoneda(e.target.value.toUpperCase())} placeholder="SOL" autoCapitalize="characters" autoComplete="off" aria-invalid={!!errCampo} />
-            <datalist id="monedas">{MONEDAS.map((m) => <option key={m} value={m} />)}</datalist>
+            <SelectorMoneda valor={moneda} onCambio={setMoneda} placeholder="SOL" invalido={!!errCampo} />
           </Campo>
           <Campo etiqueta="Capital" error={errCapital}>
             <div className="input-wrap"><input className="input num" inputMode="decimal" value={capital} onChange={(e) => setCapital(e.target.value)} aria-invalid={!!errCapital} /><span className="suf">USDT</span></div>
@@ -76,6 +80,9 @@ export function Senal() {
           </Campo>
           <Campo etiqueta="Objetivo">
             <div className="input-wrap"><input className="input num" inputMode="decimal" value={objetivo} onChange={(e) => setObjetivo(e.target.value)} /><span className="suf">USDT</span></div>
+          </Campo>
+          <Campo etiqueta="Duración" error={errDur} hint={estado?.cfg && duracion !== '' && Number(duracion) !== estado.cfg.duracion_max_min ? `En Ajustes: ${estado.cfg.duracion_max_min} min` : 'Cierre total de la operación.'}>
+            <div className="input-wrap"><input className="input num" type="number" min={15} max={1440} step={5} value={duracion} onChange={(e) => setDuracion(e.target.value)} aria-invalid={!!errDur} /><span className="suf">min</span></div>
           </Campo>
           <div className="field field-btn"><span aria-hidden>&nbsp;</span><button className="btn btn-primary" type="submit" disabled={cargando}><Search size={16} aria-hidden />{cargando ? 'Analizando…' : 'Analizar'}</button></div>
         </div>

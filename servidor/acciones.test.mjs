@@ -6,13 +6,16 @@ import { fileURLToPath } from 'node:url';
 import { Fuente } from '../lib/mexc.mjs';
 import { ejecutar, configDe, ErrorUsuario } from './acciones.mjs';
 import { dbMemoria } from './db-memoria.mjs';
+import { cargarPosicion } from '../cripto-posicion/posicion.mjs';
 
 const FX = (n) => path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'tests', 'fixtures', n);
 const fx = (n) => new Fuente({ offline: FX(n) });
 
 test('configDe: los ajustes del usuario nunca pasan los topes del motor', () => {
   const c = configDe({ apalancamiento_max: 125, riesgo_por_confianza: { ALTA: 50 }, max_perdida_dia_pct: 90, carpeta: '/etc' });
-  assert.equal(c.apalancamiento_max, 30);
+  assert.equal(c.apalancamiento_max, 125); // el apalancamiento lo elige el usuario
+  assert.equal(configDe({ apalancamiento_max: 9000 }).apalancamiento_max, 500); // hasta el tope
+  assert.equal(configDe({}).apalancamiento_max, 30);
   assert.equal(c.riesgo_por_confianza.ALTA, 10);
   assert.equal(c.max_perdida_dia_pct, 20);
   assert.equal(c.carpeta, 'trader'); // no editable
@@ -55,4 +58,32 @@ test('ballenas, noticias, escaner y estado', async () => {
   assert.ok(e.filas.length > 0);
   const st = await ejecutar('estado', {}, { db, fuente: fx('sol') });
   assert.equal(st.cfg.objetivo_usdt, 3);
+});
+
+test('posicion a mano: 1, 2 o 3 TPs con su reparto', () => {
+  const cfg = configDe({});
+  const p2 = cargarPosicion({ lado: 'long', entrada: 100, sl: 99, tp1: 101, tp2: 102, reparto: [70, 30], contratos: 10 }, cfg, 0, 'SOL_USDT', null);
+  assert.deepEqual(p2.reparto, [70, 30, 0]);
+  assert.deepEqual(p2.partes, [7, 3, 0]);
+  const p1 = cargarPosicion({ lado: 'short', entrada: 100, sl: 101, tp1: 99, reparto: '100' }, cfg, 0, 'SOL_USDT', null);
+  assert.deepEqual(p1.reparto, [100, 0, 0]);
+  assert.throws(() => cargarPosicion({ lado: 'long', entrada: 100, sl: 99, tp1: 101, tp2: 102, tp3: 103, reparto: [50, 20, 20] }, cfg, 0, 'SOL_USDT', null), /sumen 100/);
+});
+test('duración: por defecto en Ajustes y por operación', () => {
+  assert.equal(configDe({}).duracion_max_min, 60);
+  assert.equal(configDe({}).espera_max_min, 30);
+  const c = configDe({ duracion_max_min: 120 });
+  assert.equal(c.duracion_max_min, 120);
+  assert.equal(c.espera_max_min, 60); // la espera del TP1 se escala
+  assert.equal(configDe({ duracion_max_min: 120, espera_max_min: 200 }).espera_max_min, 120); // nunca más que la duración
+  assert.equal(configDe({ duracion_max_min: 99999 }).duracion_max_min, 1440);
+  const p = cargarPosicion({ lado: 'long', entrada: 100, sl: 99, tp1: 101, duracion: 120 }, configDe({}), 0, 'SOL_USDT', null);
+  assert.equal(p.duracion_max_min, 120);
+  assert.equal(p.espera_max_min, 60);
+});
+
+test('senal: la duración pedida se usa en el análisis y el reloj', async () => {
+  const s = await ejecutar('senal', { moneda: 'NEAR', capital: 10, duracion: 120 }, { db: dbMemoria(), fuente: fx('near') });
+  assert.equal(s.duracion_max_min, 120);
+  assert.equal(s.cierre_total_a_las - s.creada, 120 * 60e3);
 });
