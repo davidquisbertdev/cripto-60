@@ -101,6 +101,7 @@ Inside `app/`: `npx tsc -b` (typecheck), `npx eslint src` (existing warnings onl
 - Use `git commit -F <file>` for messages with quotes (PowerShell here-strings split on `"`).
 - Engine modules used by the web/Edge Function must stay free of `node:fs` (`defaults`, `diario`, `plan`, analysis modules). I/O lives in `config.mjs`, `fuentes`/exchange modules, `formato.mjs`.
 - After changing anything the Edge Function imports, run `npm run motor:sync` before deploying.
+- The hosted project signs sessions with asymmetric keys (ES256). The Edge Function gateway's `verify_jwt` only understands legacy HS256 and returns 401 for every logged-in user, so `motor` runs with `verify_jwt = false` and validates the user itself (`auth.getUser`). Deploy with `npx supabase functions deploy motor --no-verify-jwt`.
 - New Supabase columns need a new migration file and must be applied before the web uses them (otherwise `perfil()` fails and the app shows an error screen).
 
 ## Maintaining this file
