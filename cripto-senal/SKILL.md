@@ -1,7 +1,7 @@
 ---
 name: cripto-senal
 description: >-
-  Señal INTRADÍA CORTA para futuros perpetuos de criptomonedas (datos de Binance por defecto, o MEXC)
+  Señal INTRADÍA CORTA para futuros perpetuos de criptomonedas (datos de Binance por defecto, o Bybit o MEXC)
   (operaciones de 15 a 60 minutos, con objetivo de ganancia en USDT). Analiza una moneda en 1m, 5m
   y 15m (más 1h de contexto): tendencia, momentum, RSI, ADX, ATR, swings,
   SIEMPRE Bitcoin (lectura, correlación y si acompaña o va en contra),
@@ -38,13 +38,18 @@ node "${CLAUDE_SKILL_DIR}/senal.mjs" ENA --capital 10 --comision 0    # moneda c
 node "${CLAUDE_SKILL_DIR}/senal.mjs" ETH --capital 50 --lado long     # forzar un lado (baja la confianza si va en contra)
 node "${CLAUDE_SKILL_DIR}/senal.mjs" SOL --capital 10 --sin-ballenas  # más rápido (unos 3 s en lugar de 12)
 node "${CLAUDE_SKILL_DIR}/senal.mjs" SOL --capital 10 --estrategia reversion   # solo una estrategia
+node "${CLAUDE_SKILL_DIR}/senal.mjs" SOL --capital 10 --exchange bybit  # datos y comisiones de Bybit en lugar de Binance
 node "${CLAUDE_SKILL_DIR}/senal.mjs" SOL --capital 10 --exchange mexc   # datos y comisiones de MEXC en lugar de Binance
 ```
 
 **Exchange**: por defecto los datos salen de **Binance** futuros USDⓈ-M (el de
 más liquidez: el libro más profundo y el precio de referencia del mercado). Con
-`--exchange mexc`, o con `"exchange": "MEXC"` en `trader/config.json`, se usa
-MEXC. En Binance:
+`--exchange bybit` o `--exchange mexc` (o con `"exchange": "BYBIT"` / `"MEXC"` en
+`trader/config.json`) se usa Bybit o MEXC. En Bybit: comisiones VIP 0 de maker
+0.02 % y taker 0.055 %, tamaño en monedas como en Binance, y solo perpetuos de
+cripto (Bybit también lista acciones, ETFs, materias primas y forex: se rechazan).
+Bybit bloquea algunas regiones (p. ej. EE. UU.): si responde HTTP 403, usa Binance o MEXC.
+En Binance:
 - Comisiones estándar VIP 0: maker 0.02 % y taker 0.05 % (sin descuento de
   BNB). Si tu cuenta tiene otras, usa `--comision`.
 - El tamaño se da en **monedas** ("Cantidad 119 NEAR"), no en contratos.
@@ -160,7 +165,7 @@ Otras opciones: `--json`, `--sin-noticias`, `--semilla N`, `--no-guardar`,
   el resto (100 %). Tras el TP1, SL a la entrada; tras el TP2, SL al TP1.
 - **Comisiones**: el TP1 tiene que cubrir al menos 3 veces la comisión de ida y
   vuelta del contrato; si no, NO OPERAR. Se usa la comisión de la ficha del
-  contrato (MEXC) o la estándar de Binance. Si MEXC tiene una promoción de 0
+  contrato (MEXC) o la estándar de Binance o Bybit. Si MEXC tiene una promoción de 0
   comisión y la confirmaste, usa `--comision 0`.
 - **Apalancamiento (la lógica del usuario)**: con el SL más cerca se puede usar
   más apalancamiento con la misma pérdida en USDT, y con menos margen hace falta

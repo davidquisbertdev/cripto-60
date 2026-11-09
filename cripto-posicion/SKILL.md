@@ -1,7 +1,7 @@
 ---
 name: cripto-posicion
 description: >-
-  Revisa una posición abierta (operaciones de 15 a 60 min) en futuros cripto (Binance o MEXC) y dice qué hacer ahora:
+  Revisa una posición abierta (operaciones de 15 a 60 min) en futuros cripto (Binance, Bybit o MEXC) y dice qué hacer ahora:
   MANTENER, MOVER SL, REDUCIR o CERRAR. Mira lo que hizo el precio desde la
   entrada (TPs o SL tocados, minuto a minuto), el tiempo transcurrido frente a
   la espera máxima de la señal, las noticias publicadas desde que se abrió, si
