@@ -26,7 +26,7 @@ Fear & Greed de alternative.me.
 | `/cripto-posicion` | Revisa tu posición abierta: MANTENER, MOVER SL, REDUCIR o CERRAR, según el precio, el tiempo, las noticias nuevas y si el análisis cambió. |
 | `/cripto-ballenas` | Qué hacen las ballenas: posiciones reales de las billeteras grandes de Hyperliquid, qué abrieron o cerraron, qué cambió desde la última revisión, top traders frente a minoristas, open interest, flujo y muros. Lo usan también la señal y la revisión de posición. |
 | `/cripto-noticias` | Titulares recientes de la moneda y del mercado, sentimiento, alertas de riesgo y Fear & Greed. |
-| `/cripto-escaner` | Ordena los futuros cripto más líquidos (Binance, Bybit o MEXC) por claridad del setup. |
+| `/cripto-escaner` | Ordena los futuros cripto más líquidos (Binance, Bybit o MEXC) por claridad del setup y confirma las 5 mejores con la señal completa, para que el escáner y la señal digan lo mismo. |
 | `/cripto-diario` | Registra tus resultados, lleva el capital y para la operativa si el día va mal. |
 
 ## Ejemplos
@@ -82,7 +82,9 @@ marcando, en MEXC, las que tienen **0 comisión**.
 - **SL con espacio**: entre 0.3 % y 0.8 % (de 0.9 a 2 ATR de 5m), elegido para que
   la operación se resuelva en 15 a 30 min y un pequeño retroceso no te saque.
 - **TPs a 1R, 1.8R y 2.6R**: el TP1 cierra el 50 %, el TP2 el 75 % y el TP3 el
-  100 %. Tras el TP1, SL a la entrada. Al revisar una posición abierta a mano
+  100 %. Tras el TP1, SL a la entrada. En la web eliges **1, 2 o 3 TPs** y el % de cada
+  uno en Ajustes o solo para una señal; el historial real, la simulación y el
+  apalancamiento se calculan con ese reparto. Al revisar una posición abierta a mano
   puedes indicar **1, 2 o 3 TPs** y el % que cierra cada uno (`--reparto 70,30`).
 - **Apalancamiento calculado para tu objetivo** (3 USDT por defecto):
   posición = objetivo / movimiento medio de los TP; apalancamiento = posición /
@@ -107,6 +109,9 @@ marcando, en MEXC, las que tienen **0 comisión**.
   50 % de lo ganado: el tamaño crece con tus ganancias.
 - **Solo se recomienda lo que gana en el historial real reciente** de esa moneda
   (con comisiones). Si pierde en promedio: NO OPERAR.
+- **Ballenas y sentimiento**: si las ballenas van fuerte en contra del lado, se baja un
+  nivel; en los extremos del Fear & Greed (≤ 20 o ≥ 80) ir con la masa baja la
+  confianza. Nunca deciden solos.
 
 Todo se configura en `trader/config.json` (copia `config.example.json`).
 
@@ -144,15 +149,24 @@ npm test                                  # tests offline con datos reales graba
 ## App web
 
 Además de las skills, el mismo motor tiene una interfaz web, **Cripto60** (`app/`), en móvil y
-escritorio: Inicio, Señal, Posición, BTC, Ballenas, Noticias, Escáner, Diario, Ajustes, Suscripción
+escritorio: Inicio, Señal, Posición, BTC, Ballenas, Noticias, Escáner, Diario, Ajustes, Suscripción (solo para renovar)
 y Términos y condiciones.
 
+- **Inicio**: además del capital y los frenos, **cómo está el mercado hoy**: Fear & Greed de hoy y
+  de 30 días, BTC en 24 h, cuántas monedas suben o bajan, la distribución de los cambios, las que
+  más se mueven y el funding medio.
 - **Señal**: moneda (selector con buscador de los perpetuos USDT de Binance), capital, margen,
-  objetivo y **duración** de la operación.
+  objetivo, **duración** y **TPs** de la operación; panel de ballenas (LONG frente a SHORT).
+- **Escáner**: la columna «Señal completa» confirma las 5 mejores con el mismo análisis de la
+  pantalla Señal.
+- **Ballenas**: toca una billetera para ver **todas sus posiciones** en otras monedas y lo que hizo
+  en 24 h (para seguirla, tipo copytrading).
 - **Posición**: sigue la posición en la que entraste o revisa una a mano con **1, 2 o 3 TPs** y su
   reparto; puedes **alargar la operación en curso** (p. ej. de 60 a 120 min) y se vuelve a analizar.
 - **Ajustes**: exchange, zona horaria, capital, objetivo, margen, **duración por defecto** y espera
-  del TP1, **apalancamiento máximo** (30x por defecto, hasta 500x) y frenos de pérdida.
+  del TP1, **TPs** (cuántos y qué %), **apalancamiento máximo** (30x por defecto, hasta 500x) y frenos de pérdida.
+- **Suscripción**: con la suscripción activa la página de venta no se muestra; vuelve a aparecer
+  para renovar cuando quedan 5 días o menos.
 - **Menú lateral plegable** (solo iconos) y confirmación antes de cerrar sesión.
 
 Cómo está hecha:

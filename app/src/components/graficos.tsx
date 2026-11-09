@@ -131,3 +131,94 @@ export function MedidorDir({ v, etiqueta }: { v: number; etiqueta?: string }) {
 }
 
 export const COL = { gain: 'var(--gain)', loss: 'var(--loss)', neutro: 'var(--neutral-mark)', warn: 'var(--warn)' };
+
+// Línea de una serie con cruz y tooltip al pasar (Fear & Greed de 30 días, BTC de 24 h).
+// dominio fijo opcional (p. ej. 0-100) y líneas de referencia con su etiqueta.
+export function LineaSerie({ puntos, fmtV, fmtT, etiqueta, dominio, refs = [], tono = 'var(--accent)', alto = 180 }: {
+  puntos: { t: number; v: number }[]; fmtV: (v: number) => string; fmtT: (t: number) => string; etiqueta: string;
+  dominio?: [number, number]; refs?: { v: number; que: string }[]; tono?: string; alto?: number;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [hov, setHov] = useState<number | null>(null);
+  const W = 720, H = alto, L = 52, R = 12, T = 10, B = 24;
+  if (puntos.length < 2) return <p className="muted">Sin datos suficientes.</p>;
+  const vals = puntos.map((p) => p.v);
+  const lo0 = Math.min(...vals), hi0 = Math.max(...vals), span = hi0 - lo0 || Math.abs(hi0) * 0.01 || 1;
+  const [yMin, yMax] = dominio ?? [lo0 - span * 0.12, hi0 + span * 0.12];
+  const x = (i: number) => L + ((W - L - R) * i) / (puntos.length - 1);
+  const y = (v: number) => T + ((H - T - B) * (yMax - v)) / (yMax - yMin);
+  const linea = puntos.map((p, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)},${y(p.v).toFixed(1)}`).join('');
+  const area = `${linea}L${x(puntos.length - 1)},${H - B}L${x(0)},${H - B}Z`;
+  const ticks = dominio ? [] : [0, 1, 2, 3].map((k) => yMin + ((yMax - yMin) * k) / 3);
+  const mover = (e: React.PointerEvent) => {
+    const r = ref.current!.getBoundingClientRect();
+    const px = ((e.clientX - r.left) / r.width) * W;
+    setHov(Math.max(0, Math.min(puntos.length - 1, Math.round(((px - L) / (W - L - R)) * (puntos.length - 1)))));
+  };
+  const h = hov != null ? puntos[hov] : null;
+  return (
+    <div className="chart" ref={ref} onPointerMove={mover} onPointerLeave={() => setHov(null)}>
+      <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label={`${etiqueta}: de ${fmtV(vals[0])} a ${fmtV(vals[vals.length - 1])}`} style={{ ['--serie' as string]: tono }}>
+        {ticks.map((v) => (
+          <g key={v}><line className="grid-l" x1={L} x2={W - R} y1={y(v)} y2={y(v)} /><text className="axis-t" x={L - 8} y={y(v) + 4} textAnchor="end">{fmtV(v)}</text></g>
+        ))}
+        {refs.map((r) => (
+          <g key={r.v}><line className="grid-l" strokeDasharray="4 4" x1={L} x2={W - R} y1={y(r.v)} y2={y(r.v)} /><text className="axis-t" x={L - 8} y={y(r.v) + 4} textAnchor="end">{r.v}</text><text className="axis-t" x={W - R - 4} y={y(r.v) - 5} textAnchor="end">{r.que}</text></g>
+        ))}
+        <path className="area serie" d={area} />
+        <path className="line serie" d={linea} />
+        <text className="axis-t" x={L} y={H - 6}>{fmtT(puntos[0].t)}</text>
+        <text className="axis-t" x={W - R} y={H - 6} textAnchor="end">{fmtT(puntos[puntos.length - 1].t)}</text>
+        {h && hov != null && (<g><line className="cross" x1={x(hov)} x2={x(hov)} y1={T} y2={H - B} /><circle className="dot serie" cx={x(hov)} cy={y(h.v)} r={5} /></g>)}
+      </svg>
+      {h && hov != null && (
+        <div className="tip" style={{ left: `${(100 * x(hov)) / W}%`, top: `${(100 * y(h.v)) / H}%` }}>
+          <div className="k">{fmtT(h.t)}</div>
+          <div className="num"><b>{fmtV(h.v)}</b></div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Fear & Greed de hoy en una escala de 0 a 100 con sus cinco zonas.
+const ZONAS_FNG = [[0, 25, 'Miedo extremo'], [25, 45, 'Miedo'], [45, 55, 'Neutral'], [55, 75, 'Codicia'], [75, 101, 'Codicia extrema']] as const;
+export function zonaFNG(v: number) { return ZONAS_FNG.find(([a, b]) => v >= a && v < b)?.[2] ?? ''; }
+export function MedidorFNG({ valor, clase, ayer, semana }: { valor: number; clase: string; ayer?: number | null; semana?: number | null }) {
+  const tono = valor < 45 ? 'loss' : valor > 55 ? 'gain' : '';
+  const dif = (a?: number | null) => (a == null ? '—' : `${a} (${valor - a >= 0 ? '+' : '−'}${Math.abs(valor - a)})`);
+  return (
+    <div style={{ display: 'grid', gap: 10 }}>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
+        <span className={`num ${tono}`} style={{ fontSize: 40, fontWeight: 750, lineHeight: 1 }}>{valor}</span>
+        <span style={{ fontWeight: 600 }}>{clase}</span>
+      </div>
+      <div className="fng-scale" role="meter" aria-valuemin={0} aria-valuemax={100} aria-valuenow={valor} aria-label={`Fear & Greed ${valor}, ${clase}`}>
+        {ZONAS_FNG.map(([a, b, q]) => <i key={q} className={`z z-${a}`} style={{ width: `${Math.min(b, 100) - a}%` }} title={`${q}: ${a}–${Math.min(b, 100)}`} />)}
+        <span className="pin" style={{ left: `${valor}%` }} />
+      </div>
+      <div className="meter-scale"><span>Miedo extremo</span><span>Neutral</span><span>Codicia extrema</span></div>
+      <div className="muted num" style={{ fontSize: 13 }}>Ayer {dif(ayer)} · hace una semana {dif(semana)}</div>
+    </div>
+  );
+}
+
+// Histograma de barras con signo (rojo a la izquierda del 0, verde a la derecha) y tooltip al pasar.
+export function Histograma({ barras, etiqueta, unidad = 'monedas' }: { barras: { tramo: string; n: number; positivo: boolean }[]; etiqueta: string; unidad?: string }) {
+  const [hov, setHov] = useState<number | null>(null);
+  const max = Math.max(1, ...barras.map((b) => b.n));
+  return (
+    <div className="hist" role="img" aria-label={`${etiqueta}: ${barras.map((b) => `${b.tramo} ${b.n}`).join(', ')}`}>
+      <div className="hist-bars" onPointerLeave={() => setHov(null)}>
+        {barras.map((b, i) => (
+          <div key={b.tramo} className="hist-col" onPointerEnter={() => setHov(i)}>
+            {hov === i && <div className="tip hist-tip"><div className="k">{b.tramo}</div><div className="num"><b>{b.n}</b> {unidad}</div></div>}
+            <span className="hist-n num">{b.n || ''}</span>
+            <i style={{ height: `${(100 * b.n) / max}%`, background: b.positivo ? 'var(--gain)' : 'var(--loss)' }} />
+          </div>
+        ))}
+      </div>
+      <div className="hist-x">{barras.map((b) => <span key={b.tramo}>{b.tramo.replace(' a ', '…')}</span>)}</div>
+    </div>
+  );
+}

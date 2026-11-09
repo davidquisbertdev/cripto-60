@@ -5,9 +5,10 @@ import { Pagina } from '../components/Shell';
 import { Campo, ErrorEstado, Esqueleto, Filas, KV, LadoTag, NivelTag, Nota, Panel, Vacio } from '../components/ui';
 import { BarraProb, COL, Reloj } from '../components/graficos';
 import { SelectorMoneda } from '../components/SelectorMoneda';
+import { EditorTPs, errorReparto } from '../components/EditorTPs';
 import { backend } from '../lib/api';
 import { useSesion } from '../lib/sesion';
-import { nombreExchange, estrategiaNombre, hace, hora, numero, pct, pctSigno, precio as fp, usdt, usdtSigno, conSigno } from '../lib/formato';
+import { nombreExchange, estrategiaNombre, hace, hora, millones, numero, pct, pctSigno, precio as fp, usdt, usdtSigno, conSigno } from '../lib/formato';
 import type { Bloqueo, Lado, Senal as TSenal, TP } from '../lib/tipos';
 
 type Res = (TSenal & { demo_nota?: string | null }) | Bloqueo;
@@ -22,6 +23,8 @@ export function Senal() {
   const [objetivo, setObjetivo] = useState('');
   const [duracion, setDuracion] = useState('');
   const [errDur, setErrDur] = useState<string | null>(null);
+  const [reparto, setReparto] = useState<number[] | null>(null);
+  const [verTPs, setVerTPs] = useState(false);
   const [res, setRes] = useState<Res | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [cargando, setCargando] = useState(false);
@@ -34,7 +37,7 @@ export function Senal() {
     if (relleno.current || !estado) return;
     relleno.current = true;
     if (estado.diario) setCapital(String(estado.diario.capital));
-    if (estado.cfg) { setObjetivo(String(estado.cfg.objetivo_usdt)); setDuracion(String(estado.cfg.duracion_max_min)); }
+    if (estado.cfg) { setObjetivo(String(estado.cfg.objetivo_usdt)); setDuracion(String(estado.cfg.duracion_max_min)); setReparto(repartoCfg(estado.cfg)); }
   }, [estado]);
 
   const analizar = async (e?: FormEvent, capitalInicial?: string) => {
@@ -47,9 +50,14 @@ export function Senal() {
     setErrCapital(null);
     const dur = duracion.trim() === '' ? undefined : Number(duracion);
     if (dur !== undefined && !(dur >= 15 && dur <= 1440)) { setErrDur('Entre 15 y 1440 minutos.'); return; }
-    setErrDur(null); setError(null); setCargando(true);
+    setErrDur(null);
+    const eR = reparto ? errorReparto(reparto) : null;
+    if (eR) { setVerTPs(true); return; }
+    // solo se manda si es distinto del de Ajustes
+    const rep = reparto && estado?.cfg && reparto.join() !== repartoCfg(estado.cfg).join() ? reparto : undefined;
+    setError(null); setCargando(true);
     try {
-      const r = await backend.motor<Res>('senal', { moneda: m, capital: cap, margen: margen || undefined, objetivo: objetivo || (estado?.cfg ? String(estado.cfg.objetivo_usdt) : undefined), duracion: dur });
+      const r = await backend.motor<Res>('senal', { moneda: m, capital: cap, margen: margen || undefined, objetivo: objetivo || (estado?.cfg ? String(estado.cfg.objetivo_usdt) : undefined), duracion: dur, reparto: rep });
       setRes(r);
     } catch (x) { setError((x as Error).message); setRes(null); }
     finally { setCargando(false); }
@@ -86,6 +94,14 @@ export function Senal() {
           </Campo>
           <div className="field field-btn"><span aria-hidden>&nbsp;</span><button className="btn btn-primary" type="submit" disabled={cargando}><Search size={16} aria-hidden />{cargando ? 'Analizando…' : 'Analizar'}</button></div>
         </div>
+        {reparto && (
+          <div className="panel-b" style={{ borderTop: '1px solid var(--line)', display: 'grid', gap: 10 }}>
+            <button type="button" className="link-btn" aria-expanded={verTPs} aria-controls="senal-tps" onClick={() => setVerTPs(!verTPs)} style={{ fontSize: 13 }}>
+              Take profits: {reparto.length} TP · {reparto.map((x) => `${Number.isFinite(x) ? x : '—'} %`).join(' · ')}{estado?.cfg && reparto.join() !== repartoCfg(estado.cfg).join() ? ' (solo esta señal)' : ' (de Ajustes)'} {verTPs ? '▲' : '▼'}
+            </button>
+            {verTPs && <div id="senal-tps"><EditorTPs id="senal-tp" valor={reparto} onCambio={setReparto} /></div>}
+          </div>
+        )}
       </form>
 
       {estado?.diario?.bloqueo && !res && <Nota tono="loss" titulo="Freno del diario activo.">{estado.diario.bloqueo} <Link to="/diario">Ver diario</Link></Nota>}
@@ -109,6 +125,8 @@ export function Senal() {
   );
 }
 
+const repartoCfg = (cfg: Record<string, unknown>) => (Array.isArray(cfg.reparto_tps) ? (cfg.reparto_tps as number[]) : [50, 25, 25]);
+
 function filasNiveles(lado: Lado, entrada: number, sl: number, tps: TP[], dec: number, riesgo: number | null) {
   const d = (p: number) => pctSigno((100 * (p - entrada)) / entrada, 2);
   return [
@@ -130,6 +148,40 @@ function Tabla({ filas, entrada }: { filas: ReturnType<typeof filasNiveles>; ent
         </tbody>
       </table>
     </div>
+  );
+}
+
+// Qué hacen las ballenas en esta moneda y si van con la señal o en contra (ya entra en el cálculo).
+function PanelBallenas({ s }: { s: TSenal }) {
+  const b = s.ballenas!, hl = b.hl;
+  const total = hl ? hl.valor_long + hl.valor_short : 0;
+  const lado = s.recomendacion !== 'NO OPERAR' ? s.recomendacion : s.lado;
+  const va = b.puntuacion > 0.15 ? 'LONG' : b.puntuacion < -0.15 ? 'SHORT' : null;
+  const relacion = !va ? 'neutrales: no empujan la señal' : va === lado ? `a favor del ${lado}` : `en contra del ${lado}`;
+  return (
+    <Panel titulo="Ballenas en la señal" aside={<span className={`tag ${va ? (va === lado ? 'tag-gain' : 'tag-loss') : ''}`}>{relacion}</span>} className="ord-5">
+      <div style={{ display: 'grid', gap: 12 }}>
+        {hl && total > 0 ? (
+          <div>
+            <div className="split-bar" role="img" aria-label={`Hyperliquid: ${hl.longs} ballenas LONG con ${millones(hl.valor_long)} y ${hl.shorts} SHORT con ${millones(hl.valor_short)}`}>
+              <i style={{ width: `${(100 * hl.valor_long) / total}%`, background: 'var(--gain)' }} />
+              <i style={{ width: `${(100 * hl.valor_short) / total}%`, background: 'var(--loss)' }} />
+            </div>
+            <div className="prob-legend" style={{ marginTop: 8 }}>
+              <span><i className="sw" style={{ background: 'var(--gain)' }} aria-hidden />{hl.longs} LONG <b className="num">{millones(hl.valor_long)}</b></span>
+              <span><i className="sw" style={{ background: 'var(--loss)' }} aria-hidden />{hl.shorts} SHORT <b className="num">{millones(hl.valor_short)}</b></span>
+            </div>
+          </div>
+        ) : <p className="muted" style={{ fontSize: 13 }}>Ninguna ballena de Hyperliquid tiene posición grande en {s.base}: cuentan el flujo, el open interest y los top traders.</p>}
+        <Filas items={[
+          { k: 'Lectura del dinero grande', v: `${b.lectura} (${conSigno(b.puntuacion)})`, cls: b.puntuacion > 0.15 ? 'gain' : b.puntuacion < -0.15 ? 'loss' : '' },
+          ...(b.top_long != null ? [{ k: 'Top traders en LONG', v: pct(b.top_long * 100, 0) }] : []),
+          ...(b.minoristas_long != null ? [{ k: 'Todas las cuentas en LONG', v: pct(b.minoristas_long * 100, 0) }] : []),
+        ]} />
+        {b.frases.length > 0 && <ul className="list">{b.frases.slice(0, 3).map((t) => <li key={t}><Info size={14} aria-hidden />{t}</li>)}</ul>}
+        <p className="faint" style={{ fontSize: 12 }}>Pesan en la puntuación y bajan la confianza si van en contra (un nivel si van fuerte en contra). Nunca deciden solas. <Link to="/ballenas">Ver ballenas</Link></p>
+      </div>
+    </Panel>
   );
 }
 
@@ -172,7 +224,7 @@ function Resultado({ s, onSeguir, abierta }: { s: TSenal & { demo_nota?: string 
                 <Tabla filas={filasNiveles(p.lado, p.entrada, p.sl, p.tps, dec, p.riesgo_usdt)} entrada={{ ...s.entrada, dec }} />
                 <div className="money">
                   <div><div className="k">Si salta el SL pierdes</div><div className="v num loss">{conSigno(p.escenarios.sl_directo, 3)}<span className="u">USDT</span></div><div className="s num">{pct(p.riesgo_pct_real)} del capital</div></div>
-                  <div><div className="k">Si llegan los 3 TP ganas</div><div className="v num gain">{conSigno(p.escenarios.todos_los_tps, 3)}<span className="u">USDT</span></div><div className="s num">Solo TP1 y luego a entrada: {usdtSigno(p.escenarios.tp1_y_luego_be)}</div></div>
+                  <div><div className="k">{p.tps.length > 1 ? `Si llegan los ${p.tps.length} TP ganas` : 'Si llega el TP ganas'}</div><div className="v num gain">{conSigno(p.escenarios.todos_los_tps, 3)}<span className="u">USDT</span></div><div className="s num">{p.tps.length > 1 ? <>Solo TP1 y luego a entrada: {usdtSigno(p.escenarios.tp1_y_luego_be)}</> : <>cierra el 100 % en el TP1</>}</div></div>
                 </div>
                 <KV items={[
                   { k: 'Apalancamiento', v: `${p.apalancamiento}x`, s: 'margen aislado' },
@@ -227,6 +279,7 @@ function Resultado({ s, onSeguir, abierta }: { s: TSenal & { demo_nota?: string 
             </Panel>
           </div>
 
+          {s.ballenas && <PanelBallenas s={s} />}
           <Panel titulo="Contexto del mercado" className="ord-5">
             <Filas items={[
               { k: 'Filtro de BTC', v: s.btc_filtro ? s.btc_filtro.estado : '—', cls: s.btc_filtro?.estado === 'a favor' ? 'gain' : s.btc_filtro?.estado === 'en contra' ? 'loss' : '' },

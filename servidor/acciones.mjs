@@ -6,21 +6,21 @@ import { estadoDiario } from '../lib/diario.mjs';
 import { crearFuente } from '../lib/fuentes.mjs';
 import { simbolo as simboloDe, base as baseDe, cerradas, esCripto } from '../lib/mexc.mjs';
 import { analizarSimbolo } from '../lib/motor.mjs';
-import { analizarBallenas, compararInstantanea } from '../lib/ballenas.mjs';
+import { analizarBallenas, compararInstantanea, billeteraHL, DIR_HL } from '../lib/ballenas.mjs';
 import { leerNoticias, miedoCodicia } from '../lib/noticias.mjs';
 import { decimales } from '../lib/plan.mjs';
 import { generarSenal } from '../cripto-senal/senal.mjs';
 import { cargarPosicion, evaluar } from '../cripto-posicion/posicion.mjs';
 import { informeBTC } from '../cripto-btc/btc.mjs';
-import { escanear } from '../cripto-escaner/escaner.mjs';
+import { escanear, ESTABLES } from '../cripto-escaner/escaner.mjs';
 
-export const ACCIONES = ['estado', 'senal', 'posicion', 'btc', 'ballenas', 'noticias', 'escaner'];
+export const ACCIONES = ['estado', 'senal', 'posicion', 'btc', 'ballenas', 'billetera', 'noticias', 'escaner', 'mercado'];
 
 // Ajustes que el usuario puede cambiar desde la web (el resto queda en los valores del motor).
 export const AJUSTES_EDITABLES = [
   'exchange', 'zona_horaria', 'objetivo_usdt', 'margen_base', 'reinversion_pct', 'apalancamiento_max',
   'riesgo_por_confianza', 'max_perdida_dia_pct', 'max_operaciones_dia', 'max_operaciones_hora', 'pausa_min',
-  'duracion_max_min', 'espera_max_min',
+  'duracion_max_min', 'espera_max_min', 'reparto_tps',
 ];
 
 export const DURACION_MIN = 15, DURACION_MAX = 1440;
@@ -32,6 +32,18 @@ export function conDuracion(cfg, d, espera = null) {
   const esp = espera ?? (cfg.espera_max_min * dur) / cfg.duracion_max_min;
   const espMax = Math.round(Math.min(Math.max(+esp || cfg.espera_max_min, 5), dur));
   return { ...cfg, duracion_max_min: dur, espera_max_min: espMax, espera_min_min: Math.min(cfg.espera_min_min, espMax) };
+}
+
+// Cuántos TP y qué % cierra cada uno (1 a 3, cada uno > 0, suman 100). Los TP quedan a los primeros
+// múltiplos de R del motor (1R, 1.8R, 2.6R). Devuelve null si el reparto no es válido.
+export function repartoValido(r) {
+  const v = (Array.isArray(r) ? r : String(r ?? '').split(/[,s/]+/).filter(Boolean)).map(Number);
+  if (v.length < 1 || v.length > DEFAULTS.tps_r.length || v.some((x) => !(x > 0)) || Math.abs(v.reduce((a, b) => a + b, 0) - 100) > 0.01) return null;
+  return v.map((x) => +x.toFixed(2));
+}
+export function conReparto(cfg, r) {
+  const v = repartoValido(r);
+  return v ? { ...cfg, reparto_tps: v, tps_r: DEFAULTS.tps_r.slice(0, v.length) } : cfg;
 }
 
 export class ErrorUsuario extends Error {
@@ -51,7 +63,7 @@ export function configDe(propio = {}) {
   cfg.max_perdida_dia_pct = Math.min(+cfg.max_perdida_dia_pct || DEFAULTS.max_perdida_dia_pct, DEFAULTS.max_perdida_dia_pct);
   // duración por defecto de las operaciones (Ajustes); la espera del TP1 nunca la pasa
   // (sin espera propia, se escala desde la del motor: 30 de 60 → 60 de 120)
-  const base = { ...cfg, duracion_max_min: DEFAULTS.duracion_max_min, espera_max_min: DEFAULTS.espera_max_min };
+  const base = conReparto({ ...cfg, reparto_tps: DEFAULTS.reparto_tps, tps_r: DEFAULTS.tps_r, duracion_max_min: DEFAULTS.duracion_max_min, espera_max_min: DEFAULTS.espera_max_min }, limpio.reparto_tps);
   return conDuracion(base, limpio.duracion_max_min ?? DEFAULTS.duracion_max_min, +limpio.espera_max_min || null);
 }
 
@@ -84,7 +96,12 @@ export async function ejecutar(accion, params = {}, { db, fuente = null } = /** 
   // duración de ESTA operación (min), si se pide otra distinta de la de Ajustes: el análisis entero
   // (simulación, historial real, reloj) se hace con ella
   const duracion = accion === 'senal' ? num(params.duracion, 'La duración', { min: DURACION_MIN, max: DURACION_MAX }) : undefined;
-  const cfg = duracion && duracion !== cfgUsuario.duracion_max_min ? conDuracion(cfgUsuario, duracion) : cfgUsuario;
+  let cfg = duracion && duracion !== cfgUsuario.duracion_max_min ? conDuracion(cfgUsuario, duracion) : cfgUsuario;
+  // TPs de ESTA señal (cuántos y % de cada uno), si se piden distintos de los de Ajustes
+  if (accion === 'senal' && params.reparto != null && params.reparto !== '') {
+    if (!repartoValido(params.reparto)) throw new ErrorUsuario('El reparto de los TP debe tener de 1 a 3 porcentajes mayores que 0 que sumen 100.');
+    cfg = conReparto(cfg, params.reparto);
+  }
   // Sin zona guardada, la del navegador del usuario (el servidor corre en UTC)
   if (!cfg.zona_horaria && params.zona) {
     try { new Intl.DateTimeFormat('es', { timeZone: params.zona }); cfg.zona_horaria = params.zona; } catch { /* zona inválida: se ignora */ }
@@ -179,7 +196,47 @@ export async function ejecutar(accion, params = {}, { db, fuente = null } = /** 
 
     case 'escaner': {
       const top = num(params.top, 'El número de monedas', { min: 5, max: 60 }) ?? 30;
-      return { ahora, exchange: f.exchange ?? 'MEXC', ...(await escanear(f, { top })) };
+      // las mejores se confirman con la MISMA señal que da la pantalla Señal (tus ajustes y tu diario)
+      const confirmarN = num(params.confirmar, 'Cuántas confirmar', { min: 0, max: 8 }) ?? 5;
+      const capital = num(params.capital, 'El capital', { min: 1 }) ?? diario?.capital ?? cfg.margen_base;
+      const confirmar = async (sym) => {
+        const a = await analizarSimbolo(f, sym, { carpetaCache: null });
+        return generarSenal(a, { capital, diario }, cfg);
+      };
+      return { ahora, exchange: f.exchange ?? 'MEXC', ...(await escanear(f, { top, confirmar, confirmarN })) };
+    }
+
+    case 'billetera': {
+      const dir = String(params.dir ?? '').trim();
+      if (!DIR_HL.test(dir)) throw new ErrorUsuario('Indica una billetera de Hyperliquid válida (0x… de 42 caracteres).');
+      return billeteraHL(f, dir.toLowerCase());
+    }
+
+    case 'mercado': {
+      // Cómo está el día: Fear & Greed (30 días), BTC 24 h en velas de 15 min y la amplitud del mercado
+      // (cuántas monedas suben o bajan, las que más se mueven y el funding medio)
+      const [fng, tickers, v15] = await Promise.all([
+        miedoCodicia(f), f.tickers().catch(() => []), f.velas('BTC_USDT', '15m', 97).catch(() => []),
+      ]);
+      const cambio = (t) => (Number.isFinite(t.cambio24) ? +t.cambio24 : t.riseFallRate != null ? 100 * +t.riseFallRate : null);
+      const liquidas = tickers.filter((t) => t.symbol.endsWith('_USDT') && !ESTABLES.test(t.symbol) && +t.amount24 >= 5e6 && Number.isFinite(cambio(t)))
+        .map((t) => ({ moneda: baseDe(t.symbol), cambio: +cambio(t).toFixed(2), precio: +t.lastPrice, volumen_musdt: +(+t.amount24 / 1e6).toFixed(1), funding: Number.isFinite(+t.fundingRate) ? +t.fundingRate : null }));
+      const suben = liquidas.filter((x) => x.cambio > 0).length, bajan = liquidas.filter((x) => x.cambio < 0).length;
+      const ord = [...liquidas].sort((a, b) => b.cambio - a.cambio);
+      const media = (l) => (l.length ? l.reduce((s, x) => s + x, 0) / l.length : null);
+      const porVol = [...liquidas].sort((a, b) => b.volumen_musdt - a.volumen_musdt).slice(0, 30).map((x) => x.funding).filter((x) => x != null);
+      const tramos = [[-Infinity, -10], [-10, -5], [-5, -2], [-2, 0], [0, 2], [2, 5], [5, 10], [10, Infinity]];
+      const etiqueta = ([a, b]) => (a === -Infinity ? `< ${b} %` : b === Infinity ? `> ${a} %` : `${a} a ${b} %`);
+      const serie = v15.map((v) => ({ t: v.t, c: v.c }));
+      const btcCambio = serie.length > 1 ? +((100 * (serie.at(-1).c - serie[0].c)) / serie[0].c).toFixed(2) : null;
+      return {
+        ahora, exchange: f.exchange ?? 'MEXC', fng,
+        btc: serie.length ? { precio: serie.at(-1).c, cambio_24h_pct: btcCambio, max: Math.max(...v15.map((v) => v.h)), min: Math.min(...v15.map((v) => v.l)), serie } : null,
+        amplitud: { total: liquidas.length, suben, bajan, pct_suben: liquidas.length ? +((100 * suben) / liquidas.length).toFixed(1) : null, cambio_medio: liquidas.length ? +media(liquidas.map((x) => x.cambio)).toFixed(2) : null },
+        distribucion: tramos.map((r) => ({ tramo: etiqueta(r), n: liquidas.filter((x) => x.cambio >= r[0] && x.cambio < r[1]).length, positivo: r[0] >= 0 })),
+        subidas: ord.slice(0, 6), bajadas: ord.slice(-6).reverse(),
+        funding_medio_pct: porVol.length ? +(100 * media(porVol)).toFixed(4) : null,
+      };
     }
   }
 }

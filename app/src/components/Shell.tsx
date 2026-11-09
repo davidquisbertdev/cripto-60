@@ -3,9 +3,9 @@ import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import {
   Activity, Bitcoin, BookOpen, CandlestickChart, Crown, FileText, Home, LogOut, MoreHorizontal, Newspaper, PanelLeftClose, PanelLeftOpen, Radar, Settings, Waves, Zap, CheckCircle2,
 } from 'lucide-react';
-import { useSesion } from '../lib/sesion';
+import { diasRestantes, porRenovar, useSesion } from '../lib/sesion';
 import { useLocal } from '../lib/usar';
-import { tono, usdt, usdtSigno } from '../lib/formato';
+import { fechaCorta, tono, usdt, usdtSigno } from '../lib/formato';
 
 export const RUTAS = [
   { a: '/', t: 'Inicio', i: Home, g: 0 },
@@ -31,7 +31,7 @@ function Enlace({ r, punto, onClick, corto }: { r: { a: string; t: string; i: ty
 }
 
 export function Shell() {
-  const { estado, demo, salir } = useSesion();
+  const { estado, demo, salir, perfil } = useSesion();
   const loc = useLocation().pathname;
   const [mas, setMas] = useState(false);
   const [plegada, setPlegada] = useLocal('cripto60-nav-plegada', false);
@@ -42,6 +42,10 @@ export function Shell() {
   const abierta = !!estado?.posicion_abierta;
   useEffect(() => { document.title = actual ? `${actual} · Cripto60` : 'Cripto60'; }, [actual]);
   const pedirSalir = () => { setMas(false); setConfirmar(true); };
+  // ya pagó: la suscripción no se ofrece hasta que falten pocos días
+  const hasta = perfil?.suscripcion_hasta ?? null;
+  const dias = diasRestantes(hasta);
+  const renovar = porRenovar(perfil);
 
   return (
     <div className={`shell${plegada ? ' plegada' : ''}`}>
@@ -63,11 +67,12 @@ export function Shell() {
               <div className="lbl">Capital</div>
               <div className="val num">{d ? usdt(d.capital, 2) : '—'}</div>
               <div className="sub num">{d ? <>Hoy <span className={tono(d.hoy.pnl)}>{usdtSigno(d.hoy.pnl)}</span> · {d.hoy.operaciones} op.</> : 'Diario sin iniciar'}</div>
+              {hasta && <div className={`sub ${renovar ? 'warn' : 'faint'}`} style={{ marginTop: 6 }}>Suscripción hasta el {fechaCorta(hasta)}</div>}
               {d && <div className="sub" style={{ marginTop: 6 }}>{d.bloqueo ? <span className="warn">Freno activo</span> : <span className="faint"><CheckCircle2 size={12} aria-hidden style={{ verticalAlign: -2 }} /> Sin frenos</span>}</div>}
             </div>
           )}
           <div className="nav-group">
-            <Enlace r={{ a: '/suscripcion', t: 'Suscripción', i: Crown }} corto={plegada} />
+            {renovar && <Enlace r={{ a: '/suscripcion', t: `Renovar (${dias} d)`, i: Crown }} corto={plegada} />}
             <Enlace r={{ a: '/terminos', t: 'Términos y condiciones', i: FileText }} corto={plegada} />
             {!demo && (
               <button type="button" className="nav-link nav-salir" onClick={pedirSalir} title={plegada ? 'Cerrar sesión' : undefined} aria-label={plegada ? 'Cerrar sesión' : undefined}>
@@ -95,7 +100,7 @@ export function Shell() {
           <div className="sheet-back" onClick={() => setMas(false)} />
           <div className="sheet" role="dialog" aria-label="Más secciones">
             {RUTAS.filter((r) => !MOVIL.includes(r.a)).map((r) => <Enlace key={r.a} r={r} />)}
-            <Enlace r={{ a: '/suscripcion', t: 'Suscripción', i: Crown }} />
+            {renovar && <Enlace r={{ a: '/suscripcion', t: `Renovar suscripción (${dias} d)`, i: Crown }} />}
             <Enlace r={{ a: '/terminos', t: 'Términos y condiciones', i: FileText }} />
             {!demo && <button type="button" className="nav-link nav-salir" onClick={pedirSalir}><LogOut size={17} aria-hidden />Cerrar sesión</button>}
           </div>

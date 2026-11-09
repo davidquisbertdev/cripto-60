@@ -59,7 +59,7 @@ export function Posicion() {
     <Pagina titulo="Posición" acciones={abierta && (
       <>
         <label className="faint" style={{ display: 'flex', gap: 6, alignItems: 'center', fontSize: 13 }}><input type="checkbox" checked={auto} onChange={(e) => setAuto(e.target.checked)} />Revisar cada minuto</label>
-        <button className="btn btn-sm" onClick={() => revisar(abierta)} disabled={cargando}><RefreshCw size={14} aria-hidden />{cargando ? 'Revisando…' : 'Revisar ahora'}</button>
+        <button className="btn btn-sm" onClick={() => revisar(abierta)} disabled={cargando} aria-busy={cargando}><RefreshCw size={14} aria-hidden className={cargando ? 'girando' : undefined} />{cargando ? 'Revisando…' : 'Revisar ahora'}</button>
       </>
     )}>
       {!abierta && !ev && !cargando && <SinPosicion onRevisar={(p) => revisar(p, true)} />}

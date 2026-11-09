@@ -5,6 +5,7 @@ import { Pagina } from '../components/Shell';
 import { Campo, ErrorEstado, Esqueleto, Filas, KV, LadoTag, Nota, Panel, Vacio } from '../components/ui';
 import { CurvaCapital } from '../components/graficos';
 import { SelectorMoneda } from '../components/SelectorMoneda';
+import { EditorTPs, errorReparto } from '../components/EditorTPs';
 import { backend, reiniciarDemo } from '../lib/api';
 import { useSesion } from '../lib/sesion';
 import { usePeticion } from '../lib/usar';
@@ -140,6 +141,8 @@ export function Ajustes() {
     const dur = a.duracion_max_min ?? cfg.duracion_max_min;
     if (!(dur >= 15 && dur <= 1440)) { setErr('La duración de la operación va de 15 a 1440 minutos.'); return; }
     if (a.espera_max_min != null && !(a.espera_max_min >= 5 && a.espera_max_min <= dur)) { setErr(`La espera del TP1 va de 5 min a la duración (${dur} min).`); return; }
+    const eR = a.reparto_tps ? errorReparto(a.reparto_tps) : null;
+    if (eR) { setErr(`Take profits: ${eR}`); return; }
     setErr(null); setGuardando(true);
     try { await backend.guardarPerfil({ ajustes: a, capital_inicial: c }); await refrescar(); aviso('Ajustes guardados'); }
     catch (x) { setErr((x as Error).message); }
@@ -165,7 +168,7 @@ export function Ajustes() {
               </div>
               <div className="form-row">
                 <Campo etiqueta="Capital inicial del diario"><div className="input-wrap"><input className="input num" inputMode="decimal" value={capital} onChange={(e) => setCapital(e.target.value)} /><span className="suf">USDT</span></div></Campo>
-                {num('objetivo_usdt', 'Objetivo por operación', 'USDT', 'Si llegan los 3 TP. 0 = solo riesgo.', 1000)}
+                {num('objetivo_usdt', 'Objetivo por operación', 'USDT', 'Si llegan todos los TP. 0 = solo riesgo.', 1000)}
               </div>
               <div className="form-row">
                 {num('margen_base', 'Margen base', 'USDT', 'Lo que pones por operación.', 100000)}
@@ -182,6 +185,12 @@ export function Ajustes() {
                   <div className="input-wrap"><input className="input num" type="number" min={5} max={1440} step={5} value={String(a.espera_max_min ?? Math.round(((a.duracion_max_min ?? cfg.duracion_max_min) * DEFAULTS.espera_max_min) / DEFAULTS.duracion_max_min))} onChange={n('espera_max_min')} /><span className="suf">min</span></div>
                 </Campo>
               </div>
+            </div>
+          </Panel>
+          <Panel titulo="Take profits" aside={<span className="faint" style={{ fontSize: 12 }}>por defecto 3 TP: 50 · 25 · 25 %</span>}>
+            <div style={{ display: 'grid', gap: 12 }}>
+              <p className="muted" style={{ fontSize: 13 }}>Cuántos TP usa cada señal y qué parte de la posición cierra cada uno. El análisis entero se calcula con ellos: el historial real, la simulación, el apalancamiento para tu objetivo y la ganancia en USDT. En cada señal puedes cambiarlos solo para esa operación.</p>
+              <EditorTPs id="aj-tps" valor={a.reparto_tps ?? (cfg.reparto_tps as unknown as number[] | undefined) ?? [50, 25, 25]} onCambio={(r) => setA({ ...a, reparto_tps: r })} />
             </div>
           </Panel>
           <Panel titulo="Riesgo">

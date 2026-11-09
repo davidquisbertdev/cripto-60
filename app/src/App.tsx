@@ -1,6 +1,6 @@
 import { BrowserRouter, Link, Navigate, Route, Routes } from 'react-router-dom';
 import { Compass } from 'lucide-react';
-import { ProveedorSesion, useSesion } from './lib/sesion';
+import { ProveedorSesion, porRenovar, useSesion } from './lib/sesion';
 import { hayBackend } from './lib/supabase';
 import { Shell, Pagina } from './components/Shell';
 import { ErrorEstado, Vacio } from './components/ui';
@@ -13,7 +13,9 @@ import { Acceso } from './screens/Acceso';
 import { Suscripcion, SuscripcionPublica } from './screens/Suscripcion';
 
 function Rutas() {
-  const { listo, sesion, suscrita, errorPerfil, refrescar, salir, toast } = useSesion();
+  const { listo, sesion, suscrita, errorPerfil, refrescar, salir, toast, perfil } = useSesion();
+  // ya pagó: la página de venta solo vuelve cuando toca renovar
+  const renovar = porRenovar(perfil);
   if (!listo) return null;
   const dentro = !hayBackend || !!sesion;
   if (dentro && errorPerfil && suscrita === null) {
@@ -50,7 +52,7 @@ function Rutas() {
             <Route path="escaner" element={<Escaner />} />
             <Route path="diario" element={<Diario />} />
             <Route path="ajustes" element={<Ajustes />} />
-            <Route path="suscripcion" element={<Suscripcion />} />
+            <Route path="suscripcion" element={renovar ? <Suscripcion /> : <Navigate to="/" replace />} />
             <Route path="terminos" element={<Legal />} />
             <Route path="legal" element={<Navigate to="/terminos" replace />} />
             <Route path="*" element={<Pagina titulo="No encontrado"><div className="panel"><Vacio icono={<Compass size={28} aria-hidden />} titulo="Esta página no existe" accion={<Link className="btn" to="/">Ir al inicio</Link>} /></div></Pagina>} />

@@ -403,3 +403,45 @@ table.t { width: 100%; border-collapse: collapse; font-size: var(--fs-md); }
   .sus-top { padding: var(--sp-3) var(--sp-4); }
   .sus-main { padding-bottom: var(--sp-6); }
 }
+/* Series con color propio (--serie) y gráficos del mercado del día */
+.chart .line.serie { stroke: var(--serie, var(--accent)); }
+.chart .area.serie { fill: color-mix(in srgb, var(--serie, var(--accent)) 14%, transparent); }
+.chart .dot.serie { fill: var(--serie, var(--accent)); }
+.fng-scale { position: relative; display: flex; gap: 2px; height: 10px; }
+.fng-scale .z { display: block; height: 100%; }
+.fng-scale .z:first-child { border-radius: 5px 0 0 5px; }
+.fng-scale .z:last-of-type { border-radius: 0 5px 5px 0; }
+.fng-scale .z-0 { background: var(--loss); }
+.fng-scale .z-25 { background: color-mix(in srgb, var(--loss) 45%, var(--s3)); }
+.fng-scale .z-45 { background: var(--s3); }
+.fng-scale .z-55 { background: color-mix(in srgb, var(--gain) 45%, var(--s3)); }
+.fng-scale .z-75 { background: var(--gain); }
+.fng-scale .pin { position: absolute; top: 50%; width: 16px; height: 16px; border-radius: 50%; transform: translate(-50%, -50%); background: var(--text); border: 3px solid var(--s1); box-shadow: var(--shadow); }
+.hist { display: grid; gap: 6px; }
+.hist-bars { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 2px; align-items: end; height: 140px; }
+.hist-col { position: relative; height: 100%; display: flex; flex-direction: column; justify-content: flex-end; align-items: stretch; cursor: default; }
+.hist-col i { display: block; min-height: 2px; border-radius: 4px 4px 0 0; }
+.hist-col:hover i { filter: brightness(1.15); }
+.hist-n { font-size: var(--fs-xs); color: var(--text-2); text-align: center; margin-bottom: 2px; }
+.hist-tip { left: 50%; top: 0; }
+.hist-x { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 2px; font-size: 10px; color: var(--text-3); text-align: center; }
+.split-bar { display: flex; gap: 2px; height: 10px; }
+.split-bar i { display: block; height: 100%; }
+.split-bar i:first-child { border-radius: 5px 0 0 5px; }
+.split-bar i:last-child { border-radius: 0 5px 5px 0; }
+.movers { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.movers ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.movers li { display: flex; justify-content: space-between; gap: 8px; font-size: var(--fs-sm); }
+@media (max-width: 520px) { .hist-x { font-size: 9px; } .movers { grid-template-columns: 1fr; } }
+.dialog-ancho { max-width: 760px; max-height: calc(100dvh - 2 * var(--sp-4)); display: flex; flex-direction: column; }
+.dialog-ancho .panel-h { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); }
+.dialog-scroll { overflow-y: auto; min-height: 0; }
+.link-btn { background: none; border: 0; padding: 0; color: var(--accent); font: inherit; cursor: pointer; text-align: left; }
+.link-btn:hover { color: var(--accent-hover); text-decoration: underline; }
+.link-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 2px; }
+
+/* Icono de recargar girando mientras carga (sin movimiento: parpadeo suave) */
+@keyframes girar { to { transform: rotate(360deg); } }
+@keyframes latir { 50% { opacity: 0.35; } }
+.girando { animation: girar 0.9s linear infinite; transform-origin: center; }
+@media (prefers-reduced-motion: reduce) { .girando { animation: latir 1.2s ease-in-out infinite; } }

@@ -7,7 +7,7 @@ import { estadoDiario } from '../../../lib/diario.mjs';
 import type { Ajustes, Estado, Operacion, Perfil, PosicionGuardada } from './tipos';
 import demoDatos from '../demo/datos.json';
 
-export type Accion = 'estado' | 'senal' | 'posicion' | 'btc' | 'ballenas' | 'noticias' | 'escaner';
+export type Accion = 'estado' | 'senal' | 'posicion' | 'btc' | 'ballenas' | 'billetera' | 'noticias' | 'escaner' | 'mercado';
 export interface NuevaOperacion { simbolo: string; lado: 'LONG' | 'SHORT' | null; pnl: number; margen?: number | null; nota?: string | null; fecha?: string; senal_id?: number | null }
 export interface NuevaPosicion { base: string; lado: 'LONG' | 'SHORT'; entrada: number; sl: number; tps: number[]; contratos?: number | null; estrategia?: string; senal_id?: number | null; duracion_max_min?: number | null }
 
@@ -116,7 +116,7 @@ function backendDemo(): Backend {
         const pedida = String(params.moneda ?? '').toUpperCase();
         return { ...s, diario: d, id: 'demo', demo_nota: pedida && pedida !== D.senal.base ? `En modo demo solo hay datos grabados de ${D.senal.base}: esta es su señal, no la de ${pedida}.` : null } as T;
       }
-      const tabla: Record<string, unknown> = { posicion: D.posicion, btc: D.btc, ballenas: D.ballenas, noticias: D.noticias, escaner: D.escaner };
+      const tabla: Record<string, unknown> = { posicion: D.posicion, btc: D.btc, ballenas: D.ballenas, billetera: D.billetera, noticias: D.noticias, escaner: D.escaner, mercado: D.mercado };
       return ahora(tabla[accion]) as T;
     },
     async perfil() { return st.perfil; },
