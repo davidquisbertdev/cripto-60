@@ -25,7 +25,14 @@ export function usePeticion<T>(fn: () => Promise<T>, deps: unknown[] = [], { aut
     if (clave && CACHE.has(clave)) { vivo.current++; setDatos(CACHE.get(clave) as T); setCargando(false); setError(null); return; }
     run();
   }, [run, auto, clave]);
-  return { datos, error, cargando, run, setDatos };
+  // Cambia los datos y la caché a la vez (también si la pantalla ya se cerró: al volver se ven los cambios).
+  const guardar = useCallback((v: T | ((prev: T | null) => T | null)) => {
+    const prev = clave && CACHE.has(clave) ? (CACHE.get(clave) as T) : null;
+    const next = typeof v === 'function' ? (v as (p: T | null) => T | null)(prev) : v;
+    if (clave) { if (next == null) CACHE.delete(clave); else CACHE.set(clave, next); }
+    setDatos(typeof v === 'function' && !clave ? (v as (p: T | null) => T | null) : next);
+  }, [clave]);
+  return { datos, error, cargando, run, setDatos: guardar };
 }
 
 // Hora actual que avanza cada segundo (para los relojes).

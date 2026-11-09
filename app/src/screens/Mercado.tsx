@@ -325,6 +325,45 @@ function ListaNoticias({ items }: { items: InformeNoticias['monedas'][number]['p
 }
 
 // ---------------- Escáner ----------------
+// Confirma las 5 mejores aptas con la señal completa, una llamada por moneda (2 a la vez): en una sola
+// llamada no cabe en la Edge Function. Los resultados se guardan en la caché del escáner.
+const PESO = (s?: SenalResumen) => (!s || s.error ? 0 : s.recomendacion && s.recomendacion !== 'NO OPERAR' ? 3 : s.mejor ? 1 : 0.5);
+function useConfirmar(e: InformeEscaner | null, setDatos: (v: (p: InformeEscaner | null) => InformeEscaner | null) => void, capital?: number) {
+  const [estado, setEstado] = useState<{ hechas: number; total: number } | null>(null);
+  const lanzado = useRef<InformeEscaner | null>(null);
+  useEffect(() => {
+    if (!e || backend.demo || lanzado.current === e || e.filas.some((x) => x.senal)) return;
+    lanzado.current = e;
+    const elegidas = e.filas.filter((x) => x.apto).slice(0, 5);
+    if (!elegidas.length) return;
+    const ahora = e.ahora;
+    const res = new Map<string, SenalResumen>();
+    let hechas = 0;
+    setEstado({ hechas: 0, total: elegidas.length });
+    const aplicar = (final: boolean) => setDatos((p) => {
+      if (!p || p.ahora !== ahora) return p; // otro escaneo ya reemplazó a este
+      let filas = p.filas.map((f) => (res.has(f.simbolo) ? { ...f, senal: res.get(f.simbolo) } : f));
+      if (final) filas = [...filas].sort((a, b) => (Number(b.apto) - Number(a.apto)) || PESO(b.senal) - PESO(a.senal) || (b.senal?.confianza ?? b.confianza) - (a.senal?.confianza ?? a.confianza));
+      return { ...p, filas, confirmadas: [...res.values()].filter((s) => !s.error).length };
+    });
+    const cola = [...elegidas];
+    const trabajador = async () => {
+      for (let x = cola.shift(); x; x = cola.shift()) {
+        const moneda = x.simbolo.replace(/_USDT$/, '');
+        try {
+          const r = await backend.motor<{ resumen?: SenalResumen; bloqueado?: boolean; motivo?: string }>('senal', { moneda, capital, resumen: true });
+          res.set(x.simbolo, r.resumen ?? { error: r.motivo ?? 'sin datos' });
+        } catch (err) { res.set(x.simbolo, { error: (err as Error).message }); }
+        hechas++;
+        if (lanzado.current === e) setEstado({ hechas, total: elegidas.length });
+        aplicar(false);
+      }
+    };
+    Promise.all([trabajador(), trabajador()]).then(() => { aplicar(true); if (lanzado.current === e) setEstado(null); });
+  }, [e, setDatos, capital]);
+  return estado;
+}
+
 // Resultado de la señal completa para una fila confirmada.
 function CeldaSenal({ s }: { s?: SenalResumen }) {
   if (!s) return <span className="faint">—</span>;
@@ -341,7 +380,8 @@ function CeldaSenal({ s }: { s?: SenalResumen }) {
 type Orden = 'claridad' | 'confianza' | 'volumen_24h_musdt' | 'atr5_pct' | 'cambio_15m';
 export function Escaner() {
   const { estado } = useSesion();
-  const r = usePeticion(() => backend.motor<InformeEscaner>('escaner', { top: 30, confirmar: 5, capital: estado?.diario?.capital }), [], { clave: 'escaner' });
+  const r = usePeticion(() => backend.motor<InformeEscaner>('escaner', { top: 30, confirmar: 0 }), [], { clave: 'escaner' });
+  const conf = useConfirmar(r.datos, r.setDatos, estado?.diario?.capital);
   const [orden, setOrden] = useState<Orden>('claridad');
   const [desc, setDesc] = useState(true);
   const [soloAptas, setSoloAptas] = useState(true);
@@ -366,7 +406,8 @@ export function Escaner() {
             <span className="muted">{e.aptas} de {e.analizadas} monedas se mueven lo bastante frente a sus comisiones · {nombreExchange(e.exchange)} · BTC <span className={tonoDir(e.btc)}>{conSigno(e.btc)}</span> · {hace(e.ahora)}</span>
             <label className="muted" style={{ marginLeft: 'auto', display: 'flex', gap: 6, alignItems: 'center', fontSize: 13 }}><input type="checkbox" checked={soloAptas} onChange={(x) => setSoloAptas(x.target.checked)} />Solo aptas para scalping</label>
           </div>
-          <Nota tono="info" titulo="Señal completa:">{e.confirmadas ? `las ${e.confirmadas} mejores ya pasaron por el mismo análisis de la pantalla Señal (historial real, BTC, ballenas, Fear & Greed): esa columna es lo que te dirá al analizarlas.` : 'en este escaneo no se confirmó ninguna moneda con la señal completa.'} El resto solo pasó el filtro rápido (tendencia, momentum y BTC): su confianza no es la de la señal.</Nota>
+          {conf && <div className="muted" role="status" style={{ fontSize: 13, display: 'flex', gap: 8, alignItems: 'center' }}><RefreshCw size={14} className="girando" aria-hidden />Confirmando con la señal completa: {conf.hechas} de {conf.total}…</div>}
+          <Nota tono="info" titulo="Señal completa:">{conf ? 'las 5 mejores están pasando ahora por el mismo análisis de la pantalla Señal; la columna se va llenando.' : e.confirmadas ? `las ${e.confirmadas} mejores ya pasaron por el mismo análisis de la pantalla Señal (historial real, BTC, ballenas, Fear & Greed): esa columna es lo que te dirá al analizarlas.` : 'en este escaneo no se confirmó ninguna moneda con la señal completa.'} El resto solo pasó el filtro rápido (tendencia, momentum y BTC): su confianza no es la de la señal.</Nota>
           <Panel flush>
             {filas.length ? (
               <div className="table-wrap"><table className="t">

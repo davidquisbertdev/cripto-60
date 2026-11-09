@@ -116,3 +116,11 @@ test('mercado: amplitud, BTC del día y distribución', async () => {
   assert.equal(r.distribucion.reduce((s, x) => s + x.n, 0), r.amplitud.total);
   assert.ok(r.btc?.serie.length > 10);
 });
+
+test('senal con resumen (confirmación del escáner): no se guarda y devuelve lo justo', async () => {
+  const db = dbMemoria();
+  const r = await ejecutar('senal', { moneda: 'NEAR', capital: 10, resumen: true }, { db, fuente: fx('near') });
+  assert.equal(db.senales.length, 0);
+  assert.ok(['LONG', 'SHORT', 'NO OPERAR'].includes(r.resumen.recomendacion));
+  assert.equal(r.plan, undefined);
+});
