@@ -20,6 +20,12 @@ interface Ctx {
   toast: string | null;
 }
 const C = createContext<Ctx>(null as unknown as Ctx);
+
+// Con la suscripción activa la página de venta no se muestra; solo vuelve a aparecer (para renovar)
+// cuando faltan RENOVAR_DIAS días o menos. hasta = null: sin vencimiento.
+export const RENOVAR_DIAS = 5;
+export const diasRestantes = (hasta?: string | null) => (hasta ? Math.ceil((Date.parse(hasta) - Date.now()) / 864e5) : null);
+export const porRenovar = (p: Perfil | null) => { const d = diasRestantes(p?.suscripcion_hasta); return d != null && d <= RENOVAR_DIAS; };
 export const useSesion = () => useContext(C);
 
 export function ProveedorSesion({ children }: { children: ReactNode }) {

@@ -9,7 +9,7 @@ export interface Plan {
   contratos: number; cantidad_moneda: number; nocional: number; apalancamiento: number; apalancamiento_razon: string;
   margen: number; margen_pct_capital: number; liquidacion: number; riesgo_usdt: number; riesgo_pct_real: number;
   comisiones: { taker: number; maker: number; tp1_cubre_x: number };
-  escenarios: { sl_directo: number; tp1_y_luego_be: number; tp1_tp2_y_luego_tp1: number; todos_los_tps: number };
+  escenarios: { sl_directo: number; tp1_y_luego_be: number; tp1_tp2_y_luego_tp1: number | null; todos_los_tps: number };
   objetivo?: { objetivo: number; alcanzable: boolean; mensaje?: string };
   avisos?: string[]; motivo?: string;
 }
@@ -43,9 +43,13 @@ export interface Senal {
   btc_filtro: { estado: string; bloquea: boolean; texto: string | null } | null;
   espera_max_min: number | null; cerrar_si_no_tp1_a_las: number | null; duracion_max_min: number; cierre_total_a_las: number;
   reentrada?: { long_si_rompe: number; short_si_pierde: number; rebote_long_bajo: number; rebote_short_sobre: number } | null;
-  contexto: { funding: number | null; minutos_a_funding: number | null; spread_pct: number | null; cambio_24h_pct: number | null; cambio_15m_pct: number | null; atr5_pct: number; rsi: Record<string, number | null>; fng: { valor: number; clase: string } | null; niveles5: { soporte: number; resistencia: number } };
+  contexto: { funding: number | null; minutos_a_funding: number | null; spread_pct: number | null; cambio_24h_pct: number | null; cambio_15m_pct: number | null; atr5_pct: number; rsi: Record<string, number | null>; fng: { valor: number; clase: string; ayer?: number | null; semana?: number | null } | null; niveles5: { soporte: number; resistencia: number } };
   noticias: { sentimiento: number; evento_riesgo: string | null; propias: Noticia[] } | null;
-  ballenas: { puntuacion: number; lectura: string; frases: string[] } | null;
+  ballenas: {
+    puntuacion: number; lectura: string; frases: string[]; cobertura?: number;
+    hl?: { longs: number; shorts: number; valor_long: number; valor_short: number; neto: number } | null;
+    top_long?: number | null; minoristas_long?: number | null; a_favor?: boolean | null;
+  } | null;
   mejor_entrada: MejorEntrada | null; diario: EstadoDiario | null;
 }
 export interface Bloqueo { bloqueado: true; motivo: string; pausa_hasta: number | null }
@@ -79,13 +83,30 @@ export interface InformeBallenas {
   muros: { compra: { precio: number; usd: number } | null; venta: { precio: number; usd: number } | null } | null;
   desde_anterior: { minutos?: number; frases?: string[] } | null;
 }
-export interface InformeNoticias { ahora: number; horas: number; fng: { valor: number; clase: string; ayer: number | null } | null; monedas: { moneda: string; propias: Noticia[]; macro: Noticia[]; sentimiento: number; evento_riesgo: string | null; errores: string[] }[] }
-export interface FilaEscaner { simbolo: string; precio: number; sesgo: Lado; nivel: Nivel; confianza: number; cambio_15m: number | null; volumen_24h_musdt: number; funding_pct: number; atr5_pct: number; comision_pct: number; spread_pct: number | null; reversion: { lado: Lado; nivel: Nivel; confianza: number } | null; cero_promo: boolean; apto: boolean; motivo_no_apto: string | null; lateral: boolean }
-export interface InformeEscaner { ahora: number; exchange: string; btc: number; analizadas: number; aptas: number; filas: FilaEscaner[] }
+export interface FNG { valor: number; clase: string; ayer: number | null; semana?: number | null; historial?: { t: number; valor: number }[] }
+export interface InformeNoticias { ahora: number; horas: number; fng: FNG | null; monedas: { moneda: string; propias: Noticia[]; macro: Noticia[]; sentimiento: number; evento_riesgo: string | null; errores: string[] }[] }
+export interface FilaEscaner { simbolo: string; precio: number; sesgo: Lado; nivel: Nivel; confianza: number; cambio_15m: number | null; volumen_24h_musdt: number; funding_pct: number; atr5_pct: number; comision_pct: number; spread_pct: number | null; reversion: { lado: Lado; nivel: Nivel; confianza: number } | null; cero_promo: boolean; apto: boolean; motivo_no_apto: string | null; lateral: boolean; senal?: SenalResumen }
+export interface SenalResumen {
+  error?: string; recomendacion?: Lado | 'NO OPERAR'; lado?: Lado; nivel?: Nivel; confianza?: number; estrategia?: Estrategia; motivo?: string | null;
+  ballenas?: { lectura: string; puntuacion: number } | null; mejor?: { lado: Lado; estrategia: Estrategia; prob: number | null; recomendada: boolean; contra_btc: boolean } | null;
+}
+export interface InformeEscaner { ahora: number; exchange: string; btc: number; analizadas: number; aptas: number; confirmadas?: number; filas: FilaEscaner[] }
+export interface PosBilletera { coin: string; moneda: string; lado: Lado; valor: number; entrada: number; pnl: number; roe_pct: number | null; apalancamiento: number | null; liquidacion: number | null; conviccion_pct: number | null }
+export interface Billetera {
+  dir: string; ahora: number; cuenta: number; margen_usado: number; pnl_abierto: number; valor_long: number; valor_short: number; neto: number;
+  posiciones: PosBilletera[]; actividad_24h: (Flujo & { coin: string; moneda: string; total: number })[];
+}
+export interface MovMercado { moneda: string; cambio: number; precio: number; volumen_musdt: number }
+export interface InformeMercado {
+  ahora: number; exchange: string; fng: FNG | null;
+  btc: { precio: number; cambio_24h_pct: number | null; max: number; min: number; serie: { t: number; c: number }[] } | null;
+  amplitud: { total: number; suben: number; bajan: number; pct_suben: number | null; cambio_medio: number | null };
+  distribucion: { tramo: string; n: number; positivo: boolean }[]; subidas: MovMercado[]; bajadas: MovMercado[]; funding_medio_pct: number | null;
+}
 export interface Ajustes {
   exchange?: 'BINANCE' | 'BYBIT' | 'MEXC'; zona_horaria?: string | null; objetivo_usdt?: number; margen_base?: number; reinversion_pct?: number; apalancamiento_max?: number;
   riesgo_por_confianza?: { ALTA: number; MEDIA: number; BAJA: number }; max_perdida_dia_pct?: number; max_operaciones_dia?: number; max_operaciones_hora?: number; pausa_min?: number;
-  duracion_max_min?: number; espera_max_min?: number;
+  duracion_max_min?: number; espera_max_min?: number; reparto_tps?: number[];
 }
 export interface Estado { ahora: number; cfg: Required<Ajustes> & Record<string, unknown>; diario: EstadoDiario | null; posicion_abierta: PosicionGuardada | null }
 export interface Operacion { id: number; fecha: string; simbolo: string; lado: Lado | null; pnl: number; margen: number | null; nota: string | null }

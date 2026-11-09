@@ -1,15 +1,17 @@
 // Lectura de mercado: BTC, Ballenas, Noticias y Escáner.
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowDown, ArrowUp, ExternalLink, Info, RefreshCw, ShieldAlert, Waves, X } from 'lucide-react';
 import { Pagina } from '../components/Shell';
 import { ErrorEstado, Esqueleto, Filas, KV, LadoTag, Nota, Panel, Vacio } from '../components/ui';
-import { MedidorDir } from '../components/graficos';
+import { MedidorDir, MedidorFNG } from '../components/graficos';
+import { Sentimiento30 } from '../components/MercadoHoy';
 import { SelectorMoneda } from '../components/SelectorMoneda';
 import { backend } from '../lib/api';
 import { usePeticion } from '../lib/usar';
 import { nombreExchange, conSigno, hace, hora, millones, numero, pct, pctSigno, precio as fp, usdt } from '../lib/formato';
-import type { FiltroBTC, InformeBallenas, InformeBTC, InformeEscaner, InformeNoticias, FilaEscaner } from '../lib/tipos';
+import type { Billetera, FiltroBTC, InformeBallenas, InformeBTC, InformeEscaner, InformeNoticias, FilaEscaner, SenalResumen } from '../lib/tipos';
+import { useSesion } from '../lib/sesion';
 
 function Buscador({ valor, onBuscar, etiqueta = 'Moneda', placeholder = 'SOL' }: { valor: string; onBuscar: (m: string) => void; etiqueta?: string; placeholder?: string }) {
   const id = `b-${etiqueta.replace(/\W+/g, '-')}`;
@@ -101,6 +103,7 @@ export function Ballenas() {
   const [moneda, setMoneda] = useState('SOL');
   const r = usePeticion(() => backend.motor<InformeBallenas>('ballenas', { moneda }), [moneda]);
   const b = r.datos, hl = b?.hl;
+  const [billetera, setBilletera] = useState<string | null>(null);
   const comp: Record<string, string> = { hl_posiciones: 'Posiciones en Hyperliquid', hl_flujo: 'Flujo de las ballenas', top_traders: 'Top traders vs minoristas', taker: 'Compra/venta agresiva', open_interest: 'Open interest', grandes: 'Operaciones grandes' };
   return (
     <Pagina titulo="Ballenas" acciones={<><Buscador valor={moneda} onBuscar={setMoneda} /><button className="btn btn-sm icon-btn" onClick={r.run} disabled={r.cargando} aria-label="Actualizar"><RefreshCw size={14} /></button></>}>
@@ -122,11 +125,11 @@ export function Ballenas() {
             </section>
             <Panel titulo="Posiciones de las ballenas en Hyperliquid" aside={hl?.criterio} flush>
               {hl?.disponible && hl.posiciones?.length ? (
-                <div className="table-wrap"><table className="t">
+                <div className="table-wrap"><p className="faint" style={{ fontSize: 12, padding: '10px 16px 0' }}>Toca una billetera para ver en qué otras monedas opera.</p><table className="t">
                   <thead><tr><th scope="col">Billetera</th><th scope="col">Lado</th><th scope="col" className="r">Valor</th><th scope="col" className="r">Entrada</th><th scope="col" className="r">PnL</th><th scope="col" className="r">Apal.</th><th scope="col" className="r">Convicción</th></tr></thead>
                   <tbody>{[...hl.posiciones].sort((a, c) => c.valor - a.valor).map((p) => (
                     <tr key={p.dir}>
-                      <td className="num"><a href={`https://hypurrscan.io/address/${p.dir}`} target="_blank" rel="noreferrer">{p.nombre ?? `${p.dir.slice(0, 6)}…${p.dir.slice(-4)}`}</a></td>
+                      <td className="num"><button type="button" className="link-btn" onClick={() => setBilletera(p.dir)} aria-haspopup="dialog">{p.nombre ?? `${p.dir.slice(0, 6)}…${p.dir.slice(-4)}`}</button></td>
                       <td><LadoTag lado={p.lado} size={12} /></td>
                       <td className="r num">{millones(p.valor)}</td><td className="r num">{fp(p.entrada, b.decimales)}</td>
                       <td className={`r num ${p.pnl >= 0 ? 'gain' : 'loss'}`}>{p.pnl >= 0 ? '+' : '−'}{millones(Math.abs(p.pnl))}</td>
@@ -170,7 +173,69 @@ export function Ballenas() {
           </div>
         </div>
       )}
+      {billetera && <VerBilletera dir={billetera} onCerrar={() => setBilletera(null)} />}
     </Pagina>
+  );
+}
+
+// Una ballena entera: todas sus posiciones abiertas y lo que hizo en 24 h (para seguirla, tipo copytrading).
+function VerBilletera({ dir, onCerrar }: { dir: string; onCerrar: () => void }) {
+  const r = usePeticion(() => backend.motor<Billetera>('billetera', { dir }), [dir]);
+  const cerrar = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    cerrar.current?.focus();
+    const k = (e: KeyboardEvent) => { if (e.key === 'Escape') onCerrar(); };
+    window.addEventListener('keydown', k);
+    return () => window.removeEventListener('keydown', k);
+  }, [onCerrar]);
+  const w = r.datos;
+  const dec = (x: number) => (x < 1 ? 5 : x < 100 ? 3 : 1);
+  return (
+    <div className="dialog-back" onClick={(e) => e.target === e.currentTarget && onCerrar()}>
+      <div className="dialog dialog-ancho" role="dialog" aria-modal="true" aria-labelledby="bill-t">
+        <header className="panel-h">
+          <h2 id="bill-t">Billetera <span className="num">{(w?.dir ?? dir).slice(0, 6)}…{(w?.dir ?? dir).slice(-4)}</span></h2>
+          <button ref={cerrar} type="button" className="btn btn-sm icon-btn" onClick={onCerrar} aria-label="Cerrar"><X size={16} /></button>
+        </header>
+        <div className="panel-b dialog-scroll" style={{ display: 'grid', gap: 14 }}>
+          {r.cargando && !w ? <Esqueleto filas={5} /> : r.error ? <ErrorEstado mensaje={r.error} reintentar={r.run} /> : w && (
+            <>
+              <KV items={[
+                { k: 'Cuenta', v: millones(w.cuenta), s: 'USD en Hyperliquid' },
+                { k: 'PnL abierto', v: `${w.pnl_abierto >= 0 ? '+' : '−'}${millones(Math.abs(w.pnl_abierto))}`, cls: w.pnl_abierto >= 0 ? 'gain' : 'loss' },
+                { k: 'En LONG / SHORT', v: `${millones(w.valor_long)} / ${millones(w.valor_short)}`, s: `neto ${w.neto >= 0 ? 'LONG' : 'SHORT'} ${pct(Math.abs(w.neto) * 100, 0)}` },
+              ]} />
+              <h3 style={{ fontSize: 14 }}>Posiciones abiertas ({w.posiciones.length})</h3>
+              {w.posiciones.length ? (
+                <div className="table-wrap"><table className="t">
+                  <thead><tr><th scope="col">Moneda</th><th scope="col">Lado</th><th scope="col" className="r">Valor</th><th scope="col" className="r hide-sm">Entrada</th><th scope="col" className="r">PnL</th><th scope="col" className="r hide-sm">Apal.</th><th scope="col" className="r hide-sm">Liq.</th><th scope="col" /></tr></thead>
+                  <tbody>{w.posiciones.map((p) => (
+                    <tr key={p.coin}>
+                      <td className="strong">{p.moneda}</td><td><LadoTag lado={p.lado} size={12} /></td>
+                      <td className="r num">{millones(p.valor)}</td><td className="r num hide-sm">{numero(p.entrada, dec(p.entrada))}</td>
+                      <td className={`r num ${p.pnl >= 0 ? 'gain' : 'loss'}`}>{p.pnl >= 0 ? '+' : '−'}{millones(Math.abs(p.pnl))}{p.roe_pct != null && <span className="sub-line">{pctSigno(p.roe_pct, 0)}</span>}</td>
+                      <td className="r num hide-sm">{p.apalancamiento ? `${p.apalancamiento}x` : '—'}</td><td className="r num hide-sm">{p.liquidacion ? numero(p.liquidacion, dec(p.liquidacion)) : '—'}</td>
+                      <td className="r"><Link className="btn btn-sm" to={`/senal?moneda=${p.moneda}`} onClick={onCerrar}>Señal</Link></td>
+                    </tr>
+                  ))}</tbody></table></div>
+              ) : <p className="muted">No tiene posiciones abiertas ahora.</p>}
+              {w.actividad_24h.length > 0 && (
+                <>
+                  <h3 style={{ fontSize: 14 }}>Qué hizo en 24 h</h3>
+                  <div className="table-wrap"><table className="t">
+                    <thead><tr><th scope="col">Moneda</th><th scope="col" className="r">Abrió L / S</th><th scope="col" className="r">Cerró L / S</th></tr></thead>
+                    <tbody>{w.actividad_24h.map((a) => (
+                      <tr key={a.coin}><td className="strong">{a.moneda}</td><td className="r num">{millones(a.abrieron_long)} / {millones(a.abrieron_short)}</td><td className="r num">{millones(a.cerraron_long)} / {millones(a.cerraron_short)}</td></tr>
+                    ))}</tbody></table></div>
+                </>
+              )}
+              <Nota tono="warn" titulo="Copiar a una ballena tiene trampa:">sus posiciones suelen durar días o semanas, con otro tamaño y otro stop. Úsalo como contexto y pide la señal de la moneda antes de entrar.</Nota>
+              <a href={`https://hypurrscan.io/address/${w.dir}`} target="_blank" rel="noreferrer" style={{ fontSize: 13 }}>Ver en Hypurrscan <ExternalLink size={12} aria-hidden style={{ verticalAlign: -1 }} /></a>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -196,10 +261,10 @@ export function Noticias() {
           <div className="stack">
             {n.fng && (
               <Panel titulo="Fear & Greed">
-                <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}><span className="num" style={{ fontSize: 40, fontWeight: 750 }}>{n.fng.valor}</span><span style={{ fontWeight: 600 }}>{n.fng.clase}</span></div>
-                <div className="meter-dir" style={{ marginTop: 10 }} role="meter" aria-valuemin={0} aria-valuemax={100} aria-valuenow={n.fng.valor} aria-label="Fear & Greed"><span className="pin" style={{ left: `${n.fng.valor}%`, background: 'var(--text-2)' }} /></div>
-                <div className="meter-scale"><span>Miedo extremo</span><span>Codicia extrema</span></div>
-                {n.fng.ayer != null && <p className="muted" style={{ marginTop: 10 }}>Ayer: {n.fng.ayer}</p>}
+                <div style={{ display: 'grid', gap: 16 }}>
+                  <MedidorFNG valor={n.fng.valor} clase={n.fng.clase} ayer={n.fng.ayer} semana={n.fng.semana} />
+                  <Sentimiento30 fng={n.fng} />
+                </div>
               </Panel>
             )}
             <Panel titulo="Mercado general" flush>{n.monedas[0]?.macro.length ? <ListaNoticias items={n.monedas[0].macro.slice(0, 8)} /> : <div className="panel-b muted">Sin titulares macro.</div>}</Panel>
@@ -227,9 +292,23 @@ function ListaNoticias({ items }: { items: InformeNoticias['monedas'][number]['p
 }
 
 // ---------------- Escáner ----------------
+// Resultado de la señal completa para una fila confirmada.
+function CeldaSenal({ s }: { s?: SenalResumen }) {
+  if (!s) return <span className="faint">—</span>;
+  if (s.error) return <span className="faint" title={s.error}>sin datos</span>;
+  if (s.recomendacion && s.recomendacion !== 'NO OPERAR') return <span style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}><LadoTag lado={s.recomendacion} size={12} /><span className="faint" style={{ fontSize: 12 }}>{s.nivel?.toLowerCase()}</span></span>;
+  return (
+    <span title={s.motivo ?? undefined} style={{ display: 'grid', justifyItems: 'start', gap: 2 }}>
+      <span className="tag">NO OPERAR</span>
+      {s.mejor && <span className="faint" style={{ fontSize: 12 }}>mejor posible {s.mejor.lado}{s.mejor.prob != null ? ` ${pct(s.mejor.prob, 0)}` : ''}</span>}
+    </span>
+  );
+}
+
 type Orden = 'claridad' | 'confianza' | 'volumen_24h_musdt' | 'atr5_pct' | 'cambio_15m';
 export function Escaner() {
-  const r = usePeticion(() => backend.motor<InformeEscaner>('escaner', { top: 30 }), []);
+  const { estado } = useSesion();
+  const r = usePeticion(() => backend.motor<InformeEscaner>('escaner', { top: 30, confirmar: 5, capital: estado?.diario?.capital }), []);
   const [orden, setOrden] = useState<Orden>('claridad');
   const [desc, setDesc] = useState(true);
   const [soloAptas, setSoloAptas] = useState(true);
@@ -254,13 +333,15 @@ export function Escaner() {
             <span className="muted">{e.aptas} de {e.analizadas} monedas se mueven lo bastante frente a sus comisiones · {nombreExchange(e.exchange)} · BTC <span className={tonoDir(e.btc)}>{conSigno(e.btc)}</span> · {hace(e.ahora)}</span>
             <label className="muted" style={{ marginLeft: 'auto', display: 'flex', gap: 6, alignItems: 'center', fontSize: 13 }}><input type="checkbox" checked={soloAptas} onChange={(x) => setSoloAptas(x.target.checked)} />Solo aptas para scalping</label>
           </div>
+          <Nota tono="info" titulo="Señal completa:">{e.confirmadas ? `las ${e.confirmadas} mejores ya pasaron por el mismo análisis de la pantalla Señal (historial real, BTC, ballenas, Fear & Greed): esa columna es lo que te dirá al analizarlas.` : 'en este escaneo no se confirmó ninguna moneda con la señal completa.'} El resto solo pasó el filtro rápido (tendencia, momentum y BTC): su confianza no es la de la señal.</Nota>
           <Panel flush>
             {filas.length ? (
               <div className="table-wrap"><table className="t">
-                <thead><tr>{cab('claridad', 'Moneda')}<th scope="col">Sesgo</th>{cab('confianza', 'Confianza', true)}<th scope="col">Reversión</th>{cab('cambio_15m', '15 min', true)}{cab('atr5_pct', 'ATR 5m', true)}<th scope="col" className="r">Comisión</th>{cab('volumen_24h_musdt', 'Volumen 24 h', true)}<th scope="col" /></tr></thead>
+                <thead><tr>{cab('claridad', 'Moneda')}<th scope="col">Señal completa</th><th scope="col">Sesgo rápido</th>{cab('confianza', 'Confianza', true)}<th scope="col">Reversión</th>{cab('cambio_15m', '15 min', true)}{cab('atr5_pct', 'ATR 5m', true)}<th scope="col" className="r">Comisión</th>{cab('volumen_24h_musdt', 'Volumen 24 h', true)}<th scope="col" /></tr></thead>
                 <tbody>{filas.map((x) => { const b = x.simbolo.replace(/_USDT$/, ''); return (
                   <tr key={x.simbolo}>
                     <td className="strong">{b}{x.cero_promo && <span className="tag" style={{ marginLeft: 6 }}>0 comisión</span>}{!x.apto && <span className="faint" style={{ marginLeft: 6, fontSize: 12 }}>{x.motivo_no_apto}</span>}</td>
+                    <td><CeldaSenal s={x.senal} /></td>
                     <td>{x.nivel === 'NO OPERAR' ? <span className="faint">lateral</span> : <LadoTag lado={x.sesgo} size={12} />}</td>
                     <td className="r num">{x.confianza}</td>
                     <td>{x.reversion ? <><LadoTag lado={x.reversion.lado} size={12} /> <span className="faint num">{x.reversion.confianza}</span></> : <span className="faint">—</span>}</td>
