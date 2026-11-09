@@ -47,7 +47,7 @@ const tonoDir = (v: number) => (v > 0.15 ? 'gain' : v < -0.15 ? 'loss' : '');
 // ---------------- BTC ----------------
 export function Btc() {
   const [moneda, setMoneda] = useState('');
-  const r = usePeticion(() => backend.motor<InformeBTC>('btc', moneda ? { moneda } : {}), [moneda]);
+  const r = usePeticion(() => backend.motor<InformeBTC>('btc', moneda ? { moneda } : {}), [moneda], { clave: `btc:${moneda}` });
   const b = r.datos?.btc, alt = r.datos?.alt;
   const fila = (que: string, f: FiltroBTC) => ({ k: que, v: f.bloquea ? 'bloqueado por BTC' : f.estado + (f.bajar ? ' · baja un nivel' : ''), cls: f.bloquea || f.estado === 'en contra' ? 'loss' : f.estado === 'a favor' ? 'gain' : '' });
   return (
@@ -100,8 +100,8 @@ export function Btc() {
 
 // ---------------- Ballenas ----------------
 export function Ballenas() {
-  const [moneda, setMoneda] = useState('SOL');
-  const r = usePeticion(() => backend.motor<InformeBallenas>('ballenas', { moneda }), [moneda]);
+  const [moneda, setMoneda] = useState('BTC');
+  const r = usePeticion(() => backend.motor<InformeBallenas>('ballenas', { moneda }), [moneda], { clave: `ballenas:${moneda}` });
   const b = r.datos, hl = b?.hl;
   const [billetera, setBilletera] = useState<string | null>(null);
   const comp: Record<string, string> = { hl_posiciones: 'Posiciones en Hyperliquid', hl_flujo: 'Flujo de las ballenas', top_traders: 'Top traders vs minoristas', taker: 'Compra/venta agresiva', open_interest: 'Open interest', grandes: 'Operaciones grandes' };
@@ -180,7 +180,7 @@ export function Ballenas() {
 
 // Una ballena entera: todas sus posiciones abiertas y lo que hizo en 24 h (para seguirla, tipo copytrading).
 function VerBilletera({ dir, onCerrar }: { dir: string; onCerrar: () => void }) {
-  const r = usePeticion(() => backend.motor<Billetera>('billetera', { dir }), [dir]);
+  const r = usePeticion(() => backend.motor<Billetera>('billetera', { dir }), [dir], { clave: `billetera:${dir}` });
   const cerrar = useRef<HTMLButtonElement>(null);
   useEffect(() => {
     cerrar.current?.focus();
@@ -241,9 +241,9 @@ function VerBilletera({ dir, onCerrar }: { dir: string; onCerrar: () => void }) 
 
 // ---------------- Noticias ----------------
 export function Noticias() {
-  const [monedas, setMonedas] = useState<string[]>(['SOL']);
+  const [monedas, setMonedas] = useState<string[]>(['BTC']);
   const [horas, setHoras] = useState(24);
-  const r = usePeticion(() => backend.motor<InformeNoticias>('noticias', { monedas, horas }), [monedas.join(','), horas]);
+  const r = usePeticion(() => backend.motor<InformeNoticias>('noticias', { monedas, horas }), [monedas.join(','), horas], { clave: `noticias:${monedas.join(',')}:${horas}` });
   const n = r.datos;
   return (
     <Pagina titulo="Noticias" acciones={<><VariasMonedas valor={monedas} onCambio={setMonedas} /><div className="seg" role="group" aria-label="Ventana">{[6, 24, 48].map((h) => <button key={h} aria-pressed={horas === h} onClick={() => setHoras(h)}>{h} h</button>)}</div></>}>
@@ -308,7 +308,7 @@ function CeldaSenal({ s }: { s?: SenalResumen }) {
 type Orden = 'claridad' | 'confianza' | 'volumen_24h_musdt' | 'atr5_pct' | 'cambio_15m';
 export function Escaner() {
   const { estado } = useSesion();
-  const r = usePeticion(() => backend.motor<InformeEscaner>('escaner', { top: 30, confirmar: 5, capital: estado?.diario?.capital }), []);
+  const r = usePeticion(() => backend.motor<InformeEscaner>('escaner', { top: 30, confirmar: 5, capital: estado?.diario?.capital }), [], { clave: 'escaner' });
   const [orden, setOrden] = useState<Orden>('claridad');
   const [desc, setDesc] = useState(true);
   const [soloAptas, setSoloAptas] = useState(true);

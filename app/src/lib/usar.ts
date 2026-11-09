@@ -1,20 +1,30 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-// Petición asíncrona con estados de carga y error. `run` vuelve a lanzarla.
-export function usePeticion<T>(fn: () => Promise<T>, deps: unknown[] = [], { auto = true } = {}) {
-  const [datos, setDatos] = useState<T | null>(null);
+// Caché en memoria de las peticiones: al volver a una pantalla (BTC, Ballenas, Noticias, Escáner…)
+// se muestra al instante lo ya cargado sin volver a pedirlo; solo el botón Actualizar (`run`)
+// vuelve a pedir datos frescos. Vive mientras dure la sesión en la app.
+const CACHE = new Map<string, unknown>();
+
+// Petición asíncrona con estados de carga y error. `run` vuelve a lanzarla. Con `clave`, la respuesta
+// queda cacheada: entrar de nuevo con la misma clave muestra la cacheada y no pide nada.
+export function usePeticion<T>(fn: () => Promise<T>, deps: unknown[] = [], { auto = true, clave = null }: { auto?: boolean; clave?: string | null } = {}) {
+  const [datos, setDatos] = useState<T | null>(() => (clave ? (CACHE.get(clave) as T) ?? null : null));
   const [error, setError] = useState<string | null>(null);
-  const [cargando, setCargando] = useState(auto);
+  const [cargando, setCargando] = useState(auto && !(clave && CACHE.has(clave)));
   const vivo = useRef(0);
   const run = useCallback(async () => {
     const id = ++vivo.current;
     setCargando(true); setError(null);
-    try { const r = await fn(); if (id === vivo.current) setDatos(r); return r; }
+    try { const r = await fn(); if (id === vivo.current) { if (clave) CACHE.set(clave, r); setDatos(r); } return r; }
     catch (e) { if (id === vivo.current) setError((e as Error).message || 'Algo falló.'); return null; }
     finally { if (id === vivo.current) setCargando(false); }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, deps);
-  useEffect(() => { if (auto) run(); }, [run, auto]);
+  }, [clave, ...deps]);
+  useEffect(() => {
+    if (!auto) return;
+    if (clave && CACHE.has(clave)) { vivo.current++; setDatos(CACHE.get(clave) as T); setCargando(false); setError(null); return; }
+    run();
+  }, [run, auto, clave]);
   return { datos, error, cargando, run, setDatos };
 }
 

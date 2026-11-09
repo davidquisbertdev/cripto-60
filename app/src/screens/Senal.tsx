@@ -17,7 +17,7 @@ export function Senal() {
   const { estado, refrescar, aviso } = useSesion();
   const [q] = useSearchParams();
   const nav = useNavigate();
-  const [moneda, setMoneda] = useState(q.get('moneda') ?? '');
+  const [moneda, setMoneda] = useState(q.get('moneda') ?? 'BTC');
   const [capital, setCapital] = useState('');
   const [margen, setMargen] = useState('');
   const [objetivo, setObjetivo] = useState('');
@@ -78,7 +78,7 @@ export function Senal() {
       <form className="panel" onSubmit={analizar} noValidate>
         <div className="panel-b form-row">
           <Campo etiqueta="Moneda" error={errCampo}>
-            <SelectorMoneda valor={moneda} onCambio={setMoneda} placeholder="SOL" invalido={!!errCampo} />
+            <SelectorMoneda valor={moneda} onCambio={setMoneda} placeholder="BTC" invalido={!!errCampo} />
           </Campo>
           <Campo etiqueta="Capital" error={errCapital}>
             <div className="input-wrap"><input className="input num" inputMode="decimal" value={capital} onChange={(e) => setCapital(e.target.value)} aria-invalid={!!errCapital} /><span className="suf">USDT</span></div>
