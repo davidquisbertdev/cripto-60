@@ -1,4 +1,4 @@
-// Diario, Ajustes y Letra pequeña.
+// Diario, Ajustes y Términos y condiciones.
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { BookOpen, Download, Plus, Trash2 } from 'lucide-react';
 import { Pagina } from '../components/Shell';
@@ -241,10 +241,10 @@ export function Ajustes() {
   );
 }
 
-// ---------------- Letra pequeña ----------------
+// ---------------- Términos y condiciones ----------------
 export function Legal() {
   return (
-    <Pagina titulo="Letra pequeña">
+    <Pagina titulo="Términos y condiciones">
       <article className="prose">
         <p><strong>No es asesoría financiera.</strong> Cripto60 es software que lee datos públicos y hace cálculos. Los futuros apalancados pueden liquidarte, y la mayoría de quienes hacen trading pierden dinero. Opera solo lo que puedas perder.</p>
         <h2>La confianza no es una probabilidad</h2>

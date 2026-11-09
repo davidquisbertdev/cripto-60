@@ -69,7 +69,7 @@ export function Acceso() {
             {modo !== 'crear' && <button type="button" className="btn btn-ghost btn-sm" onClick={() => { setModo('crear'); setOk(null); setErr(null); }}>Crear una cuenta nueva</button>}
             {modo === 'entrar' && <button type="button" className="btn btn-ghost btn-sm" onClick={() => { setModo('recuperar'); setOk(null); setErr(null); }}>Olvidé mi contraseña</button>}
           </div>
-          <p className="faint" style={{ fontSize: 12 }}>Al crear la cuenta aceptas la <Link to="/legal">letra pequeña</Link>.</p>
+          <p className="faint" style={{ fontSize: 12 }}>Al entrar aceptas los <Link to="/terminos">términos y condiciones</Link>.</p>
         </form>
       </div>
     </div>

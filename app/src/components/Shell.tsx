@@ -1,9 +1,10 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import {
-  Activity, Bitcoin, BookOpen, CandlestickChart, FileText, Home, LogOut, MoreHorizontal, Newspaper, Radar, Settings, Waves, Zap, CheckCircle2,
+  Activity, Bitcoin, BookOpen, CandlestickChart, FileText, Home, LogOut, MoreHorizontal, Newspaper, PanelLeftClose, PanelLeftOpen, Radar, Settings, Waves, Zap, CheckCircle2,
 } from 'lucide-react';
 import { useSesion } from '../lib/sesion';
+import { useLocal } from '../lib/usar';
 import { tono, usdt, usdtSigno } from '../lib/formato';
 
 export const RUTAS = [
@@ -18,43 +19,60 @@ export const RUTAS = [
   { a: '/ajustes', t: 'Ajustes', i: Settings, g: 2 },
 ];
 const MOVIL = ['/', '/senal', '/posicion', '/diario'];
+const EXTRA: Record<string, string> = { '/terminos': 'Términos y condiciones' };
 
-function Enlace({ r, punto, onClick }: { r: (typeof RUTAS)[number]; punto?: boolean; onClick?: () => void }) {
+function Enlace({ r, punto, onClick, corto }: { r: { a: string; t: string; i: typeof Home }; punto?: boolean; onClick?: () => void; corto?: boolean }) {
   const I = r.i;
   return (
-    <NavLink to={r.a} end={r.a === '/'} className="nav-link" onClick={onClick}>
-      <I size={17} aria-hidden />{r.t}{punto && <span className="dot" aria-label="posición abierta" />}
+    <NavLink to={r.a} end={r.a === '/'} className="nav-link" onClick={onClick} title={corto ? r.t : undefined} aria-label={corto ? r.t : undefined}>
+      <I size={17} aria-hidden /><span className="nav-txt">{r.t}</span>{punto && <span className="dot" aria-label="posición abierta" />}
     </NavLink>
   );
 }
 
 export function Shell() {
   const { estado, demo, salir } = useSesion();
-  const loc = useLocation();
+  const loc = useLocation().pathname;
   const [mas, setMas] = useState(false);
-  useEffect(() => setMas(false), [loc.pathname]);
-  const actual = RUTAS.find((r) => (r.a === '/' ? loc.pathname === '/' : loc.pathname.startsWith(r.a))) ?? (loc.pathname.startsWith('/legal') ? { t: 'Letra pequeña' } : { t: '' });
+  const [plegada, setPlegada] = useLocal('cripto60-nav-plegada', false);
+  const [confirmar, setConfirmar] = useState(false);
+  useEffect(() => setMas(false), [loc]);
+  const actual = RUTAS.find((r) => (r.a === '/' ? loc === '/' : loc.startsWith(r.a)))?.t ?? Object.entries(EXTRA).find(([k]) => loc.startsWith(k))?.[1] ?? '';
   const d = estado?.diario;
   const abierta = !!estado?.posicion_abierta;
-  useEffect(() => { document.title = actual.t ? `${actual.t} · Cripto60` : 'Cripto60'; }, [actual.t]);
+  useEffect(() => { document.title = actual ? `${actual} · Cripto60` : 'Cripto60'; }, [actual]);
+  const pedirSalir = () => { setMas(false); setConfirmar(true); };
 
   return (
-    <div className="shell">
+    <div className={`shell${plegada ? ' plegada' : ''}`}>
       <nav className="nav" aria-label="Principal">
-        <NavLink to="/" className="brand"><span className="brand-mark"><CandlestickChart size={14} aria-hidden /></span>Cripto60</NavLink>
-        {[0, 1, 2].map((g) => (
-          <div className="nav-group" key={g}>{RUTAS.filter((r) => r.g === g).map((r) => <Enlace key={r.a} r={r} punto={r.a === '/posicion' && abierta} />)}</div>
-        ))}
+        <div className="nav-head">
+          <NavLink to="/" className="brand" title="Cripto60"><span className="brand-mark"><CandlestickChart size={14} aria-hidden /></span><span className="nav-txt">Cripto60</span></NavLink>
+          <button type="button" className="nav-toggle" onClick={() => setPlegada(!plegada)} aria-label={plegada ? 'Mostrar el menú' : 'Esconder el menú'} aria-expanded={!plegada} title={plegada ? 'Mostrar el menú' : 'Esconder el menú'}>
+            {plegada ? <PanelLeftOpen size={17} aria-hidden /> : <PanelLeftClose size={17} aria-hidden />}
+          </button>
+        </div>
+        <div className="nav-body">
+          {[0, 1, 2].map((g) => (
+            <div className="nav-group" key={g}>{RUTAS.filter((r) => r.g === g).map((r) => <Enlace key={r.a} r={r} corto={plegada} punto={r.a === '/posicion' && abierta} />)}</div>
+          ))}
+        </div>
         <div className="nav-foot">
-          <div className="nav-cap">
-            <div className="lbl">Capital</div>
-            <div className="val num">{d ? usdt(d.capital, 2) : '—'}</div>
-            <div className="sub num">{d ? <>Hoy <span className={tono(d.hoy.pnl)}>{usdtSigno(d.hoy.pnl)}</span> · {d.hoy.operaciones} op.</> : 'Diario sin iniciar'}</div>
-            {d && <div className="sub" style={{ marginTop: 6 }}>{d.bloqueo ? <span className="warn">Freno activo</span> : <span className="faint"><CheckCircle2 size={12} aria-hidden style={{ verticalAlign: -2 }} /> Sin frenos</span>}</div>}
-          </div>
-          <div style={{ display: 'flex', gap: 4 }}>
-            <NavLink to="/legal" className="nav-link" style={{ flex: 1 }}><FileText size={16} aria-hidden />Letra pequeña</NavLink>
-            {!demo && <button className="btn btn-ghost icon-btn" onClick={salir} aria-label="Cerrar sesión" title="Cerrar sesión"><LogOut size={16} /></button>}
+          {!plegada && (
+            <div className="nav-cap">
+              <div className="lbl">Capital</div>
+              <div className="val num">{d ? usdt(d.capital, 2) : '—'}</div>
+              <div className="sub num">{d ? <>Hoy <span className={tono(d.hoy.pnl)}>{usdtSigno(d.hoy.pnl)}</span> · {d.hoy.operaciones} op.</> : 'Diario sin iniciar'}</div>
+              {d && <div className="sub" style={{ marginTop: 6 }}>{d.bloqueo ? <span className="warn">Freno activo</span> : <span className="faint"><CheckCircle2 size={12} aria-hidden style={{ verticalAlign: -2 }} /> Sin frenos</span>}</div>}
+            </div>
+          )}
+          <div className="nav-group">
+            <Enlace r={{ a: '/terminos', t: 'Términos y condiciones', i: FileText }} corto={plegada} />
+            {!demo && (
+              <button type="button" className="nav-link nav-salir" onClick={pedirSalir} title={plegada ? 'Cerrar sesión' : undefined} aria-label={plegada ? 'Cerrar sesión' : undefined}>
+                <LogOut size={17} aria-hidden /><span className="nav-txt">Cerrar sesión</span>
+              </button>
+            )}
           </div>
         </div>
       </nav>
@@ -69,18 +87,42 @@ export function Shell() {
           const I = r.i;
           return <NavLink key={r.a} to={r.a} end={r.a === '/'} className="tab"><I size={20} aria-hidden />{r.t}</NavLink>;
         })}
-        <button className="tab" onClick={() => setMas(true)} aria-haspopup="dialog" aria-current={MOVIL.includes(loc.pathname) ? undefined : 'page'}><MoreHorizontal size={20} aria-hidden />Más</button>
+        <button className="tab" onClick={() => setMas(true)} aria-haspopup="dialog" aria-current={MOVIL.includes(loc) ? undefined : 'page'}><MoreHorizontal size={20} aria-hidden />Más</button>
       </nav>
       {mas && (
         <>
           <div className="sheet-back" onClick={() => setMas(false)} />
           <div className="sheet" role="dialog" aria-label="Más secciones">
             {RUTAS.filter((r) => !MOVIL.includes(r.a)).map((r) => <Enlace key={r.a} r={r} />)}
-            <NavLink to="/legal" className="nav-link"><FileText size={17} aria-hidden />Letra pequeña</NavLink>
-            {!demo && <button className="nav-link" style={{ border: 0, background: 'none', width: '100%', cursor: 'pointer' }} onClick={salir}><LogOut size={17} aria-hidden />Cerrar sesión</button>}
+            <Enlace r={{ a: '/terminos', t: 'Términos y condiciones', i: FileText }} />
+            {!demo && <button type="button" className="nav-link nav-salir" onClick={pedirSalir}><LogOut size={17} aria-hidden />Cerrar sesión</button>}
           </div>
         </>
       )}
+      {confirmar && <ConfirmarSalida onCancelar={() => setConfirmar(false)} onSalir={async () => { setConfirmar(false); await salir(); }} />}
+    </div>
+  );
+}
+
+function ConfirmarSalida({ onCancelar, onSalir }: { onCancelar: () => void; onSalir: () => Promise<void> }) {
+  const [saliendo, setSaliendo] = useState(false);
+  const cancelar = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    cancelar.current?.focus();
+    const k = (e: KeyboardEvent) => { if (e.key === 'Escape') onCancelar(); };
+    window.addEventListener('keydown', k);
+    return () => window.removeEventListener('keydown', k);
+  }, [onCancelar]);
+  return (
+    <div className="dialog-back" onClick={(e) => e.target === e.currentTarget && onCancelar()}>
+      <div className="dialog" role="alertdialog" aria-modal="true" aria-labelledby="salir-t" aria-describedby="salir-d">
+        <header className="panel-h"><h2 id="salir-t">¿Cerrar sesión?</h2></header>
+        <div className="panel-b"><p id="salir-d" className="muted">Tu diario, tus ajustes y la posición que sigues quedan guardados en tu cuenta. Para volver tendrás que entrar con tu correo y contraseña.</p></div>
+        <div className="dialog-actions">
+          <button ref={cancelar} type="button" className="btn btn-ghost" onClick={onCancelar}>Cancelar</button>
+          <button type="button" className="btn btn-primary" disabled={saliendo} onClick={async () => { setSaliendo(true); await onSalir(); }}><LogOut size={16} aria-hidden />{saliendo ? 'Cerrando…' : 'Cerrar sesión'}</button>
+        </div>
+      </div>
     </div>
   );
 }

@@ -1,24 +1,43 @@
 /* Shell y componentes. Filetes de 1 px en lugar de sombras; la sombra queda para lo que flota. */
 
 /* ---------- Shell ---------- */
-.shell { display: grid; grid-template-columns: var(--nav-w) minmax(0, 1fr); min-height: 100%; }
+.shell { display: grid; grid-template-columns: var(--nav-w) minmax(0, 1fr); min-height: 100%; transition: grid-template-columns 0.2s var(--ease); }
+.shell.plegada { grid-template-columns: var(--nav-w-plegada) minmax(0, 1fr); }
 .nav {
-  position: sticky; top: 0; height: 100vh; display: flex; flex-direction: column;
+  position: sticky; top: 0; height: 100vh; height: 100dvh; display: flex; flex-direction: column; min-width: 0; overflow: hidden;
   background: var(--s1); border-right: 1px solid var(--line); padding: var(--sp-4) var(--sp-3);
 }
-.brand { display: flex; align-items: center; gap: var(--sp-2); padding: var(--sp-1) var(--sp-2) var(--sp-5); font-weight: 700; font-size: var(--fs-lg); letter-spacing: -0.01em; color: var(--text); text-decoration: none; }
-.brand-mark { width: 22px; height: 22px; border-radius: 5px; background: var(--accent-fill); display: grid; place-items: center; color: #fff; }
+.nav-head { display: flex; align-items: center; gap: var(--sp-1); padding-bottom: var(--sp-4); }
+.brand { display: flex; align-items: center; gap: var(--sp-2); padding: var(--sp-1) var(--sp-2); min-width: 0; font-weight: 700; font-size: var(--fs-lg); letter-spacing: -0.01em; color: var(--text); text-decoration: none; white-space: nowrap; }
+.brand-mark { flex: none; width: 22px; height: 22px; border-radius: 5px; background: var(--accent-fill); display: grid; place-items: center; color: #fff; }
+.nav-toggle { margin-left: auto; flex: none; width: 30px; height: 30px; display: grid; place-items: center; border: 0; border-radius: var(--r); background: none; color: var(--text-3); cursor: pointer; transition: background 0.15s, color 0.15s; }
+.nav-toggle:hover { background: var(--s2); color: var(--text); }
+.nav-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden; margin: 0 calc(-1 * var(--sp-1)); padding: 0 var(--sp-1); scrollbar-width: thin; }
 .nav-group { display: flex; flex-direction: column; gap: 1px; }
 .nav-group + .nav-group { margin-top: var(--sp-4); padding-top: var(--sp-4); border-top: 1px solid var(--line); }
 .nav-link {
-  display: flex; align-items: center; gap: var(--sp-3); padding: 7px var(--sp-2); border-radius: var(--r);
-  color: var(--text-2); text-decoration: none; font-weight: 500; transition: background 0.15s, color 0.15s;
+  position: relative; display: flex; align-items: center; gap: var(--sp-3); padding: 7px var(--sp-2); border-radius: var(--r); min-width: 0; white-space: nowrap;
+  color: var(--text-2); text-decoration: none; font-weight: 500; font-size: var(--fs-md); transition: background 0.15s, color 0.15s;
 }
+.nav-link svg { flex: none; }
+.nav-txt { overflow: hidden; text-overflow: ellipsis; }
+button.nav-link { width: 100%; border: 0; background: none; cursor: pointer; font-family: inherit; text-align: left; }
 .nav-link:hover { background: var(--s2); color: var(--text); }
 .nav-link[aria-current='page'] { background: var(--s3); color: var(--text); }
 .nav-link[aria-current='page'] svg { color: var(--accent); }
-.nav-link .dot { margin-left: auto; width: 7px; height: 7px; border-radius: 50%; background: var(--warn); }
-.nav-foot { margin-top: auto; border-top: 1px solid var(--line); padding: var(--sp-4) var(--sp-2) 0; display: grid; gap: var(--sp-3); }
+.nav-link .dot { margin-left: auto; flex: none; width: 7px; height: 7px; border-radius: 50%; background: var(--warn); }
+.nav-salir:hover { color: var(--loss-text); }
+.nav-foot { flex: none; border-top: 1px solid var(--line); margin-top: var(--sp-3); padding-top: var(--sp-3); display: grid; gap: var(--sp-3); }
+.nav-foot .nav-link { font-size: var(--fs-sm); padding-top: 6px; padding-bottom: 6px; }
+.nav-cap { padding: var(--sp-3); border-radius: var(--r); background: var(--s2); }
+/* Menú plegado: solo iconos, con el nombre en el title */
+.plegada .nav { padding-left: var(--sp-2); padding-right: var(--sp-2); }
+.plegada .nav-head { flex-direction: column; gap: var(--sp-2); }
+.plegada .nav-toggle { margin-left: 0; }
+.plegada .brand { padding: var(--sp-1); }
+.plegada .nav-txt { display: none; }
+.plegada .nav-link { justify-content: center; padding: 9px 0; }
+.plegada .nav-link .dot { position: absolute; top: 6px; right: 10px; margin: 0; }
 .nav-cap .lbl { font-size: var(--fs-xs); color: var(--text-3); }
 .nav-cap .val { font-size: var(--fs-xl); font-weight: 650; letter-spacing: -0.01em; }
 .nav-cap .sub { font-size: var(--fs-xs); color: var(--text-2); }
@@ -33,7 +52,7 @@
 .tabbar { display: none; }
 
 @media (max-width: 900px) {
-  .shell { grid-template-columns: 1fr; }
+  .shell, .shell.plegada { grid-template-columns: 1fr; }
   .nav { display: none; }
   .topbar { padding: var(--sp-3) var(--sp-4); min-height: 52px; flex-wrap: wrap; row-gap: var(--sp-2); }
   .topbar h1 { font-size: var(--fs-lg); }
@@ -328,7 +347,7 @@ table.t { width: 100%; border-collapse: collapse; font-size: var(--fs-md); }
   .auth-form { padding: var(--sp-6) var(--sp-4); place-items: start center; }
 }
 
-/* Prosa (letra pequeña) */
+/* Prosa (términos y condiciones) */
 .prose { max-width: 70ch; display: grid; gap: var(--sp-4); font-size: var(--fs-lg); color: var(--text-2); line-height: 1.65; }
 .prose h2 { color: var(--text); font-size: var(--fs-xl); margin-top: var(--sp-4); }
 .prose strong { color: var(--text); }

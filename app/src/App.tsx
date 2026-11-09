@@ -1,4 +1,4 @@
-import { BrowserRouter, Link, Route, Routes } from 'react-router-dom';
+import { BrowserRouter, Link, Navigate, Route, Routes } from 'react-router-dom';
 import { Compass } from 'lucide-react';
 import { ProveedorSesion, useSesion } from './lib/sesion';
 import { hayBackend } from './lib/supabase';
@@ -20,7 +20,8 @@ function Rutas() {
       <Routes>
         {!dentro ? (
           <>
-            <Route path="/legal" element={<div className="main"><Legal /></div>} />
+            <Route path="/terminos" element={<div className="main"><Legal /></div>} />
+            <Route path="/legal" element={<Navigate to="/terminos" replace />} />
             <Route path="*" element={<Acceso />} />
           </>
         ) : (
@@ -34,7 +35,8 @@ function Rutas() {
             <Route path="escaner" element={<Escaner />} />
             <Route path="diario" element={<Diario />} />
             <Route path="ajustes" element={<Ajustes />} />
-            <Route path="legal" element={<Legal />} />
+            <Route path="terminos" element={<Legal />} />
+            <Route path="legal" element={<Navigate to="/terminos" replace />} />
             <Route path="*" element={<Pagina titulo="No encontrado"><div className="panel"><Vacio icono={<Compass size={28} aria-hidden />} titulo="Esta página no existe" accion={<Link className="btn" to="/">Ir al inicio</Link>} /></div></Pagina>} />
           </Route>
         )}
