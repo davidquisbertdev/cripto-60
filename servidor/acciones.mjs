@@ -32,8 +32,9 @@ export function configDe(propio = {}) {
   const cfg = { ...DEFAULTS, ...limpio };
   cfg.riesgo_por_confianza = { ...DEFAULTS.riesgo_por_confianza, ...(limpio.riesgo_por_confianza || {}) };
   cfg.margen_por_confianza = { ...DEFAULTS.margen_por_confianza };
-  // los frenos nunca pueden pasar los topes del motor
-  cfg.apalancamiento_max = Math.min(+cfg.apalancamiento_max || DEFAULTS.apalancamiento_max, DEFAULTS.apalancamiento_max);
+  // los frenos nunca pueden pasar los topes del motor. El apalancamiento lo elige el usuario (hasta
+  // apalancamiento_tope); el plan lo sigue frenando con el máximo del exchange y la distancia a la liquidación.
+  cfg.apalancamiento_max = Math.min(Math.max(1, Math.round(+cfg.apalancamiento_max || DEFAULTS.apalancamiento_max)), DEFAULTS.apalancamiento_tope);
   for (const k of ['ALTA', 'MEDIA', 'BAJA']) cfg.riesgo_por_confianza[k] = Math.min(+cfg.riesgo_por_confianza[k] || DEFAULTS.riesgo_por_confianza[k], DEFAULTS.riesgo_max_pct);
   cfg.max_perdida_dia_pct = Math.min(+cfg.max_perdida_dia_pct || DEFAULTS.max_perdida_dia_pct, DEFAULTS.max_perdida_dia_pct);
   return cfg;

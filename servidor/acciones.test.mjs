@@ -12,7 +12,9 @@ const fx = (n) => new Fuente({ offline: FX(n) });
 
 test('configDe: los ajustes del usuario nunca pasan los topes del motor', () => {
   const c = configDe({ apalancamiento_max: 125, riesgo_por_confianza: { ALTA: 50 }, max_perdida_dia_pct: 90, carpeta: '/etc' });
-  assert.equal(c.apalancamiento_max, 30);
+  assert.equal(c.apalancamiento_max, 125); // el apalancamiento lo elige el usuario
+  assert.equal(configDe({ apalancamiento_max: 9000 }).apalancamiento_max, 500); // hasta el tope
+  assert.equal(configDe({}).apalancamiento_max, 30);
   assert.equal(c.riesgo_por_confianza.ALTA, 10);
   assert.equal(c.max_perdida_dia_pct, 20);
   assert.equal(c.carpeta, 'trader'); // no editable

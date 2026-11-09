@@ -41,7 +41,7 @@ Solo recomienda lo que **ganó de verdad en el historial real reciente de esa mo
 
 - Skills: `cripto-senal`, `cripto-btc`, `cripto-posicion`, `cripto-ballenas`, `cripto-noticias`, `cripto-escaner` y `cripto-diario`.
 - La señal evalúa dos estrategias (TENDENCIA y REVERSIÓN a la media) y recomienda la que gana en el historial. Una reversión contra BTC sale NO OPERAR.
-- Reglas de riesgo que ninguna interfaz puede saltarse: SL entre 0.3 % y 0.8 %; TPs a 1R, 1.8R y 2.6R; pérdida máxima en el SL del 10 %, 7 % o 4 % del capital (confianza ALTA, MEDIA o BAJA); liquidación a al menos el doble de distancia que el SL; tope de 30x; con 2 pérdidas seguidas, pausa de 30 min y riesgo a la mitad; con 4 pérdidas o un 20 % perdido en el día, se para hasta mañana.
+- Reglas de riesgo que ninguna interfaz puede saltarse: SL entre 0.3 % y 0.8 %; TPs a 1R, 1.8R y 2.6R; pérdida máxima en el SL del 10 %, 7 % o 4 % del capital (confianza ALTA, MEDIA o BAJA); liquidación a al menos el doble de distancia que el SL; apalancamiento máximo de 30x por defecto, que el usuario puede subir hasta 500x (siempre limitado por el exchange y la liquidación); con 2 pérdidas seguidas, pausa de 30 min y riesgo a la mitad; con 4 pérdidas o un 20 % perdido en el día, se para hasta mañana.
 - Terminología fija en español: SEÑAL, LONG, SHORT, NO OPERAR, MANTENER, MOVER SL, REDUCIR, CERRAR, MEJOR ENTRADA, confianza ALTA/MEDIA/BAJA.
 - **Abierto:** el modelo de cobro, los planes y precios, si habrá app móvil y si la web tendrá alertas en tiempo real.
 

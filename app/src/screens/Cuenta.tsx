@@ -9,6 +9,9 @@ import { useSesion } from '../lib/sesion';
 import { usePeticion } from '../lib/usar';
 import { diaClave, nombreExchange, fechaCorta, fechaHora, pct, tono, usdt, usdtSigno, zonaNavegador } from '../lib/formato';
 import type { Ajustes as TAjustes, Lado } from '../lib/tipos';
+import { DEFAULTS } from '../../../lib/defaults.mjs';
+
+const TOPE_LEV = DEFAULTS.apalancamiento_tope;
 
 // ---------------- Diario ----------------
 export function Diario() {
@@ -168,9 +171,14 @@ export function Ajustes() {
           </Panel>
           <Panel titulo="Riesgo">
             <div style={{ display: 'grid', gap: 16 }}>
-              <Nota>Estos frenos solo pueden ser <strong>más estrictos</strong> que los del motor: 30x de apalancamiento, 10 % de pérdida por operación y 20 % por día como máximo. Un valor mayor se recorta.</Nota>
+              <Nota>Las pérdidas solo pueden ser <strong>más estrictas</strong> que las del motor: 10 % por operación y 20 % por día como máximo. El apalancamiento lo eliges tú, pero el plan nunca pasa el máximo de la moneda en el exchange ni deja la liquidación a menos del doble de distancia que el SL.</Nota>
               <div className="form-row">
-                {num('apalancamiento_max', 'Apalancamiento máximo', 'x', 'Tope del motor: 30x.', 30)}
+                <Campo etiqueta="Apalancamiento máximo" hint={`Por defecto ${DEFAULTS.apalancamiento_max}x, hasta ${TOPE_LEV}x. Con más apalancamiento la liquidación queda más cerca.`}>
+                  <div className="input-wrap"><input className="input num" type="number" min={1} max={TOPE_LEV} step={1} value={String(v('apalancamiento_max') ?? '')} onChange={n('apalancamiento_max')} /><span className="suf">x</span></div>
+                  <div className="chips" role="group" aria-label="Valores rápidos">
+                    {[30, 50, 100, 200, 500].map((x) => <button type="button" key={x} className="chip" aria-pressed={Number(v('apalancamiento_max')) === x} onClick={() => setA({ ...a, apalancamiento_max: x })}>{x}x</button>)}
+                  </div>
+                </Campo>
                 {num('max_perdida_dia_pct', 'Pérdida máxima del día', '%', 'Al llegar, se para hasta mañana.', 20)}
               </div>
               <div className="form-row">
