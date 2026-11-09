@@ -58,7 +58,7 @@ export function cargarPosicion(op, cfg, ahora, sym, senal = undefined) {
   pos.espera_max_min = pos.espera_max_min ?? cfg.espera_max_min;
   pos.duracion_max_min = pos.duracion_max_min ?? cfg.duracion_max_min;
   // reparto a mano (% que cierra cada TP, uno por TP, suma 100); si no, el del plan según cuántos TPs hay
-  let repDefecto = pos.tps.length === 3 ? cfg.reparto_tps : pos.tps.length === 2 ? [50, 50, 0] : [100, 0, 0];
+  let repDefecto = pos.tps.length === cfg.reparto_tps.length ? [...cfg.reparto_tps, 0, 0].slice(0, 3) : pos.tps.length === 3 ? [50, 25, 25] : pos.tps.length === 2 ? [50, 50, 0] : [100, 0, 0];
   if (op.reparto) {
     const r = (Array.isArray(op.reparto) ? op.reparto : String(op.reparto).split(/[,\s/]+/).filter(Boolean)).map(Number);
     if (r.length !== pos.tps.length || r.some((x) => !(x > 0)) || Math.abs(r.reduce((x, y) => x + y, 0) - 100) > 0.01)

@@ -352,3 +352,10 @@ test('historial con filtro de BTC: separa las operaciones bloqueadas y las mide 
   assert.ok(con.n < sin.n);
   assert.ok(con.filtro_btc.r_medio_sin_filtro != null);
 });
+
+test('repartir: 1, 2 o 3 TPs y TPs con 0 %', () => {
+  assert.deepEqual(repartir(10, [100]), [10]);
+  assert.deepEqual(repartir(10, [70, 30]), [7, 3]);
+  assert.deepEqual(repartir(3, [100, 0, 0]), [3, 0, 0]);
+  assert.deepEqual(repartir(1, [50, 50]), [1, 0]);
+});

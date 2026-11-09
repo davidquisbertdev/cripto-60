@@ -87,3 +87,31 @@ test('senal: la duración pedida se usa en el análisis y el reloj', async () =>
   assert.equal(s.duracion_max_min, 120);
   assert.equal(s.cierre_total_a_las - s.creada, 120 * 60e3);
 });
+test('TPs: cuántos y qué % en Ajustes y por señal', async () => {
+  const c = configDe({ reparto_tps: [70, 30] });
+  assert.deepEqual(c.reparto_tps, [70, 30]);
+  assert.deepEqual(c.tps_r, [1, 1.8]);
+  assert.deepEqual(configDe({ reparto_tps: [60, 60] }).reparto_tps, [50, 25, 25]); // inválido: el del motor
+  const db = dbMemoria();
+  const s = await ejecutar('senal', { moneda: 'NEAR', capital: 10, reparto: [100] }, { db, fuente: fx('near') });
+  assert.equal(s.plan.tps.length, 1);
+  assert.equal(s.plan.tps[0].cerrar_pct, 100);
+  if (s.plan.viable) assert.equal(s.plan.tps[0].contratos, s.plan.contratos);
+  await assert.rejects(ejecutar('senal', { moneda: 'NEAR', capital: 10, reparto: [50, 20] }, { db, fuente: fx('near') }), ErrorUsuario);
+});
+
+test('billetera: todas las posiciones de una ballena', async () => {
+  const r = await ejecutar('billetera', { dir: '0x3dc908374e11623d8eb9f07dfc7a2e5e803a54b0' }, { db: dbMemoria(), fuente: fx('ballenas-sol') });
+  assert.ok(Array.isArray(r.posiciones));
+  assert.ok(r.posiciones.length >= 1);
+  assert.ok(r.posiciones.every((p) => ['LONG', 'SHORT'].includes(p.lado) && p.valor > 0));
+  await assert.rejects(ejecutar('billetera', { dir: 'hola' }, { db: dbMemoria(), fuente: fx('ballenas-sol') }), ErrorUsuario);
+});
+
+test('mercado: amplitud, BTC del día y distribución', async () => {
+  const r = await ejecutar('mercado', {}, { db: dbMemoria(), fuente: fx('escaner') });
+  assert.ok(r.amplitud.total > 0);
+  assert.equal(r.amplitud.suben + r.amplitud.bajan <= r.amplitud.total, true);
+  assert.equal(r.distribucion.reduce((s, x) => s + x.n, 0), r.amplitud.total);
+  assert.ok(r.btc?.serie.length > 10);
+});

@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { Fuente } from '../lib/mexc.mjs';
 import { ejecutar } from '../servidor/acciones.mjs';
 import { dbMemoria } from '../servidor/db-memoria.mjs';
+import { resumenSenal } from '../cripto-escaner/escaner.mjs';
 
 const RAIZ = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 const fx = (n) => new Fuente({ offline: path.join(RAIZ, 'tests', 'fixtures', n) });
@@ -27,9 +28,18 @@ const posicion = await ejecutar('posicion', { moneda: 'NEAR', manual: true, lado
 const btc = await ejecutar('btc', { moneda: 'NEAR', zona }, { db, fuente: fx('near') });
 const ballenas = await ejecutar('ballenas', { moneda: 'SOL', zona }, { db, fuente: fx('ballenas-sol') });
 const noticias = await ejecutar('noticias', { monedas: ['SOL'], horas: 48, zona }, { db, fuente: fx('sol') });
-const escaner = await ejecutar('escaner', { top: 25, zona }, { db, fuente: fx('escaner') });
+const escaner = await ejecutar('escaner', { top: 25, confirmar: 0, zona }, { db, fuente: fx('escaner') });
+// la grabación del escáner no trae los datos completos de cada moneda: se muestra la confirmación con la
+// señal grabada de NEAR (la misma de la pantalla Señal del demo)
+const filaNear = escaner.filas.find((x) => x.simbolo === 'NEAR_USDT');
+if (filaNear) { filaNear.senal = resumenSenal(senal); escaner.confirmadas = 1; }
+// una ballena con posición en SOL (la de más valor), con todas sus posiciones
+const dirBallena = ballenas.hl?.posiciones?.[0]?.dir;
+const billetera = dirBallena ? await ejecutar('billetera', { dir: dirBallena, zona }, { db, fuente: fx('ballenas-sol') }).catch(() => null) : null;
+const mercado = await ejecutar('mercado', { zona }, { db, fuente: fx('escaner') });
+mercado.fng ??= noticias.fng; // la grabación del escáner no trae el Fear & Greed
 const estado = await ejecutar('estado', { zona }, { db, fuente: fx('near') });
 
 const out = path.join(RAIZ, 'app', 'src', 'demo', 'datos.json');
-fs.writeFileSync(out, JSON.stringify({ generado: ahora, zona, senal, posicion, btc, ballenas, noticias, escaner, estado, operaciones, capital_inicial: 20 }));
+fs.writeFileSync(out, JSON.stringify({ generado: ahora, zona, senal, posicion, btc, ballenas, billetera, noticias, escaner, mercado, estado, operaciones, capital_inicial: 20 }));
 console.log(`${out} (${(fs.statSync(out).size / 1024).toFixed(0)} KB) · señal ${senal.recomendacion} · posición ${posicion.accion}`);

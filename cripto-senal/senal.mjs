@@ -10,6 +10,7 @@ import { calcularPlan, redondear, stopLoss } from '../lib/plan.mjs';
 import { simular } from '../lib/simulacion.mjs';
 import { historialSenal } from '../lib/historial.mjs';
 import { filtroBTC } from '../lib/btc.mjs';
+import { efectoFNG } from '../lib/noticias.mjs';
 import { leerConfig, leerJSON, escribirJSON, rutaDiario, rutaSenal, estadoDiario, carpeta } from '../lib/config.mjs';
 import { args, precio as fp, usdt, pct, signo, hora, duracion, salir } from '../lib/formato.mjs';
 
@@ -90,6 +91,22 @@ const NOMBRE = { tendencia: 'TENDENCIA', reversion: 'REVERSIÓN a la media' };
 const ORDEN = { ALTA: 3, MEDIA: 2, BAJA: 1, 'NO OPERAR': 0 };
 const nivelPorConfianza = (c) => (c < 40 ? 'NO OPERAR' : c < 50 ? 'BAJA' : c < 65 ? 'MEDIA' : 'ALTA');
 
+// Ballenas frente a un lado concreto (también para la reversión o un lado pedido a mano): si el dinero
+// grande va FUERTE en contra se baja un nivel; nunca suben el nivel solas.
+const M = (x) => (Math.abs(x) >= 1e6 ? `${(x / 1e6).toFixed(1)} M` : `${Math.round(x / 1e3)} k`);
+export function efectoBallenas(b, lado) {
+  if (!b?.cobertura) return { bajar: 0, texto: null, a_favor: null };
+  const L = lado === 'LONG' ? 1 : -1;
+  const bw = b.puntuacion * Math.min(1, b.cobertura);
+  const hl = b.hl?.disponible && b.hl.con_posicion >= 3 ? b.hl : null;
+  const hlTxt = hl ? ` En Hyperliquid: ${hl.longs} ballenas LONG (${M(hl.valor_long)}) y ${hl.shorts} SHORT (${M(hl.valor_short)}).` : '';
+  if (Math.sign(bw) === -L && Math.abs(bw) >= 0.45) return { bajar: 1, a_favor: false, texto: `Ballenas FUERTE en contra del ${lado} (${b.lectura}, ${bw.toFixed(2)}): se baja un nivel.${hlTxt}` };
+  if (hl && Math.sign(hl.neto) === -L && Math.abs(hl.neto) >= 0.5 && Math.abs(bw) >= 0.15 && Math.sign(bw) === -L)
+    return { bajar: 0, a_favor: false, texto: `Las ballenas de Hyperliquid están ${hl.neto > 0 ? 'LONG' : 'SHORT'} (neto ${Math.round(Math.abs(hl.neto) * 100)} %), en contra del ${lado}.${hlTxt}` };
+  if (Math.sign(bw) === L && Math.abs(bw) >= 0.3) return { bajar: 0, a_favor: true, texto: null };
+  return { bajar: 0, a_favor: null, texto: null };
+}
+
 export async function generarSenal(a, op, cfg) {
   const ahora = a.ahora;
   // op.diario: estado ya calculado (la web lo trae de su base de datos); si no, se lee trader/diario.json
@@ -124,15 +141,22 @@ export async function generarSenal(a, op, cfg) {
     if (op.lado && lado !== d.sesgo) { nivel = bajar(nivel, 2); motivos.push(`Pediste ${lado} pero ${e === 'reversion' ? 'la reversión' : 'el análisis'} se inclina a ${d.sesgo}.`); }
     // Filtro de BTC: las altcoins siguen a BTC; contra un BTC con dirección se baja o se bloquea
     const fb = filtroBTC(a.btc, a.btc?.relacion, lado === 'LONG' ? 1 : -1, e);
-    const dd = { ...d, confianza: Math.round(Math.max(5, Math.min(e === 'tendencia' && d.lateral ? 64 : 90, d.confianza + fb.ajuste_conf))) };    if (fb.texto) motivos.unshift(`BTC: ${fb.texto}`);
+    // Fear & Greed: en los extremos avisa de ir con la masa (ajuste pequeño de confianza)
+    const fg = efectoFNG(a.fng, lado);
+    if (fg.texto) motivos.push(fg.texto);
+    const dd = { ...d, confianza: Math.round(Math.max(5, Math.min(e === 'tendencia' && d.lateral ? 64 : 90, d.confianza + fb.ajuste_conf + fg.ajuste_conf))) };
+    if (fb.texto) motivos.unshift(`BTC: ${fb.texto}`);
+    // Ballenas en long o en short frente a ESTE lado
+    const eb = efectoBallenas(a.ballenas, lado);
+    if (eb.texto && !(e === 'tendencia' && !op.lado && d.ballenas_en_contra && !eb.bajar)) motivos.push(eb.texto);
     const nivelSinBTC = nivel;
     if (fb.bloquea) nivel = 'NO OPERAR';
     else {
-      nivel = bajar(nivel, fb.bajar);
+      nivel = bajar(nivel, fb.bajar + eb.bajar);
       if (ORDEN[nivelPorConfianza(dd.confianza)] < ORDEN[nivel]) nivel = nivelPorConfianza(dd.confianza);
     }
     const r = evaluarEstrategia(a, cfg, op, { estrategia: e, lado, nivel, motivos, capital, diario, fb, nivelSinBTC });
-    evaluadas.push({ ...r, d: dd, btc: fb });
+    evaluadas.push({ ...r, d: dd, btc: fb, ballenas_a_favor: eb.a_favor });
   }
   // Elección: primero las recomendables, luego la de mejor historial real, luego la de más confianza
   const valorHist = (x) => (x.historial?.n >= cfg.historial_min_ops ? x.historial.r_medio_neto : -0.05);
@@ -169,7 +193,11 @@ export async function generarSenal(a, op, cfg) {
   // Probabilidad = % de ganadoras del historial real si hay operaciones suficientes; si no, la
   // probabilidad simulada de tocar el TP1 antes que el SL.
   const probDe = (x) => {
-    if (x.historial?.n >= cfg.historial_min_ops) return { pct: x.historial.acierto_pct, fuente: `historial real, ${x.historial.n} operaciones` };
+    const h = x.historial, fh = h?.filtro_btc;
+    if (h?.n >= cfg.historial_min_ops) return { pct: h.acierto_pct, fuente: `historial real, ${h.n} operaciones` };
+    // pocas tras el filtro de BTC: el historial completo (igual que el que decide la señal)
+    const nT = (h?.n ?? 0) + (fh?.evitadas ?? 0);
+    if (fh && nT >= cfg.historial_min_ops) return { pct: +((((h.n ? h.acierto_pct * h.n : 0) + fh.acierto_evitadas_pct * fh.evitadas) / nT)).toFixed(1), fuente: `historial real completo, ${nT} operaciones`, r: fh.r_medio_sin_filtro };
     const p = x.sim?.prob;
     if (p && p.tp1 + p.sl_antes_tp1 > 0) return { pct: +((100 * p.tp1) / (p.tp1 + p.sl_antes_tp1)).toFixed(1), fuente: 'simulación: TP1 antes que el SL' };
     return null;
@@ -183,18 +211,24 @@ export async function generarSenal(a, op, cfg) {
       const opuesto = t0.lado === 'LONG' ? 'SHORT' : 'LONG';
       if (!evaluadas.some((x) => x.lado === opuesto && x.estrategia === 'tendencia')) {
         const r = evaluarEstrategia(a, cfg, op, { estrategia: 'tendencia', lado: opuesto, nivel: 'NO OPERAR', motivos: [], capital, diario });
-        extras.push({ ...r, d: t0.d });
+        extras.push({ ...r, d: t0.d, btc: filtroBTC(a.btc, a.btc?.relacion, opuesto === 'LONG' ? 1 : -1, 'tendencia') });
       }
     }
     // con una señal recomendada, la mejor entrada es esa misma; con NO OPERAR, la de más probabilidad
     const hayRecomendada = nivel !== 'NO OPERAR' && plan.viable;
-    const cand = (hayRecomendada ? [g] : [...evaluadas, ...extras]).filter((x) => x.plan?.viable && probDe(x)).sort((x, y) => probDe(y).pct - probDe(x).pct || (y.historial?.r_medio_neto ?? -1) - (x.historial?.r_medio_neto ?? -1));
+    // nunca contra BTC: se descartan las jugadas que el filtro de BTC bloquea (salvo que el bloqueo se
+    // levantara con datos), y solo si no queda ninguna otra se usan
+    const bloqueadaBTC = (x) => x.btc?.bloquea && !x.motivos.some((t) => t.includes('Se levanta el bloqueo'));
+    const todas = hayRecomendada ? [g] : [...evaluadas, ...extras];
+    const libres = todas.filter((x) => !bloqueadaBTC(x) && x.plan?.viable && probDe(x));
+    const cand = (libres.length ? libres : todas).filter((x) => x.plan?.viable && probDe(x)).sort((x, y) => probDe(y).pct - probDe(x).pct || (y.historial?.r_medio_neto ?? -1) - (x.historial?.r_medio_neto ?? -1));
     const m = cand[0];
     if (m) {
       const Lm = m.lado === 'LONG' ? 1 : -1;
       const esp = m.sim ? Math.min(Math.max(m.sim.espera_max_min ?? cfg.espera_max_min, cfg.espera_min_min), cfg.espera_max_min) : cfg.espera_max_min;
       mejor = {
         lado: m.lado, estrategia: m.estrategia, nivel: m.nivel, recomendada: m.nivel !== 'NO OPERAR' && !diario?.bloqueo,
+        contra_btc: !!bloqueadaBTC(m), btc_estado: m.btc?.estado ?? null,
         prob: probDe(m), historial: resumenHist(m.historial), tp1_sim: m.sim?.prob.tp1 ?? null, sl_sim: m.sim?.prob.sl_antes_tp1 ?? null,
         entrada: { mercado: a.precio, limit: redondear(a.precio - Lm * 0.3 * atr1, unidad), valida_hasta: ahora + cfg.validez_entrada_min * 60e3 },
         sl: m.plan.sl, tps: m.plan.tps.map((t) => ({ n: t.n, precio: t.precio, cerrar_pct: t.cerrar_pct, contratos: t.contratos })),
@@ -220,7 +254,7 @@ export async function generarSenal(a, op, cfg) {
     duracion_max_min: cfg.duracion_max_min, cierre_total_a_las: ahora + cfg.duracion_max_min * 60e3, reentrada,
     contexto: {
       funding: a.funding, proximo_funding: a.proximo_funding, minutos_a_funding: minFunding == null ? null : Math.round(minFunding),
-      libro: a.libro, spread_pct: a.spread_pct, btc: a.btc, fng: a.fng,
+      libro: a.libro, spread_pct: a.spread_pct, btc: a.btc, fng: a.fng ? { valor: a.fng.valor, clase: a.fng.clase, ayer: a.fng.ayer, semana: a.fng.semana ?? null } : null,
       cambio_24h_pct: a.cambio_24h, cambio_15m_pct: a.cambio_15m == null ? null : +a.cambio_15m.toFixed(2),
       rsi: Object.fromEntries(Object.entries(a.marcos).map(([k, m]) => [k, m?.rsi ?? null])),
       atr5: atr, atr5_pct: +((100 * atr) / a.precio).toFixed(3), adx15m: a.marcos['15m']?.adx, vol_rel_5m: vol5, lateral: a.decision.lateral,
@@ -235,6 +269,10 @@ export async function generarSenal(a, op, cfg) {
     ballenas: a.ballenas ? {
       puntuacion: a.ballenas.puntuacion, lectura: a.ballenas.lectura, cobertura: a.ballenas.cobertura, frases: a.ballenas.frases,
       muros: a.ballenas.muros, precio_hl: a.ballenas.hl?.precio_hl ?? null, instantanea: a.ballenas.hl?.instantanea ?? null,
+      // posicionamiento de las ballenas de Hyperliquid en esta moneda (para la web: barra LONG/SHORT)
+      hl: a.ballenas.hl?.disponible ? { longs: a.ballenas.hl.longs, shorts: a.ballenas.hl.shorts, valor_long: a.ballenas.hl.valor_long, valor_short: a.ballenas.hl.valor_short, neto: a.ballenas.hl.neto } : null,
+      top_long: a.ballenas.posicionamiento?.top_long ?? null, minoristas_long: a.ballenas.posicionamiento?.minoristas_long ?? null,
+      a_favor: g.ballenas_a_favor ?? null,
     } : null,
     mejor_entrada: mejor,
     diario,
@@ -251,13 +289,15 @@ function bloqueMejor(s, cfg, f, linea) {
     ? `MEJOR ENTRADA (recomendada: ${m.nivel})`
     : `MEJOR ENTRADA POSIBLE (el sistema dice NO OPERAR: es la de más probabilidad, entra solo bajo tu riesgo)`);
   out.push(`  Hora:            ${hora(s.creada, tz)} · válida hasta las ${hora(m.entrada.valida_hasta, tz)}`);
-  out.push(`  Posición:        ${m.lado} · estrategia ${NOMBRE[m.estrategia]}`);
+  out.push(`  Posición:        ${m.lado} · estrategia ${NOMBRE[m.estrategia]}${m.btc_estado ? ` · BTC ${m.btc_estado}` : ''}`);
+  if (m.contra_btc) out.push('  ! Va CONTRA BTC (el filtro la bloquea): no hay ninguna jugada a favor de BTC con plan. Mejor no entrar.');
   out.push(`  Precio entrada:  limit ${f(m.entrada.limit)} (o a mercado ${f(m.entrada.mercado)})`);
   out.push(`  Stop loss:       ${f(m.sl)}`);
   for (const t of m.tps) out.push(`  TP${t.n}:             ${f(t.precio)} → cierra ${t.cerrar_pct} % (${cant(t.contratos)})`);
   out.push(`  Apalancamiento:  ${m.apalancamiento}x AISLADO · margen ${usdt(m.margen)} · ${s.exchange !== 'MEXC' ? `${m.cantidad_moneda} ${s.base}` : `${m.contratos} contratos`} (${usdt(m.nocional)})`);
-  out.push(`  Dinero:          SL ${usdt(-m.riesgo_usdt)} · solo TP1 ${signo(m.ganancia_tp1, 3)} · los 3 TP ${signo(m.ganancia_todos, 3)} USDT`);
-  out.push(`  Probabilidad:    ${pct(m.prob.pct)} de ganar (${m.prob.fuente})${m.historial?.n ? ` · resultado medio ${signo(m.historial.r_medio_neto)} R` : ''}`);
+  out.push(`  Dinero:          SL ${usdt(-m.riesgo_usdt)} · solo TP1 ${signo(m.ganancia_tp1, 3)} · todos los TP ${signo(m.ganancia_todos, 3)} USDT`);
+  const rMed = m.prob.r ?? (m.historial?.n ? m.historial.r_medio_neto : null);
+  out.push(`  Probabilidad:    ${pct(m.prob.pct)} de ganar (${m.prob.fuente})${rMed != null ? ` · resultado medio ${signo(rMed)} R${rMed < 0 ? ' (NEGATIVO: a la larga pierde)' : ''}` : ''}`);
   out.push(`  Tiempo:          si a las ${hora(m.cerrar_si_no_tp1_a_las, tz)} no tocó TP1, cierra · a las ${hora(m.cierre_total_a_las, tz)} cierra todo`);
   return out;
 }
@@ -331,7 +371,7 @@ export function informe(s, cfg) {
   out.push(`  Liquidación aprox. ${f(P.liquidacion)} (más allá del SL)`);
   out.push(`  Si salta el SL pierdes ${usdt(-P.riesgo_usdt)} = ${P.riesgo_pct_real} % del capital (comisiones incluidas)`);
   const es = P.escenarios;
-  out.push(`  Escenarios: SL directo ${signo(es.sl_directo, 3)} · TP1 y luego entrada ${signo(es.tp1_y_luego_be, 3)} · TP1+TP2 ${signo(es.tp1_tp2_y_luego_tp1, 3)} · los 3 TP ${signo(es.todos_los_tps, 3)} USDT`);
+  out.push(`  Escenarios: SL directo ${signo(es.sl_directo, 3)} · TP1 y luego entrada ${signo(es.tp1_y_luego_be, 3)} ${es.tp1_tp2_y_luego_tp1 != null ? ` · TP1+TP2 ${signo(es.tp1_tp2_y_luego_tp1, 3)}` : ''} · todos los TP ${signo(es.todos_los_tps, 3)} USDT`);
   for (const x of P.avisos) out.push(`  ! ${x}`);
   if (P.objetivo) out.push(`  Objetivo: ${P.objetivo.mensaje}`);
   out.push(linea);
