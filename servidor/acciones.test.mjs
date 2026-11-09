@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 import { Fuente } from '../lib/mexc.mjs';
 import { ejecutar, configDe, ErrorUsuario } from './acciones.mjs';
 import { dbMemoria } from './db-memoria.mjs';
+import { cargarPosicion } from '../cripto-posicion/posicion.mjs';
 
 const FX = (n) => path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'tests', 'fixtures', n);
 const fx = (n) => new Fuente({ offline: FX(n) });
@@ -57,4 +58,14 @@ test('ballenas, noticias, escaner y estado', async () => {
   assert.ok(e.filas.length > 0);
   const st = await ejecutar('estado', {}, { db, fuente: fx('sol') });
   assert.equal(st.cfg.objetivo_usdt, 3);
+});
+
+test('posicion a mano: 1, 2 o 3 TPs con su reparto', () => {
+  const cfg = configDe({});
+  const p2 = cargarPosicion({ lado: 'long', entrada: 100, sl: 99, tp1: 101, tp2: 102, reparto: [70, 30], contratos: 10 }, cfg, 0, 'SOL_USDT', null);
+  assert.deepEqual(p2.reparto, [70, 30, 0]);
+  assert.deepEqual(p2.partes, [7, 3, 0]);
+  const p1 = cargarPosicion({ lado: 'short', entrada: 100, sl: 101, tp1: 99, reparto: '100' }, cfg, 0, 'SOL_USDT', null);
+  assert.deepEqual(p1.reparto, [100, 0, 0]);
+  assert.throws(() => cargarPosicion({ lado: 'long', entrada: 100, sl: 99, tp1: 101, tp2: 102, tp3: 103, reparto: [50, 20, 20] }, cfg, 0, 'SOL_USDT', null), /sumen 100/);
 });

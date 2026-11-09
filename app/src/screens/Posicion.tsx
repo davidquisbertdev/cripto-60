@@ -7,10 +7,12 @@ import { BarraProb, COL, Escalera, Reloj } from '../components/graficos';
 import { SelectorMoneda } from '../components/SelectorMoneda';
 import { backend } from '../lib/api';
 import { useSesion } from '../lib/sesion';
-import { conSigno, estrategiaNombre, hace, hora, precio as fp, usdtSigno } from '../lib/formato';
+import { conSigno, estrategiaNombre, hace, hora, numero, precio as fp, usdtSigno } from '../lib/formato';
 import type { EvalPosicion, Lado, PosicionGuardada } from '../lib/tipos';
 
-const claseAccion = (a: string) => (a.startsWith('MANTENER') ? 'keep' : a === 'REDUCIR' ? 'reduce' : a.startsWith('CERRAR') ? 'close' : 'done');
+// % que cierra cada TP por defecto según cuántos hay
+const REPARTO: Record<number, number[]> = { 1: [100], 2: [50, 50], 3: [50, 25, 25] };
+const claseAccion =(a: string) => (a.startsWith('MANTENER') ? 'keep' : a === 'REDUCIR' ? 'reduce' : a.startsWith('CERRAR') ? 'close' : 'done');
 
 export function Posicion() {
   const { estado, refrescar } = useSesion();
@@ -79,7 +81,7 @@ function Evaluacion({ ev, seguida, onCerrar, onDejar, onOtra }: { ev: EvalPosici
           <KV items={[
             { k: 'Precio ahora', v: fp(ev.precio, dec), s: `entrada ${fp(p.entrada, dec)}` },
             { k: 'Resultado', v: pnl != null ? usdtSigno(pnl) : `${conSigno(ev.r_actual)} R`, s: pnl != null ? `${conSigno(ev.r_actual)} R` : 'sin contratos indicados', cls: (pnl ?? ev.r_actual) >= 0 ? 'gain' : 'loss' },
-            { k: 'TP tocados', v: `${ev.recorrido.hit} de ${p.tps.length}`, s: `stop en ${fp(ev.recorrido.stop, dec)}` },
+            { k: 'TP tocados', v: `${ev.recorrido.hit} de ${p.tps.length}`, s: `stop en ${fp(ev.recorrido.stop, dec)}${p.reparto?.length ? ` · cierra ${p.reparto.map((x) => numero(x, 0)).join(' · ')} %` : ''}` },
             { k: 'Tiempo', v: `${ev.transcurrido_min} min`, s: `máximo ${p.duracion_max_min} min` },
           ]} />
           <div className="panel-b" style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -136,13 +138,26 @@ function Evaluacion({ ev, seguida, onCerrar, onDejar, onOtra }: { ev: EvalPosici
 
 function SinPosicion({ onRevisar }: { onRevisar: (p: Record<string, unknown>) => void }) {
   const [f, setF] = useState({ moneda: '', lado: 'LONG' as Lado, entrada: '', sl: '', tp1: '', tp2: '', tp3: '', hace: '' });
+  const [nTps, setNTps] = useState(3);
+  const [reparto, setReparto] = useState<string[]>(REPARTO[3].map(String));
   const [err, setErr] = useState<string | null>(null);
   const set = (k: keyof typeof f) => (e: React.ChangeEvent<HTMLInputElement>) => setF({ ...f, [k]: k === 'moneda' ? e.target.value.toUpperCase() : e.target.value });
+  const cambiarN = (n: number) => { setNTps(n); setReparto(REPARTO[n].map(String)); };
+  const rep = reparto.slice(0, nTps).map((x) => Number(x.replace(',', '.')));
+  const suma = rep.reduce((x, y) => x + (Number.isFinite(y) ? y : 0), 0);
+  const tpK = ['tp1', 'tp2', 'tp3'] as const;
   const enviar = (e: FormEvent) => {
     e.preventDefault();
-    if (!f.moneda || !f.entrada || !f.sl || !f.tp1) { setErr('Faltan la moneda, la entrada, el SL o el TP1.'); return; }
+    if (!f.moneda || !f.entrada || !f.sl) { setErr('Faltan la moneda, la entrada o el SL.'); return; }
+    const falta = tpK.slice(0, nTps).findIndex((k) => !f[k]);
+    if (falta >= 0) { setErr(`Falta el precio del TP${falta + 1}.`); return; }
+    if (rep.some((x) => !(x > 0)) || Math.abs(suma - 100) > 0.01) { setErr(`Los porcentajes de cierre deben ser mayores que 0 y sumar 100 % (ahora suman ${numero(suma, 0)} %).`); return; }
     setErr(null);
-    onRevisar({ ...f, lado: f.lado.toLowerCase(), hace: f.hace ? `${f.hace}m` : undefined });
+    onRevisar({
+      moneda: f.moneda, lado: f.lado.toLowerCase(), entrada: f.entrada, sl: f.sl,
+      tp1: f.tp1, tp2: nTps >= 2 ? f.tp2 : undefined, tp3: nTps >= 3 ? f.tp3 : undefined,
+      reparto: rep, hace: f.hace ? `${f.hace}m` : undefined,
+    });
   };
   return (
     <div className="grid g-main">
@@ -163,11 +178,20 @@ function SinPosicion({ onRevisar }: { onRevisar: (p: Record<string, unknown>) =>
             <Campo etiqueta="Entrada"><input className="input num" inputMode="decimal" value={f.entrada} onChange={set('entrada')} /></Campo>
             <Campo etiqueta="Stop loss"><input className="input num" inputMode="decimal" value={f.sl} onChange={set('sl')} /></Campo>
           </div>
-          <div className="form-row">
-            <Campo etiqueta="TP1"><input className="input num" inputMode="decimal" value={f.tp1} onChange={set('tp1')} /></Campo>
-            <Campo etiqueta="TP2"><input className="input num" inputMode="decimal" value={f.tp2} onChange={set('tp2')} /></Campo>
-            <Campo etiqueta="TP3"><input className="input num" inputMode="decimal" value={f.tp3} onChange={set('tp3')} /></Campo>
+          <div className="field"><span>Take profits</span>
+            <div className="seg" role="group" aria-label="Número de take profits">{[1, 2, 3].map((n) => <button type="button" key={n} aria-pressed={nTps === n} onClick={() => cambiarN(n)}>{n} TP</button>)}</div>
           </div>
+          {tpK.slice(0, nTps).map((k, i) => (
+            <div className="form-row" key={k}>
+              <Campo etiqueta={`Precio TP${i + 1}`}><input className="input num" inputMode="decimal" value={f[k]} onChange={set(k)} /></Campo>
+              <Campo etiqueta={`TP${i + 1} cierra`}>
+                <div className="input-wrap"><input className="input num" inputMode="decimal" value={reparto[i]} onChange={(e) => setReparto(reparto.map((x, j) => (j === i ? e.target.value : x)))} aria-invalid={Math.abs(suma - 100) > 0.01 || undefined} /><span className="suf">%</span></div>
+              </Campo>
+            </div>
+          ))}
+          <span className={`hint ${Math.abs(suma - 100) > 0.01 ? 'warn' : 'faint'}`} style={{ fontSize: 12 }}>
+            {nTps === 1 ? 'Un solo TP cierra el 100 %.' : `Cierras ${rep.map((x) => `${numero(x, 0)} %`).join(' + ')} = ${numero(suma, 0)} %${Math.abs(suma - 100) > 0.01 ? ' (debe sumar 100 %)' : ''}. Tras el TP1, el SL pasa a la entrada.`}
+          </span>
           <Campo etiqueta="Abierta hace (min)"><input className="input num" inputMode="numeric" value={f.hace} onChange={set('hace')} placeholder="0" /></Campo>
           {err && <Nota tono="warn">{err}</Nota>}
           <button className="btn" type="submit">Revisar</button>

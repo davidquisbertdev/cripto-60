@@ -59,7 +59,7 @@ export interface EvalPosicion {
   noticias_nuevas: Noticia[];
   ballenas: { lectura: string; en_contra: boolean; frases: string[] } | null;
   btc: { lectura: string; estado: string; en_contra: boolean; texto: string | null } | null;
-  posicion: { lado: Lado; entrada: number; sl: number; tps: number[]; abierta: number; espera_max_min: number; duracion_max_min: number; estrategia: Estrategia; contratos: number | null };
+  posicion: { lado: Lado; entrada: number; sl: number; tps: number[]; reparto?: number[]; abierta: number; espera_max_min: number; duracion_max_min: number; estrategia: Estrategia; contratos: number | null };
 }
 export interface FiltroBTC { estado: string; ajuste_conf: number; bloquea: boolean; bajar: number; texto: string | null }
 export interface InformeBTC {

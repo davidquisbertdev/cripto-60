@@ -112,6 +112,7 @@ export async function ejecutar(accion, params = {}, { db, fuente = null } = /** 
         tp2: num(params.tp2, 'El TP2', { min: 0 }),
         tp3: num(params.tp3, 'El TP3', { min: 0 }),
         contratos: num(params.contratos, 'Los contratos', { min: 0 }),
+        reparto: Array.isArray(params.reparto) && params.reparto.length ? params.reparto.map((x, i) => num(x, `El % del TP${i + 1}`, { min: 1, max: 100, opcional: false })) : undefined,
         hace: params.hace || undefined,
         abierta: params.abierta || undefined,
         estrategia: params.estrategia || undefined,
@@ -124,6 +125,7 @@ export async function ejecutar(accion, params = {}, { db, fuente = null } = /** 
       const e = evaluar(a, p, cfg);
       return { ...e, simbolo: a.simbolo, base: a.base, decimales: a.decimales, senal_id: senal?.id ?? null, posicion: {
         lado: p.lado, entrada: p.entrada, sl: p.sl, tps: p.tps.filter(Number.isFinite), abierta: p.abierta,
+        reparto: p.reparto.slice(0, p.tps.filter(Number.isFinite).length).map((x) => +(+x).toFixed(1)),
         espera_max_min: p.espera_max_min, duracion_max_min: p.duracion_max_min, estrategia: p.estrategia, contratos: p.contratos ?? null,
       } };
     }
