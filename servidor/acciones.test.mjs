@@ -25,6 +25,7 @@ test('senal: genera, guarda y la posición la encuentra', async () => {
   const db = dbMemoria();
   const s = await ejecutar('senal', { moneda: 'near', capital: 10 }, { db, fuente: fx('near') });
   assert.equal(s.tipo, 'senal');
+  assert.equal(s.contexto.macro?.length, 2, 'oro y petróleo en el contexto de la señal');
   assert.ok(['LONG', 'SHORT', 'NO OPERAR'].includes(s.recomendacion));
   assert.equal(db.senales.length, 1);
   const p = await ejecutar('posicion', { moneda: 'NEAR', hace: '6m' }, { db, fuente: fx('near-posicion') });

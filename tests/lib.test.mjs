@@ -359,3 +359,16 @@ test('repartir: 1, 2 o 3 TPs y TPs con 0 %', () => {
   assert.deepEqual(repartir(3, [100, 0, 0]), [3, 0, 0]);
   assert.deepEqual(repartir(1, [50, 50]), [1, 0]);
 });
+
+test('oro y petróleo: correlación de 1 h y aviso por movimiento brusco', async () => {
+  const { correlacion1h, efectoMacro } = await import('../lib/macro.mjs');
+  const a = Array.from({ length: 60 }, (_, i) => ({ t: i * 3600e3, c: 100 + Math.sin(i) * 2 + i * 0.01 }));
+  assert.equal(correlacion1h(a, a), 1);
+  assert.equal(correlacion1h(a.slice(0, 20), a), null, 'menos de 48 horas en común: sin dato');
+  const tranquilo = { activos: [{ nombre: 'Oro', cambio_1h: 0.2, cambio_4h: 0.3, choque: false, correlacion_btc: 0.1 }] };
+  assert.deepEqual(efectoMacro(tranquilo, 'LONG'), { ajuste_conf: 0, textos: [] });
+  const choque = { activos: [{ nombre: 'Petróleo WTI', cambio_1h: -3.1, cambio_4h: -3.5, choque: true, correlacion_btc: 0.6 }] };
+  const e = efectoMacro(choque, 'LONG');
+  assert.equal(e.ajuste_conf, -5);
+  assert.equal(e.textos.length, 2); // choque + empuja en contra del LONG
+});

@@ -170,7 +170,7 @@ function Evaluacion({ ev, seguida, cargando, onCerrar, onDejar, onOtra, onDuraci
 
 function SinPosicion({ onRevisar }: { onRevisar: (p: Record<string, unknown>) => void }) {
   const { estado } = useSesion();
-  const [f, setF] = useState({ moneda: '', lado: 'LONG' as Lado, entrada: '', sl: '', tp1: '', tp2: '', tp3: '', hace: '', duracion: '' });
+  const [f, setF] = useState({ moneda: 'BTC', lado: 'LONG' as Lado, entrada: '', sl: '', tp1: '', tp2: '', tp3: '', hace: '', duracion: '' });
   const [nTps, setNTps] = useState(3);
   const [reparto, setReparto] = useState<string[]>(REPARTO[3].map(String));
   const [err, setErr] = useState<string | null>(null);
@@ -203,7 +203,7 @@ function SinPosicion({ onRevisar }: { onRevisar: (p: Record<string, unknown>) =>
       <Panel titulo="Revisar una posición a mano">
         <form onSubmit={enviar} style={{ display: 'grid', gap: 12 }} noValidate>
           <div className="form-row">
-            <Campo etiqueta="Moneda"><SelectorMoneda valor={f.moneda} onCambio={(m) => setF((x) => ({ ...x, moneda: m }))} placeholder="SOL" /></Campo>
+            <Campo etiqueta="Moneda"><SelectorMoneda valor={f.moneda} onCambio={(m) => setF((x) => ({ ...x, moneda: m }))} placeholder="BTC" /></Campo>
             <div className="field"><span>Lado</span>
               <div className="seg" role="group" aria-label="Lado">{(['LONG', 'SHORT'] as Lado[]).map((l) => <button type="button" key={l} aria-pressed={f.lado === l} onClick={() => setF({ ...f, lado: l })}>{l}</button>)}</div>
             </div>

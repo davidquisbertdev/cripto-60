@@ -5,6 +5,7 @@ import { pathToFileURL } from 'node:url';
 import { Fuente, simbolo, base as baseDe, cerradas } from '../lib/mexc.mjs';
 import { crearFuente, nombreExchange } from '../lib/fuentes.mjs';
 import { analizarBTC, relacionConBTC, filtroBTC, pesoBTC } from '../lib/btc.mjs';
+import { analizarMacro } from '../lib/macro.mjs';
 import { leerConfig } from '../lib/config.mjs';
 import { args, signo, hora, salir } from '../lib/formato.mjs';
 
@@ -18,8 +19,10 @@ export async function informeBTC(fuente, moneda = null) {
     const rel = relacionConBTC(v5, btc.velas5m);
     alt = { simbolo: sym, base: baseDe(sym), relacion: rel, peso: +pesoBTC(rel).toFixed(2), long: filtroBTC(btc, rel, 1), short: filtroBTC(btc, rel, -1), long_rev: filtroBTC(btc, rel, 1, 'reversion'), short_rev: filtroBTC(btc, rel, -1, 'reversion') };
   }
+  // oro y petróleo frente a BTC (correlación de 1 h en 7 días)
+  const macro = await analizarMacro(fuente, btc.series?.c1h ?? null).catch(() => null);
   const { velas5m, series, ...resto } = btc;
-  return { ahora: fuente.ahora(), btc: resto, alt };
+  return { ahora: fuente.ahora(), btc: resto, alt, macro };
 }
 
 const VEREDICTO = (f) => (f.bloquea ? 'NO (bloqueado por BTC)' : f.estado === 'en contra' ? `en contra${f.bajar ? ' (baja un nivel)' : ''}` : f.estado === 'a favor' ? 'a favor' : 'neutral');
@@ -40,6 +43,12 @@ export function texto(r, cfg) {
     out.push(`  Para un LONG:  tendencia ${VEREDICTO(a.long)} · reversión ${VEREDICTO(a.long_rev)}`);
     out.push(`  Para un SHORT: tendencia ${VEREDICTO(a.short)} · reversión ${VEREDICTO(a.short_rev)}`);
     for (const f of [a.long_rev, a.short_rev, a.long, a.short]) if (f.texto) { out.push(`  · ${f.texto}`); break; }
+  }
+  if (r.macro) {
+    out.push(linea);
+    out.push('ORO Y PETRÓLEO (contexto macro; Binance TradFi)');
+    for (const x of r.macro.activos) out.push(`  ${x.nombre.padEnd(13)} ${String(x.precio).padStart(9)} · 1 h ${signo(x.cambio_1h)} % · 24 h ${signo(x.cambio_24h)} % · 7 d ${signo(x.cambio_7d)} % · correlación 1 h con BTC ${x.correlacion_btc ?? '—'}`);
+    for (const x of r.macro.activos) out.push(`  · ${x.frase}`);
   }
   out.push(linea);
   out.push('BTC marca el rumbo de casi todo el mercado en minutos: no operes una altcoin contra un BTC que se mueve con fuerza.');

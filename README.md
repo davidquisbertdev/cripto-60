@@ -112,6 +112,9 @@ marcando, en MEXC, las que tienen **0 comisión**.
 - **Ballenas y sentimiento**: si las ballenas van fuerte en contra del lado, se baja un
   nivel; en los extremos del Fear & Greed (≤ 20 o ≥ 80) ir con la masa baja la
   confianza. Nunca deciden solos.
+- **Oro y petróleo**: la lectura de BTC y la señal miran el oro y el petróleo WTI
+  (perpetuos TradFi de Binance) y cuánto se parecen a BTC. No suman a la dirección;
+  si uno se mueve de golpe en la última hora (noticia macro), se avisa y baja la confianza.
 
 Todo se configura en `trader/config.json` (copia `config.example.json`).
 
