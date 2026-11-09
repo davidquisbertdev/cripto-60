@@ -386,7 +386,7 @@ table.t { width: 100%; border-collapse: collapse; font-size: var(--fs-md); }
 .sus-n { flex: none; width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; background: var(--s3); font-weight: 700; font-size: var(--fs-sm); }
 .sus-datos { display: grid; gap: var(--sp-3); align-content: start; }
 .sus-qr { margin: 0; display: grid; justify-items: center; gap: var(--sp-2); padding: var(--sp-4); border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--s2); }
-.sus-qr img { width: 220px; height: 220px; object-fit: contain; border-radius: var(--r); background: #fff; padding: 8px; }
+.sus-qr img { width: 100%; max-width: 260px; height: auto; border-radius: var(--r); }
 .sus-qr figcaption { font-size: var(--fs-lg); letter-spacing: 0.01em; }
 .sus-q { border-bottom: 1px solid var(--line); }
 .sus-q:last-child { border-bottom: 0; }

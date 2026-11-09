@@ -60,7 +60,7 @@ function QrPago() {
   if (falta) return <Nota tono="warn">Falta la imagen del QR de pago. Guárdala en app/public{QR}.</Nota>;
   return (
     <figure className="sus-qr">
-      <img src={QR} alt={`QR de Binance Pay${NOMBRE ? ` de ${NOMBRE}` : ''} para pagar ${PRECIO} USDT`} width={220} height={220} onError={() => setFalta(true)} />
+      <img src={QR} alt={`QR de Binance Pay${NOMBRE ? ` de ${NOMBRE}` : ''} para pagar ${PRECIO} USDT`} width={260} onError={() => setFalta(true)} />
       {NOMBRE && <figcaption className="strong">{NOMBRE}</figcaption>}
       <a className="btn btn-sm" href={QR} download={`cripto60-pago-${NOMBRE || 'binance'}.${ext}`}><Download size={14} aria-hidden />Descargar QR</a>
     </figure>
