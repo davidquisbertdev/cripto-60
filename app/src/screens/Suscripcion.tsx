@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  Activity, Bitcoin, BookOpen, CalendarClock, CandlestickChart, Check, Clipboard, Clock, Gauge, LogOut, Newspaper, Radar, ShieldCheck, Waves, Zap,
+  Activity, Bitcoin, BookOpen, CalendarClock, CandlestickChart, Check, Clipboard, Clock, Download, Gauge, LogOut, Newspaper, Radar, ShieldCheck, Waves, Zap,
 } from 'lucide-react';
 import { ConfirmarSalida, Pagina } from '../components/Shell';
 import { Nota } from '../components/ui';
@@ -12,6 +12,8 @@ import { fechaHora } from '../lib/formato';
 
 const PRECIO = 100;
 const PAY_ID = import.meta.env.VITE_BINANCE_PAY_ID?.trim() || '';
+const NOMBRE = import.meta.env.VITE_BINANCE_NOMBRE?.trim() || '';
+const QR = import.meta.env.VITE_BINANCE_QR?.trim() || '/pago/binance-qr.png';
 const CONTACTO_URL = import.meta.env.VITE_CONTACTO_URL?.trim() || '';
 const CONTACTO_TEXTO = import.meta.env.VITE_CONTACTO_TEXTO?.trim() || CONTACTO_URL;
 
@@ -29,8 +31,8 @@ const FUNCIONES = [
 ];
 
 const PASOS = [
-  <>Abre <strong>Binance</strong> → <strong>Pay</strong> → <strong>Enviar</strong>.</>,
-  <>Envía <strong>{PRECIO} USDT</strong> al Binance Pay ID de abajo. En la nota pon el <strong>correo</strong> con el que quieres entrar.</>,
+  <>Abre la app de <strong>Binance</strong> y entra en <strong>Pay</strong>.</>,
+  <>Escanea el <strong>QR</strong> de abajo (o descárgalo y súbelo desde tu galería) y envía <strong>{PRECIO} USDT</strong>{NOMBRE ? <> a <strong>{NOMBRE}</strong></> : null}. En la nota pon el <strong>correo</strong> con el que quieres entrar.</>,
   <>Manda la captura del pago {CONTACTO_URL ? <>por <a href={CONTACTO_URL} target="_blank" rel="noreferrer">{CONTACTO_TEXTO}</a></> : 'por el contacto de abajo'}.</>,
   <>Te creamos la cuenta (o la renovamos) por <strong>30 días</strong> y te llega el acceso a ese correo.</>,
 ];
@@ -48,6 +50,20 @@ function Copiar({ texto }: { texto: string }) {
     <button type="button" className="btn btn-sm" onClick={async () => { try { await navigator.clipboard.writeText(texto); setHecho(true); setTimeout(() => setHecho(false), 1800); } catch { /* sin portapapeles */ } }}>
       {hecho ? <Check size={14} aria-hidden /> : <Clipboard size={14} aria-hidden />}{hecho ? 'Copiado' : 'Copiar'}
     </button>
+  );
+}
+
+// QR de Binance Pay (imagen en app/public/pago/binance-qr.png) con el nombre debajo y botón para descargarlo
+function QrPago() {
+  const [falta, setFalta] = useState(false);
+  const ext = QR.split('.').pop() || 'png';
+  if (falta) return <Nota tono="warn">Falta la imagen del QR de pago. Guárdala en app/public{QR}.</Nota>;
+  return (
+    <figure className="sus-qr">
+      <img src={QR} alt={`QR de Binance Pay${NOMBRE ? ` de ${NOMBRE}` : ''} para pagar ${PRECIO} USDT`} width={220} height={220} onError={() => setFalta(true)} />
+      {NOMBRE && <figcaption className="strong">{NOMBRE}</figcaption>}
+      <a className="btn btn-sm" href={QR} download={`cripto60-pago-${NOMBRE || 'binance'}.${ext}`}><Download size={14} aria-hidden />Descargar QR</a>
+    </figure>
   );
 }
 
@@ -102,20 +118,24 @@ function Contenido() {
         <div className="panel-b sus-pago">
           <ol className="sus-pasos">{PASOS.map((p, n) => <li key={n}><span className="sus-n num">{n + 1}</span><span>{p}</span></li>)}</ol>
           <div className="sus-datos">
+            <QrPago />
             <div className="rows">
               <div className="row"><span className="k">Importe</span><span className="v num">{PRECIO} USDT</span></div>
               <div className="row"><span className="k">Método</span><span className="v">Binance Pay</span></div>
-              <div className="row">
-                <span className="k">Binance Pay ID</span>
-                <span className="v num" style={{ display: 'flex', gap: 8, alignItems: 'center' }}>{PAY_ID || '—'}{PAY_ID && <Copiar texto={PAY_ID} />}</span>
-              </div>
+              {NOMBRE && <div className="row"><span className="k">Recibe</span><span className="v">{NOMBRE}</span></div>}
+              {PAY_ID && (
+                <div className="row">
+                  <span className="k">Binance Pay ID</span>
+                  <span className="v num" style={{ display: 'flex', gap: 8, alignItems: 'center' }}>{PAY_ID}<Copiar texto={PAY_ID} /></span>
+                </div>
+              )}
               <div className="row">
                 <span className="k">Comprobante</span>
                 <span className="v">{CONTACTO_URL ? <a href={CONTACTO_URL} target="_blank" rel="noreferrer">{CONTACTO_TEXTO}</a> : '—'}</span>
               </div>
             </div>
-            {(!PAY_ID || !CONTACTO_URL) && <Nota tono="warn">Faltan los datos de pago. Configura VITE_BINANCE_PAY_ID y VITE_CONTACTO_URL en app/.env.local.</Nota>}
-            <p className="faint" style={{ fontSize: 13 }}>Envía solo USDT por Binance Pay (sin comisión entre cuentas de Binance). Revisa el Pay ID antes de confirmar: un pago a otro ID no se puede recuperar.</p>
+            {!CONTACTO_URL && <Nota tono="warn">Falta el contacto para el comprobante. Configura VITE_CONTACTO_URL en app/.env.</Nota>}
+            <p className="faint" style={{ fontSize: 13 }}>Envía solo USDT por Binance Pay (sin comisión entre cuentas de Binance). Antes de confirmar, revisa que el destinatario sea {NOMBRE || 'el del QR'}: un pago a otra cuenta no se puede recuperar.</p>
           </div>
         </div>
       </section>
