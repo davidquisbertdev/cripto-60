@@ -1,3 +1,9 @@
 trader/
 tests/.tmp-*
 node_modules/
+
+# copia generada del motor para la Edge Function (npm run motor:sync)
+supabase/functions/_shared/motor/
+supabase/.temp/
+app/dist/
+.firebase/

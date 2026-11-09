@@ -16,8 +16,9 @@ import { carpeta } from '../lib/config.mjs';
 import { leerConfig, leerJSON, rutaSenal } from '../lib/config.mjs';
 import { args, precio as fp, usdt, pct, signo, hora, duracion, parseDuracion, parseFecha, salir } from '../lib/formato.mjs';
 
-export function cargarPosicion(op, cfg, ahora, sym) {
-  const s = leerJSON(rutaSenal(cfg, baseDe(sym)));
+// senal: la señal guardada (la web la trae de su base de datos); si no se pasa, se lee trader/senal-<MONEDA>.json
+export function cargarPosicion(op, cfg, ahora, sym, senal = undefined) {
+  const s = senal !== undefined ? senal : leerJSON(rutaSenal(cfg, baseDe(sym)));
   const pos = {};
   if (s && s.plan?.viable) {
     Object.assign(pos, {

@@ -1,6 +1,6 @@
-# Cripto Trader skill
+# Cripto60
 
-Skills de Claude para operar **futuros perpetuos de criptomonedas** (datos de **Binance** por defecto, o MEXC con `--exchange mexc`) de
+Skills de Claude para operar **futuros perpetuos de criptomonedas** (datos de **Binance** por defecto, o Bybit o MEXC con `--exchange bybit` / `--exchange mexc`) de
 forma manual, en operaciones de **15 a 60 minutos** que buscan unos **3 USDT**
 cada una: le pides una señal ("analiza SOL, tengo 10 USDT") y te dice si es
 **LONG, SHORT o NO OPERAR**, con entrada, stop loss, **TP1, TP2 y TP3**, qué %
@@ -12,7 +12,7 @@ capital poco a poco con una gestión de riesgo estricta. Las operaciones las
 haces tú en tu exchange: nada de esto toca tu cuenta.
 
 Las herramientas son Node.js (18 o superior) sin dependencias y leen datos
-públicos sin API key: la API de futuros USDⓈ-M de Binance (o la de MEXC); las posiciones on-chain de las
+públicos sin API key: la API de futuros USDⓈ-M de Binance (o las de Bybit o MEXC); las posiciones on-chain de las
 ballenas de Hyperliquid; los ratios de top traders y el open interest de
 Binance (o Bybit); los RSS de Cointelegraph, Decrypt y CoinDesk, y el índice
 Fear & Greed de alternative.me.
@@ -26,7 +26,7 @@ Fear & Greed de alternative.me.
 | `/cripto-posicion` | Revisa tu posición abierta: MANTENER, MOVER SL, REDUCIR o CERRAR, según el precio, el tiempo, las noticias nuevas y si el análisis cambió. |
 | `/cripto-ballenas` | Qué hacen las ballenas: posiciones reales de las billeteras grandes de Hyperliquid, qué abrieron o cerraron, qué cambió desde la última revisión, top traders frente a minoristas, open interest, flujo y muros. Lo usan también la señal y la revisión de posición. |
 | `/cripto-noticias` | Titulares recientes de la moneda y del mercado, sentimiento, alertas de riesgo y Fear & Greed. |
-| `/cripto-escaner` | Ordena los futuros cripto más líquidos (Binance o MEXC) por claridad del setup. |
+| `/cripto-escaner` | Ordena los futuros cripto más líquidos (Binance, Bybit o MEXC) por claridad del setup. |
 | `/cripto-diario` | Registra tus resultados, lleva el capital y para la operativa si el día va mal. |
 
 ## Ejemplos
@@ -134,6 +134,33 @@ node cripto-diario/diario.mjs registrar SOL --pnl 0.68 --lado short
 npm test                                  # tests offline con datos reales grabados
 ```
 
+## App web
+
+Además de las skills, el mismo motor tiene una interfaz web (`app/`): Inicio, Señal, Posición, BTC,
+Ballenas, Noticias, Escáner, Diario, Ajustes y Letra pequeña, en móvil y escritorio.
+
+- **Frontend**: Vite + React + TypeScript en `app/`, publicado en Firebase Hosting.
+- **Backend**: Supabase. Cuentas con Supabase Auth; diario, señales, posición abierta y ajustes en
+  Postgres con RLS (`supabase/migrations/`); el motor corre en la Edge Function `motor`
+  (`supabase/functions/motor/`), que llama a `servidor/acciones.mjs`, que usa `lib/` y las skills tal cual.
+- **Modo demo**: sin credenciales, la web usa salidas reales del motor grabadas de `tests/fixtures`
+  (`npm run demo` las regenera) y un diario de ejemplo, y lo indica con una franja.
+
+```bash
+npm run web:dev                       # la web en http://localhost:5173 (modo demo)
+npm test                              # tests del motor y de las acciones del servidor
+```
+
+Para ponerla en producción:
+
+1. Crea un proyecto en [Supabase](https://supabase.com) e instala la CLI (`brew install supabase/tap/supabase`).
+2. `supabase link --project-ref <ref>` y `supabase db push` (crea las tablas y las políticas).
+3. `npm run deploy:funciones` (copia el motor a la función y la despliega). Opcional: limita el
+   origen con `supabase secrets set ORIGENES_PERMITIDOS=https://tu-app.web.app`.
+4. En Authentication → URL Configuration, pon la URL de tu web como Site URL.
+5. Copia `app/.env.example` a `app/.env.local` con la URL y la anon key del proyecto.
+6. Pon tu proyecto de Firebase en `.firebaserc` y `npm run deploy:web`.
+
 ## Letra pequeña
 
 **No es asesoría financiera.** Es software que lee datos públicos y hace
@@ -151,7 +178,7 @@ la mayoría pierda. Si el historial real sale negativo, cree en el historial.
 **Un stop es un plan, no una garantía**: en un movimiento brusco puede
 ejecutarse peor.
 
-**Datos gratuitos**: las APIs públicas de Binance y MEXC y los RSS pueden fallar o retrasarse.
+**Datos gratuitos**: las APIs públicas de Binance, Bybit y MEXC y los RSS pueden fallar o retrasarse.
 Comprueba el precio en tu exchange antes de entrar.
 
 Basado en [day-trader-skill](https://github.com/Jakeschincariol/day-trader-skill)

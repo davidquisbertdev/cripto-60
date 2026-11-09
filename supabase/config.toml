@@ -1,0 +1,20 @@
+# Configuración local de Supabase CLI (supabase start / supabase functions serve).
+project_id = "cripto-trader"
+
+[api]
+port = 54321
+
+[db]
+port = 54322
+major_version = 15
+
+[auth]
+site_url = "http://localhost:5173"
+additional_redirect_urls = ["http://localhost:5173"]
+enable_signup = true
+
+[auth.email]
+enable_confirmations = true
+
+[functions.motor]
+verify_jwt = true

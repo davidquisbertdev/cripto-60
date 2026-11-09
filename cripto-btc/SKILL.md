@@ -62,4 +62,4 @@ operación pasada y quita las que el filtro habría bloqueado; las mide aparte
 para decir si el filtro AYUDA o NO ayuda ahora en esa moneda. Si las evitadas
 vienen ganando, el bloqueo se levanta (solo baja un nivel).
 
-Por defecto los datos salen de Binance (`--exchange mexc` para MEXC).
+Por defecto los datos salen de Binance (`--exchange bybit` para Bybit, `--exchange mexc` para MEXC).

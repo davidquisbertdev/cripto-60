@@ -92,7 +92,8 @@ const nivelPorConfianza = (c) => (c < 40 ? 'NO OPERAR' : c < 50 ? 'BAJA' : c < 6
 
 export async function generarSenal(a, op, cfg) {
   const ahora = a.ahora;
-  const diario = estadoDiario(leerJSON(rutaDiario(cfg)), cfg, ahora);
+  // op.diario: estado ya calculado (la web lo trae de su base de datos); si no, se lee trader/diario.json
+  const diario = op.diario !== undefined ? op.diario : estadoDiario(leerJSON(rutaDiario(cfg)), cfg, ahora);
   const capital = op.capital ?? diario?.capital ?? op.margen ?? cfg.capital;
   if (!(capital > 0)) throw new Error('Indica tu capital, por ejemplo --capital 20 (y si quieres el margen por operación: --margen 15)');
   if (op.margen != null && op.margen > capital) throw new Error(`El margen (${op.margen}) no puede ser mayor que tu capital (${capital}).`);
@@ -245,7 +246,7 @@ function bloqueMejor(s, cfg, f, linea) {
   const m = s.mejor_entrada;
   if (!m) return [];
   const tz = cfg.zona_horaria, out = [linea];
-  const cant = (c) => (s.exchange === 'BINANCE' ? `${+(c * (m.cantidad_moneda / (m.contratos || 1))).toFixed(6)} ${s.base}` : `${c} contr.`);
+  const cant = (c) => (s.exchange !== 'MEXC' ? `${+(c * (m.cantidad_moneda / (m.contratos || 1))).toFixed(6)} ${s.base}` : `${c} contr.`);
   out.push(m.recomendada
     ? `MEJOR ENTRADA (recomendada: ${m.nivel})`
     : `MEJOR ENTRADA POSIBLE (el sistema dice NO OPERAR: es la de más probabilidad, entra solo bajo tu riesgo)`);
@@ -254,7 +255,7 @@ function bloqueMejor(s, cfg, f, linea) {
   out.push(`  Precio entrada:  limit ${f(m.entrada.limit)} (o a mercado ${f(m.entrada.mercado)})`);
   out.push(`  Stop loss:       ${f(m.sl)}`);
   for (const t of m.tps) out.push(`  TP${t.n}:             ${f(t.precio)} → cierra ${t.cerrar_pct} % (${cant(t.contratos)})`);
-  out.push(`  Apalancamiento:  ${m.apalancamiento}x AISLADO · margen ${usdt(m.margen)} · ${s.exchange === 'BINANCE' ? `${m.cantidad_moneda} ${s.base}` : `${m.contratos} contratos`} (${usdt(m.nocional)})`);
+  out.push(`  Apalancamiento:  ${m.apalancamiento}x AISLADO · margen ${usdt(m.margen)} · ${s.exchange !== 'MEXC' ? `${m.cantidad_moneda} ${s.base}` : `${m.contratos} contratos`} (${usdt(m.nocional)})`);
   out.push(`  Dinero:          SL ${usdt(-m.riesgo_usdt)} · solo TP1 ${signo(m.ganancia_tp1, 3)} · los 3 TP ${signo(m.ganancia_todos, 3)} USDT`);
   out.push(`  Probabilidad:    ${pct(m.prob.pct)} de ganar (${m.prob.fuente})${m.historial?.n ? ` · resultado medio ${signo(m.historial.r_medio_neto)} R` : ''}`);
   out.push(`  Tiempo:          si a las ${hora(m.cerrar_si_no_tp1_a_las, tz)} no tocó TP1, cierra · a las ${hora(m.cierre_total_a_las, tz)} cierra todo`);
@@ -319,14 +320,14 @@ export function informe(s, cfg) {
   const tamPaso = P.contratos ? P.cantidad_moneda / P.contratos : 1;
   for (const t of P.tps) {
     const acum = P.tps.slice(0, t.n).reduce((x, y) => x + y.cerrar_pct, 0);
-    const cant = s.exchange === 'BINANCE' ? `${+(t.contratos * tamPaso).toFixed(6)} ${s.base}` : `${t.contratos} contr.`;
+    const cant = s.exchange !== 'MEXC' ? `${+(t.contratos * tamPaso).toFixed(6)} ${s.base}` : `${t.contratos} contr.`;
     const cierre = t.contratos ? `cierra ${t.cerrar_pct} % → ${acum} % cerrado (${cant})` : 'sin contratos (posición mínima)';
     out.push(`  TP${t.n}        ${f(t.precio)}  (${s.lado === 'LONG' ? '+' : '-'}${t.movimiento_pct} %, ${t.r}R)  ${cierre} → ${signo(t.ganancia_usdt, 3)} USDT (${signo(t.roe_pct, 1)} % del margen)`);
   }
   out.push(`  Al tocar TP1 mueve el SL a la entrada (${f(P.entrada)}); al tocar TP2, el SL al TP1 (${f(P.tps[0].precio)}).`);
   out.push(`  APALANCAMIENTO ${P.apalancamiento}x AISLADO (máx. seguro ${P.apalancamiento_max_seguro}x) · margen ${usdt(P.margen)}`);
   out.push(`             ${P.apalancamiento_razon}`);
-  out.push(s.exchange === 'BINANCE' ? `  Cantidad ${P.cantidad_moneda} ${s.base} (${usdt(P.nocional)} de posición) · ponla en la orden en ${s.base}` : `  Tamaño ${P.contratos} contratos = ${P.cantidad_moneda} ${s.base} (${usdt(P.nocional)} de posición)`);
+  out.push(s.exchange !== 'MEXC' ? `  Cantidad ${P.cantidad_moneda} ${s.base} (${usdt(P.nocional)} de posición) · ponla en la orden en ${s.base}` : `  Tamaño ${P.contratos} contratos = ${P.cantidad_moneda} ${s.base} (${usdt(P.nocional)} de posición)`);
   out.push(`  Liquidación aprox. ${f(P.liquidacion)} (más allá del SL)`);
   out.push(`  Si salta el SL pierdes ${usdt(-P.riesgo_usdt)} = ${P.riesgo_pct_real} % del capital (comisiones incluidas)`);
   const es = P.escenarios;

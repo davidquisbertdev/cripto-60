@@ -8,7 +8,7 @@ description: >-
   desde la revisión anterior, los top traders de Binance frente a los
   minoristas, el open interest con el precio (longs o shorts nuevos, cierres),
   el flujo agresivo comprador o vendedor, las operaciones grandes y los muros
-  del libro del exchange (Binance o MEXC). Da una lectura ALCISTA, BAJISTA o NEUTRAL que
+  del libro del exchange (Binance, Bybit o MEXC). Da una lectura ALCISTA, BAJISTA o NEUTRAL que
   /cripto-senal y /cripto-posicion ya incluyen. Úsala cuando el usuario diga
   "¿qué hacen las ballenas en SOL?", "¿las ballenas están comprando?",
   "¿se están moviendo las ballenas?", "smart money", "billeteras grandes",
