@@ -4,6 +4,7 @@ import { Activity, BookCheck, Info, RefreshCw, ShieldAlert, X } from 'lucide-rea
 import { Pagina } from '../components/Shell';
 import { Campo, ErrorEstado, Esqueleto, Filas, KV, LadoTag, Nota, Panel, Vacio } from '../components/ui';
 import { BarraProb, COL, Escalera, Reloj } from '../components/graficos';
+import { SelectorMoneda } from '../components/SelectorMoneda';
 import { backend } from '../lib/api';
 import { useSesion } from '../lib/sesion';
 import { conSigno, estrategiaNombre, hace, hora, precio as fp, usdtSigno } from '../lib/formato';
@@ -153,7 +154,7 @@ function SinPosicion({ onRevisar }: { onRevisar: (p: Record<string, unknown>) =>
       <Panel titulo="Revisar una posición a mano">
         <form onSubmit={enviar} style={{ display: 'grid', gap: 12 }} noValidate>
           <div className="form-row">
-            <Campo etiqueta="Moneda"><input className="input" value={f.moneda} onChange={set('moneda')} placeholder="SOL" /></Campo>
+            <Campo etiqueta="Moneda"><SelectorMoneda valor={f.moneda} onCambio={(m) => setF((x) => ({ ...x, moneda: m }))} placeholder="SOL" /></Campo>
             <div className="field"><span>Lado</span>
               <div className="seg" role="group" aria-label="Lado">{(['LONG', 'SHORT'] as Lado[]).map((l) => <button type="button" key={l} aria-pressed={f.lado === l} onClick={() => setF({ ...f, lado: l })}>{l}</button>)}</div>
             </div>

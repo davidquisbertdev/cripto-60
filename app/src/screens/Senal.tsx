@@ -4,12 +4,12 @@ import { ArrowDownRight, ArrowUpRight, CircleSlash, Clipboard, Eye, Search, Shie
 import { Pagina } from '../components/Shell';
 import { Campo, ErrorEstado, Esqueleto, Filas, KV, LadoTag, NivelTag, Nota, Panel, Vacio } from '../components/ui';
 import { BarraProb, COL, Reloj } from '../components/graficos';
+import { SelectorMoneda } from '../components/SelectorMoneda';
 import { backend } from '../lib/api';
 import { useSesion } from '../lib/sesion';
 import { nombreExchange, estrategiaNombre, hace, hora, numero, pct, pctSigno, precio as fp, usdt, usdtSigno, conSigno } from '../lib/formato';
 import type { Bloqueo, Lado, Senal as TSenal, TP } from '../lib/tipos';
 
-const MONEDAS = ['BTC', 'ETH', 'SOL', 'XRP', 'NEAR', 'ENA', 'HYPE', 'ARB', 'TAO', 'MNT', '1000PEPE', 'DOGE'];
 type Res = (TSenal & { demo_nota?: string | null }) | Bloqueo;
 
 export function Senal() {
@@ -65,8 +65,7 @@ export function Senal() {
       <form className="panel" onSubmit={analizar} noValidate>
         <div className="panel-b form-row">
           <Campo etiqueta="Moneda" error={errCampo}>
-            <input className="input" list="monedas" value={moneda} onChange={(e) => setMoneda(e.target.value.toUpperCase())} placeholder="SOL" autoCapitalize="characters" autoComplete="off" aria-invalid={!!errCampo} />
-            <datalist id="monedas">{MONEDAS.map((m) => <option key={m} value={m} />)}</datalist>
+            <SelectorMoneda valor={moneda} onCambio={setMoneda} placeholder="SOL" invalido={!!errCampo} />
           </Campo>
           <Campo etiqueta="Capital" error={errCapital}>
             <div className="input-wrap"><input className="input num" inputMode="decimal" value={capital} onChange={(e) => setCapital(e.target.value)} aria-invalid={!!errCapital} /><span className="suf">USDT</span></div>

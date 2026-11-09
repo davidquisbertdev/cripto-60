@@ -143,10 +143,28 @@
 .seg button { border: 0; background: transparent; color: var(--text-2); padding: 0 var(--sp-3); height: 30px; border-radius: 4px; font-weight: 600; font-size: var(--fs-sm); cursor: pointer; }
 .seg button[aria-pressed='true'] { background: var(--s3); color: var(--text); }
 .seg button:hover { color: var(--text); }
+.combo { position: relative; display: flex; align-items: center; min-width: 0; }
+.combo .input { padding-left: 30px; padding-right: 30px; }
+.combo-ico { position: absolute; left: 10px; color: var(--text-3); pointer-events: none; }
+.combo-btn { position: absolute; right: 4px; width: 26px; height: 26px; display: grid; place-items: center; border: 0; background: none; color: var(--text-3); cursor: pointer; border-radius: 4px; }
+.combo-btn:hover { color: var(--text); background: var(--s3); }
+.combo-sm .input { height: 32px; width: 180px; }
+.combo-list {
+  position: absolute; top: calc(100% + 4px); left: 0; min-width: 100%; width: max-content; max-width: 280px; max-height: 280px; overflow-y: auto; z-index: 25;
+  margin: 0; padding: 4px; list-style: none; background: var(--s1); border: 1px solid var(--line-2); border-radius: var(--r); box-shadow: var(--shadow);
+}
+.combo-list li { display: flex; justify-content: space-between; align-items: baseline; gap: var(--sp-4); padding: 7px var(--sp-2); border-radius: 4px; cursor: pointer; font-size: var(--fs-md); }
+.combo-list li .faint { font-size: var(--fs-xs); }
+.combo-list li[aria-selected='true'] { background: var(--s3); }
+.combo-list li.sel .strong { color: var(--accent); }
+.combo-list .combo-empty { color: var(--text-3); cursor: default; }
+@media (max-width: 640px) { .combo-sm .input { width: 130px; } }
 .chips { display: flex; flex-wrap: wrap; gap: 4px; }
 .chip { height: 24px; padding: 0 var(--sp-2); border-radius: 999px; border: 1px solid var(--line-2); background: transparent; color: var(--text-2); font-size: var(--fs-xs); font-weight: 600; cursor: pointer; font-variant-numeric: tabular-nums; }
 .chip:hover { color: var(--text); border-color: var(--text-3); }
 .chip[aria-pressed='true'] { background: var(--accent-soft); border-color: var(--accent); color: var(--text); }
+.chip-x { display: inline-flex; align-items: center; gap: 4px; height: 30px; padding: 0 var(--sp-3); font-size: var(--fs-sm); }
+.chip-x[disabled] { cursor: default; }
 
 /* ---------- Etiquetas ---------- */
 .tag { display: inline-flex; align-items: center; gap: 4px; height: 22px; padding: 0 8px; border-radius: 4px; font-size: var(--fs-xs); font-weight: 650; letter-spacing: 0.02em; white-space: nowrap; background: var(--s3); color: var(--text-2); }

@@ -1,24 +1,42 @@
 // Lectura de mercado: BTC, Ballenas, Noticias y Escáner.
-import { useMemo, useState, type FormEvent } from 'react';
+import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowDown, ArrowUp, ExternalLink, Info, RefreshCw, Search, ShieldAlert, Waves } from 'lucide-react';
+import { ArrowDown, ArrowUp, ExternalLink, Info, RefreshCw, ShieldAlert, Waves, X } from 'lucide-react';
 import { Pagina } from '../components/Shell';
 import { ErrorEstado, Esqueleto, Filas, KV, LadoTag, Nota, Panel, Vacio } from '../components/ui';
 import { MedidorDir } from '../components/graficos';
+import { SelectorMoneda } from '../components/SelectorMoneda';
 import { backend } from '../lib/api';
 import { usePeticion } from '../lib/usar';
 import { nombreExchange, conSigno, hace, hora, millones, numero, pct, pctSigno, precio as fp, usdt } from '../lib/formato';
 import type { FiltroBTC, InformeBallenas, InformeBTC, InformeEscaner, InformeNoticias, FilaEscaner } from '../lib/tipos';
 
-function Buscador({ valor, onBuscar, etiqueta = 'Moneda', placeholder = 'SOL', boton = 'Ver' }: { valor: string; onBuscar: (m: string) => void; etiqueta?: string; placeholder?: string; boton?: string }) {
-  const [m, setM] = useState(valor);
-  const enviar = (e: FormEvent) => { e.preventDefault(); onBuscar(m.trim().toUpperCase()); };
+function Buscador({ valor, onBuscar, etiqueta = 'Moneda', placeholder = 'SOL' }: { valor: string; onBuscar: (m: string) => void; etiqueta?: string; placeholder?: string }) {
+  const id = `b-${etiqueta.replace(/\W+/g, '-')}`;
   return (
-    <form className="search" onSubmit={enviar} role="search">
-      <label className="sr-only" htmlFor={`b-${etiqueta}`}>{etiqueta}</label>
-      <input id={`b-${etiqueta}`} className="input" value={m} onChange={(e) => setM(e.target.value.toUpperCase())} placeholder={placeholder} title={etiqueta} />
-      <button className="btn btn-sm" type="submit"><Search size={14} aria-hidden />{boton}</button>
-    </form>
+    <div className="search" role="search">
+      <label className="sr-only" htmlFor={id}>{etiqueta}</label>
+      <SelectorMoneda id={id} valor={valor} onCambio={onBuscar} placeholder={placeholder} compacto />
+    </div>
+  );
+}
+
+// Varias monedas (hasta 4): chips que se quitan y un selector para añadir.
+function VariasMonedas({ valor, onCambio, max = 4 }: { valor: string[]; onCambio: (l: string[]) => void; max?: number }) {
+  return (
+    <div className="search" role="search">
+      {valor.map((m) => (
+        <button key={m} type="button" className="chip chip-x" aria-pressed="true" onClick={() => valor.length > 1 && onCambio(valor.filter((x) => x !== m))} aria-label={`Quitar ${m}`} disabled={valor.length === 1}>
+          {m}{valor.length > 1 && <X size={12} aria-hidden />}
+        </button>
+      ))}
+      {valor.length < max && (
+        <>
+          <label className="sr-only" htmlFor="noticias-mas">Añadir moneda</label>
+          <SelectorMoneda key={valor.join()} id="noticias-mas" valor="" onCambio={(m) => m && !valor.includes(m) && onCambio([...valor, m])} placeholder="Añadir" excluir={valor} compacto />
+        </>
+      )}
+    </div>
   );
 }
 
@@ -31,7 +49,7 @@ export function Btc() {
   const b = r.datos?.btc, alt = r.datos?.alt;
   const fila = (que: string, f: FiltroBTC) => ({ k: que, v: f.bloquea ? 'bloqueado por BTC' : f.estado + (f.bajar ? ' · baja un nivel' : ''), cls: f.bloquea || f.estado === 'en contra' ? 'loss' : f.estado === 'a favor' ? 'gain' : '' });
   return (
-    <Pagina titulo="BTC" acciones={<><Buscador valor={moneda} onBuscar={setMoneda} etiqueta="Comparar con una altcoin" placeholder="Altcoin" boton="Comparar" /><button className="btn btn-sm icon-btn" onClick={r.run} disabled={r.cargando} aria-label="Actualizar"><RefreshCw size={14} /></button></>}>
+    <Pagina titulo="BTC" acciones={<><Buscador valor={moneda} onBuscar={setMoneda} etiqueta="Comparar con una altcoin" placeholder="Altcoin" /><button className="btn btn-sm icon-btn" onClick={r.run} disabled={r.cargando} aria-label="Actualizar"><RefreshCw size={14} /></button></>}>
       {r.cargando && !r.datos ? <Esqueleto filas={5} /> : r.error ? <ErrorEstado mensaje={r.error} reintentar={r.run} /> : b && (
         <div className="grid g-main">
           <div className="stack">
@@ -158,12 +176,12 @@ export function Ballenas() {
 
 // ---------------- Noticias ----------------
 export function Noticias() {
-  const [monedas, setMonedas] = useState('SOL');
+  const [monedas, setMonedas] = useState<string[]>(['SOL']);
   const [horas, setHoras] = useState(24);
-  const r = usePeticion(() => backend.motor<InformeNoticias>('noticias', { monedas: monedas.split(/[\s,]+/).filter(Boolean), horas }), [monedas, horas]);
+  const r = usePeticion(() => backend.motor<InformeNoticias>('noticias', { monedas, horas }), [monedas.join(','), horas]);
   const n = r.datos;
   return (
-    <Pagina titulo="Noticias" acciones={<><Buscador valor={monedas} onBuscar={setMonedas} etiqueta="Monedas separadas por coma" placeholder="SOL, NEAR" /><div className="seg" role="group" aria-label="Ventana">{[6, 24, 48].map((h) => <button key={h} aria-pressed={horas === h} onClick={() => setHoras(h)}>{h} h</button>)}</div></>}>
+    <Pagina titulo="Noticias" acciones={<><VariasMonedas valor={monedas} onCambio={setMonedas} /><div className="seg" role="group" aria-label="Ventana">{[6, 24, 48].map((h) => <button key={h} aria-pressed={horas === h} onClick={() => setHoras(h)}>{h} h</button>)}</div></>}>
       {r.cargando && !n ? <Esqueleto filas={6} /> : r.error ? <ErrorEstado mensaje={r.error} reintentar={r.run} /> : n && (
         <div className="grid g-main">
           <div className="stack">

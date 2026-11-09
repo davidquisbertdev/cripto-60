@@ -4,6 +4,7 @@ import { BookOpen, Download, Plus, Trash2 } from 'lucide-react';
 import { Pagina } from '../components/Shell';
 import { Campo, ErrorEstado, Esqueleto, Filas, KV, LadoTag, Nota, Panel, Vacio } from '../components/ui';
 import { CurvaCapital } from '../components/graficos';
+import { SelectorMoneda } from '../components/SelectorMoneda';
 import { backend, reiniciarDemo } from '../lib/api';
 import { useSesion } from '../lib/sesion';
 import { usePeticion } from '../lib/usar';
@@ -101,7 +102,7 @@ function Registrar({ onHecho }: { onHecho: () => Promise<void> }) {
     <Panel titulo="Registrar operación">
       <form onSubmit={enviar} style={{ display: 'grid', gap: 12 }} noValidate>
         <div className="form-row">
-          <Campo etiqueta="Moneda"><input className="input" value={f.simbolo} onChange={(e) => setF({ ...f, simbolo: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '') })} placeholder="SOL" /></Campo>
+          <Campo etiqueta="Moneda"><SelectorMoneda valor={f.simbolo} onCambio={(m) => setF((x) => ({ ...x, simbolo: m }))} placeholder="SOL" /></Campo>
           <div className="field"><span>Lado</span><div className="seg" role="group" aria-label="Lado">{(['LONG', 'SHORT'] as Lado[]).map((l) => <button type="button" key={l} aria-pressed={f.lado === l} onClick={() => setF({ ...f, lado: l })}>{l}</button>)}</div></div>
         </div>
         <Campo etiqueta="Resultado" hint="Con comisiones, el que muestra tu exchange. Negativo si perdiste.">
