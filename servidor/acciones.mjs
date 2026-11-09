@@ -12,7 +12,7 @@ import { decimales } from '../lib/plan.mjs';
 import { generarSenal } from '../cripto-senal/senal.mjs';
 import { cargarPosicion, evaluar } from '../cripto-posicion/posicion.mjs';
 import { informeBTC } from '../cripto-btc/btc.mjs';
-import { escanear, ESTABLES } from '../cripto-escaner/escaner.mjs';
+import { escanear, ESTABLES, resumenSenal } from '../cripto-escaner/escaner.mjs';
 
 export const ACCIONES = ['estado', 'senal', 'posicion', 'btc', 'ballenas', 'billetera', 'noticias', 'escaner', 'mercado'];
 
@@ -132,6 +132,9 @@ export async function ejecutar(accion, params = {}, { db, fuente = null } = /** 
       };
       const a = await analizarSimbolo(f, m, { conNoticias: params.sin_noticias !== true, conBallenas: params.sin_ballenas !== true, carpetaCache: null });
       const s = await generarSenal(a, op, cfg);
+      // resumen: true = confirmación del escáner. No se guarda (no es una señal pedida por el usuario, y la
+      // revisión de posición usa la última señal guardada de cada moneda) y solo vuelve lo justo.
+      if (params.resumen === true) return { resumen: resumenSenal(s) };
       const id = await db.guardarSenal(s);
       return { ...s, id };
     }
@@ -196,8 +199,10 @@ export async function ejecutar(accion, params = {}, { db, fuente = null } = /** 
 
     case 'escaner': {
       const top = num(params.top, 'El número de monedas', { min: 5, max: 60 }) ?? 30;
-      // las mejores se confirman con la MISMA señal que da la pantalla Señal (tus ajustes y tu diario)
-      const confirmarN = num(params.confirmar, 'Cuántas confirmar', { min: 0, max: 8 }) ?? 5;
+      // confirmar: cuántas de las mejores pasan por la señal completa en ESTA llamada (por defecto 0).
+      // En la Edge Function no caben varias señales completas en una llamada (CPU y memoria), así que la
+      // web confirma cada moneda con su propia llamada a 'senal' con resumen: true.
+      const confirmarN = num(params.confirmar, 'Cuántas confirmar', { min: 0, max: 8 }) ?? 0;
       const capital = num(params.capital, 'El capital', { min: 1 }) ?? diario?.capital ?? cfg.margen_base;
       const confirmar = async (sym) => {
         const a = await analizarSimbolo(f, sym, { carpetaCache: null });
