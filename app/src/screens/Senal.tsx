@@ -7,10 +7,11 @@ import { BarraProb, COL, Reloj } from '../components/graficos';
 import { SelectorMoneda } from '../components/SelectorMoneda';
 import { EditorTPs, errorReparto } from '../components/EditorTPs';
 import { MapaCalorLiq, PanelConfluencias, PanelFib, PanelFlujo } from '../components/Confluencias';
+import { PanelCalendario } from '../components/Calendario';
 import { backend } from '../lib/api';
 import { useSesion } from '../lib/sesion';
 import { nombreExchange, estrategiaNombre, hace, hora, millones, numero, pct, pctSigno, precio as fp, usdt, usdtSigno, conSigno } from '../lib/formato';
-import type { Bloqueo, Lado, Senal as TSenal, TP } from '../lib/tipos';
+import type { Bloqueo, Lado, ObjetivoInfo, Senal as TSenal, TP } from '../lib/tipos';
 
 type Res = (TSenal & { demo_nota?: string | null }) | Bloqueo;
 
@@ -186,6 +187,16 @@ function PanelBallenas({ s }: { s: TSenal }) {
   );
 }
 
+// El objetivo en USDT no se alcanza: el motor no pasa del tope de pérdida, del margen ni del apalancamiento seguro.
+function ObjetivoNota({ o }: { o: ObjetivoInfo }) {
+  const freno = o.limitante === 'riesgo' ? `tu pérdida máxima en el SL (${o.riesgo_tope_pct ?? '—'} % del capital con esta confianza)` : `el apalancamiento seguro (${o.apalancamiento_max ?? '—'}x) con tu margen`;
+  return (
+    <Nota tono="warn" titulo={`Objetivo ${usdt(o.objetivo)}: este plan llega a ${usdt(o.alcanza ?? null)}.`}>
+      Lo frena {freno}. {o.ayuda ?? o.mensaje}
+    </Nota>
+  );
+}
+
 function copiarTexto(s: TSenal) {
   const p = s.plan, dec = s.decimales;
   return [
@@ -225,8 +236,9 @@ function Resultado({ s, onSeguir, abierta }: { s: TSenal & { demo_nota?: string 
                 <Tabla filas={filasNiveles(p.lado, p.entrada, p.sl, p.tps, dec, p.riesgo_usdt)} entrada={{ ...s.entrada, dec }} />
                 <div className="money">
                   <div><div className="k">Si salta el SL pierdes</div><div className="v num loss">{conSigno(p.escenarios.sl_directo, 3)}<span className="u">USDT</span></div><div className="s num">{pct(p.riesgo_pct_real)} del capital</div></div>
-                  <div><div className="k">{p.tps.length > 1 ? `Si llegan los ${p.tps.length} TP ganas` : 'Si llega el TP ganas'}</div><div className="v num gain">{conSigno(p.escenarios.todos_los_tps, 3)}<span className="u">USDT</span></div><div className="s num">{p.tps.length > 1 ? <>Solo TP1 y luego a entrada: {usdtSigno(p.escenarios.tp1_y_luego_be)}</> : <>cierra el 100 % en el TP1</>}</div></div>
+                  <div><div className="k">{p.tps.length > 1 ? `Si llegan los ${p.tps.length} TP ganas` : 'Si llega el TP ganas'}</div><div className="v num gain">{conSigno(p.escenarios.todos_los_tps, 3)}<span className="u">USDT</span></div><div className="s num">{p.objetivo ? <>Tu objetivo: {usdt(p.objetivo.objetivo)}{p.objetivo.alcanzable ? ' ✓' : ' · no alcanzable'}</> : p.tps.length > 1 ? <>Solo TP1 y luego a entrada: {usdtSigno(p.escenarios.tp1_y_luego_be)}</> : <>cierra el 100 % en el TP1</>}</div></div>
                 </div>
+                {p.objetivo && !p.objetivo.alcanzable && <div className="panel-b" style={{ paddingBottom: 0 }}><ObjetivoNota o={p.objetivo} /></div>}
                 <KV items={[
                   { k: 'Apalancamiento', v: `${p.apalancamiento}x`, s: 'margen aislado' },
                   { k: 'Margen', v: usdt(p.margen, 2), s: `${pct(p.margen_pct_capital, 0)} del capital` },
@@ -235,7 +247,6 @@ function Resultado({ s, onSeguir, abierta }: { s: TSenal & { demo_nota?: string 
                 ]} />
                 <div className="panel-b" style={{ display: 'grid', gap: 12 }}>
                   <p className="muted">{p.apalancamiento_razon}</p>
-                  {p.objetivo && !p.objetivo.alcanzable && p.objetivo.mensaje && <Nota tono="warn">{p.objetivo.mensaje}</Nota>}
                   <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                     <button className="btn btn-primary" onClick={() => onSeguir(s)} disabled={abierta} title={abierta ? 'Ya sigues una posición abierta' : undefined}><Eye size={16} aria-hidden />Entré: seguir la posición</button>
                     <button className="btn" onClick={copiar}><Clipboard size={16} aria-hidden />Copiar niveles</button>
@@ -264,6 +275,7 @@ function Resultado({ s, onSeguir, abierta }: { s: TSenal & { demo_nota?: string 
                       <Nota tono="warn">El sistema dice NO OPERAR. Esta es la jugada con más probabilidad ({pct(m.prob.pct, 0)}, {m.prob.fuente}), no una recomendación.</Nota>
                       <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}><LadoTag lado={m.lado} /><span className="muted">{estrategiaNombre(m.estrategia)} · {m.apalancamiento}x · margen {usdt(m.margen)}</span></div>
                       <Tabla filas={filasNiveles(m.lado, m.entrada.mercado, m.sl, m.tps, dec, m.riesgo_usdt)} entrada={{ ...m.entrada, dec }} />
+                      {m.objetivo && !m.objetivo.alcanzable && <ObjetivoNota o={m.objetivo} />}
                     </div>
                   </details>
                 )}
@@ -283,6 +295,7 @@ function Resultado({ s, onSeguir, abierta }: { s: TSenal & { demo_nota?: string 
           <PanelConfluencias s={s} />
           {s.liquidaciones && <MapaCalorLiq m={s.liquidaciones} dec={dec} lado={opera ? s.lado : m?.lado} sl={opera ? p.sl : m?.sl} tp1={opera ? p.tps[0]?.precio : m?.tps[0]?.precio} />}
           {s.flujo && <PanelFlujo f={s.flujo} dec={dec} />}
+          {s.calendario && <PanelCalendario c={s.calendario} className="ord-4" max={6} />}
           {s.ballenas && <PanelBallenas s={s} />}
           <Panel titulo="Contexto del mercado" className="ord-5">
             <Filas items={[
@@ -301,7 +314,7 @@ function Resultado({ s, onSeguir, abierta }: { s: TSenal & { demo_nota?: string 
 
         <div className="stack">
           {opera && (
-            <Panel titulo="Reloj de la operación" aside="cuenta regresiva" flush className="ord-2">
+            <Panel titulo="Reloj de la operación" aside={`duración ${s.duracion_max_min} min${s.espera_max_min ? ` · TP1 en ${s.espera_max_min} min` : ''}`} flush className="ord-2">
               <Reloj desde={s.creada} hitos={[
                 { que: 'La entrada caduca', a: s.entrada.valida_hasta },
                 { que: 'Sin TP1, cierra', a: s.cerrar_si_no_tp1_a_las },

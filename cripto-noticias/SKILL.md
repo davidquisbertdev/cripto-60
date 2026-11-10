@@ -3,9 +3,12 @@ name: cripto-noticias
 description: >-
   Noticias cripto recientes por moneda y del mercado en general (Cointelegraph,
   Decrypt, CoinDesk por RSS), con un sentimiento simple por titular, alertas de
-  riesgo (hacks, deslistados, caídas de red) y el índice Fear & Greed. Úsala
+  riesgo (hacks, deslistados, caídas de red), alertas de noticias macro
+  (inflación, Fed, aranceles), el CALENDARIO ECONÓMICO (IPC, empleo, Fed de
+  EE. UU. con su importancia, previsión y cuánto se movió BTC tras cada dato) y
+  el índice Fear & Greed. Úsala
   cuando el usuario pregunte "¿hay noticias de SOL?", "¿qué pasa con el
-  mercado?", "¿por qué cae BTC?", "¿salió algo de MNT?", "sentimiento del
+  mercado?", "¿por qué cae BTC?", "¿qué datos salen hoy?", "calendario económico", "¿salió algo de MNT?", "sentimiento del
   mercado", o antes de una operación si quiere revisar el contexto.
 argument-hint: "[MONEDA ...] [--horas 24]"
 ---

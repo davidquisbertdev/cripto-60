@@ -154,6 +154,18 @@ Otras opciones: `--json`, `--sin-noticias`, `--semilla N`, `--no-guardar`,
   descuenta si el ADX de 15m indica mercado lateral (entonces el máximo es
   MEDIA), si el precio está sobreextendido, si el RSI de 1m dice que el impulso
   ya corrió, si las ballenas van en contra o si el volumen de 5m es muy bajo.
+- **Calendario económico** (ForexFactory): los datos de EE. UU. de inflación
+  (IPC, PPI, PCE), empleo y la Fed son importancia **CRÍTICA**. Si uno sale
+  dentro de la operación (de ahora hasta la duración + 15 min) se baja un nivel
+  y −10 de confianza; si salió hace menos de 30 min, un nivel y −5. Los de
+  importancia ALTA restan 5 y los de MEDIA solo avisan. Se muestra la hora en
+  tu zona, la previsión, el dato anterior y, de los ya publicados, cuánto se
+  movió BTC en los 15 y 60 min siguientes. Los titulares macro de las últimas
+  6 h con dirección clara (inflación, Fed, aranceles...) salen como alerta.
+- **Objetivo en USDT**: decide el tamaño de la posición, pero nunca sube el
+  riesgo. Si no se alcanza, la señal dice qué lo frena (la pérdida máxima en el
+  SL, el margen o el apalancamiento seguro) y cuánto capital o margen haría
+  falta.
 - **Confluencias de la entrada** (±5 cada una, ±8 como mucho entre las tres;
   nunca deciden solas, el historial real sigue mandando):
   - **Fibonacci** del último impulso de 5m y 15m: precio en la zona dorada

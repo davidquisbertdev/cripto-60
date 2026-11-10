@@ -157,11 +157,14 @@ y Términos y condiciones.
 
 - **Inicio**: además del capital y los frenos, **cómo está el mercado hoy**: Fear & Greed de hoy y
   de 30 días, BTC en 24 h, cuántas monedas suben o bajan, la distribución de los cambios, las que
-  más se mueven y el funding medio.
+  más se mueven y el funding medio; y el **calendario económico** (IPC, empleo, Fed de EE. UU.:
+  importancia, previsión y cuánto se movió BTC tras cada dato).
 - **Señal**: moneda (selector con buscador de los perpetuos USDT de Binance), capital, margen,
   objetivo, **duración** y **TPs** de la operación; panel de ballenas (LONG frente a SHORT),
   **confluencias** de la entrada, **mapa de calor de liquidaciones**, **CVD y open interest** y
-  niveles de **Fibonacci** (con una entrada limit paciente en el 50/61.8 %).
+  niveles de **Fibonacci** (con una entrada limit paciente en el 50/61.8 %). Si un dato macro
+  fuerte cae dentro de la operación, la señal baja un nivel y avisa. Si el **objetivo** en USDT
+  no se alcanza, dice qué lo frena y cuánto capital o margen haría falta.
 - **BTC**: el buscador compara cualquier altcoin con BTC (su lectura de 5m/15m, correlación,
   beta y si BTC acompaña cada jugada).
 - **Escáner**: la columna «Señal completa» confirma las 3 mejores con el mismo análisis de la

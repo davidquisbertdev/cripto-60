@@ -8,6 +8,7 @@ import { Fuente } from '../lib/mexc.mjs';
 import { ejecutar } from '../servidor/acciones.mjs';
 import { dbMemoria } from '../servidor/db-memoria.mjs';
 import { resumenSenal } from '../cripto-escaner/escaner.mjs';
+import { leerCalendario } from '../lib/calendario.mjs';
 
 const RAIZ = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 const fx = (n) => new Fuente({ offline: path.join(RAIZ, 'tests', 'fixtures', n) });
@@ -38,6 +39,9 @@ const dirBallena = ballenas.hl?.posiciones?.[0]?.dir;
 const billetera = dirBallena ? await ejecutar('billetera', { dir: dirBallena, zona }, { db, fuente: fx('ballenas-sol') }).catch(() => null) : null;
 const mercado = await ejecutar('mercado', { zona }, { db, fuente: fx('escaner') });
 mercado.fng ??= noticias.fng; // la grabación del escáner no trae el Fear & Greed
+// calendario económico grabado el día del IPC de EE. UU. (10/11/2026), con BTC de 15 min de esas horas
+const btc15 = JSON.parse(fs.readFileSync(path.join(RAIZ, 'tests', 'fixtures', 'calendario', 'btc-15m.json'), 'utf8')).map((k) => ({ t: +k[0], o: +k[1], h: +k[2], l: +k[3], c: +k[4] }));
+mercado.calendario = await leerCalendario(fx('calendario'), { velasBTC5m: btc15 });
 const estado = await ejecutar('estado', { zona }, { db, fuente: fx('near') });
 
 const out = path.join(RAIZ, 'app', 'src', 'demo', 'datos.json');

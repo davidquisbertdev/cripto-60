@@ -6,6 +6,7 @@ import { estadoDiario } from '../lib/diario.mjs';
 import { crearFuente } from '../lib/fuentes.mjs';
 import { simbolo as simboloDe, base as baseDe, cerradas, esCripto } from '../lib/mexc.mjs';
 import { analizarSimbolo } from '../lib/motor.mjs';
+import { leerCalendario } from '../lib/calendario.mjs';
 import { analizarBallenas, compararInstantanea, billeteraHL, DIR_HL } from '../lib/ballenas.mjs';
 import { leerNoticias, miedoCodicia } from '../lib/noticias.mjs';
 import { decimales } from '../lib/plan.mjs';
@@ -13,6 +14,9 @@ import { generarSenal } from '../cripto-senal/senal.mjs';
 import { cargarPosicion, evaluar } from '../cripto-posicion/posicion.mjs';
 import { informeBTC } from '../cripto-btc/btc.mjs';
 import { escanear, ESTABLES, resumenSenal } from '../cripto-escaner/escaner.mjs';
+
+// Caché del calendario económico en la base de datos (la tabla de instantáneas, clave '_calendario')
+const cacheCal = (db) => (db?.leerInstantanea ? { leer: () => db.leerInstantanea('_calendario'), guardar: (doc) => db.guardarInstantanea('_calendario', doc) } : null);
 
 export const ACCIONES = ['estado', 'senal', 'posicion', 'btc', 'ballenas', 'billetera', 'noticias', 'escaner', 'mercado'];
 
@@ -130,7 +134,7 @@ export async function ejecutar(accion, params = {}, { db, fuente = null } = /** 
         estrategia: params.estrategia || undefined,
         diario,
       };
-      const a = await analizarSimbolo(f, m, { conNoticias: params.sin_noticias !== true, conBallenas: params.sin_ballenas !== true, carpetaCache: null });
+      const a = await analizarSimbolo(f, m, { conNoticias: params.sin_noticias !== true, conBallenas: params.sin_ballenas !== true, carpetaCache: null, cacheCalendario: cacheCal(db) });
       const s = await generarSenal(a, op, cfg);
       // resumen: true = confirmación del escáner. No se guarda (no es una señal pedida por el usuario, y la
       // revisión de posición usa la última señal guardada de cada moneda) y solo vuelve lo justo.
@@ -159,7 +163,7 @@ export async function ejecutar(accion, params = {}, { db, fuente = null } = /** 
       };
       let p;
       try { p = cargarPosicion(op, cfg, ahora, m, senal); } catch (e) { throw new ErrorUsuario(e.message); }
-      const a = await analizarSimbolo(f, m, { conNoticias: params.sin_noticias !== true, conBallenas: params.sin_ballenas !== true, carpetaCache: null });
+      const a = await analizarSimbolo(f, m, { conNoticias: params.sin_noticias !== true, conBallenas: params.sin_ballenas !== true, carpetaCache: null, cacheCalendario: cacheCal(db) });
       a.velas1m_vivo = await f.velas(a.simbolo, '1m', 2000);
       p.tam = p.tam ?? +a.contrato.contractSize;
       const e = evaluar(a, p, cfg);
@@ -205,7 +209,7 @@ export async function ejecutar(accion, params = {}, { db, fuente = null } = /** 
       const confirmarN = num(params.confirmar, 'Cuántas confirmar', { min: 0, max: 8 }) ?? 0;
       const capital = num(params.capital, 'El capital', { min: 1 }) ?? diario?.capital ?? cfg.margen_base;
       const confirmar = async (sym) => {
-        const a = await analizarSimbolo(f, sym, { carpetaCache: null });
+        const a = await analizarSimbolo(f, sym, { carpetaCache: null, cacheCalendario: cacheCal(db) });
         return generarSenal(a, { capital, diario }, cfg);
       };
       return { ahora, exchange: f.exchange ?? 'MEXC', ...(await escanear(f, { top, confirmar, confirmarN })) };
@@ -223,6 +227,8 @@ export async function ejecutar(accion, params = {}, { db, fuente = null } = /** 
       const [fng, tickers, v15] = await Promise.all([
         miedoCodicia(f), f.tickers().catch(() => []), f.velas('BTC_USDT', '15m', 97).catch(() => []),
       ]);
+      // calendario económico de hoy y los próximos días, con la reacción real de BTC a lo ya publicado
+      const calendario = await leerCalendario(f, { velasBTC5m: v15, cache: cacheCal(db) }).catch(() => null);
       const cambio = (t) => (Number.isFinite(t.cambio24) ? +t.cambio24 : t.riseFallRate != null ? 100 * +t.riseFallRate : null);
       const liquidas = tickers.filter((t) => t.symbol.endsWith('_USDT') && !ESTABLES.test(t.symbol) && +t.amount24 >= 5e6 && Number.isFinite(cambio(t)))
         .map((t) => ({ moneda: baseDe(t.symbol), cambio: +cambio(t).toFixed(2), precio: +t.lastPrice, volumen_musdt: +(+t.amount24 / 1e6).toFixed(1), funding: Number.isFinite(+t.fundingRate) ? +t.fundingRate : null }));
@@ -235,7 +241,7 @@ export async function ejecutar(accion, params = {}, { db, fuente = null } = /** 
       const serie = v15.map((v) => ({ t: v.t, c: v.c }));
       const btcCambio = serie.length > 1 ? +((100 * (serie.at(-1).c - serie[0].c)) / serie[0].c).toFixed(2) : null;
       return {
-        ahora, exchange: f.exchange ?? 'MEXC', fng,
+        ahora, exchange: f.exchange ?? 'MEXC', fng, calendario,
         btc: serie.length ? { precio: serie.at(-1).c, cambio_24h_pct: btcCambio, max: Math.max(...v15.map((v) => v.h)), min: Math.min(...v15.map((v) => v.l)), serie } : null,
         amplitud: { total: liquidas.length, suben, bajan, pct_suben: liquidas.length ? +((100 * suben) / liquidas.length).toFixed(1) : null, cambio_medio: liquidas.length ? +media(liquidas.map((x) => x.cambio)).toFixed(2) : null },
         distribucion: tramos.map((r) => ({ tramo: etiqueta(r), n: liquidas.filter((x) => x.cambio >= r[0] && x.cambio < r[1]).length, positivo: r[0] >= 0 })),
