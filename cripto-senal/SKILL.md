@@ -154,6 +154,22 @@ Otras opciones: `--json`, `--sin-noticias`, `--semilla N`, `--no-guardar`,
   descuenta si el ADX de 15m indica mercado lateral (entonces el máximo es
   MEDIA), si el precio está sobreextendido, si el RSI de 1m dice que el impulso
   ya corrió, si las ballenas van en contra o si el volumen de 5m es muy bajo.
+- **Confluencias de la entrada** (±5 cada una, ±8 como mucho entre las tres;
+  nunca deciden solas, el historial real sigue mandando):
+  - **Fibonacci** del último impulso de 5m y 15m: precio en la zona dorada
+    (50-61.8 %) del impulso a favor +5; retroceso de más del 78.6 % (impulso
+    roto) o en la zona dorada del impulso contrario −5. Da además una
+    **entrada paciente** (limit en el 50 % o 61.8 %) si queda entre el precio y
+    el SL.
+  - **CVD + open interest** (Binance, velas de 5 min de 24 h): precio, OI y
+    CVD juntos en la última hora (subida o caída sana, cierre de longs o
+    shorts, movimiento absorbido) y divergencias del CVD en 3 h.
+  - **Mapa de liquidaciones**: estimado con el OI de 24 h (posiciones nuevas a
+    10x-100x; las que el precio ya cruzó salen y cuentan como barrida) más el
+    precio de liquidación real de las ballenas de Hyperliquid. El imán (más
+    liquidez a un lado hasta 3 %) ±3; una barrida reciente del lado contrario
+    con el CVD a favor +5. Avisa si el **SL cae dentro de una zona fuerte** y
+    propone ponerlo detrás.
 - **SL con espacio, calibrado por tiempo**: se prueban 0.9, 1.2, 1.6 y 2.0
   ATR(5m), más la estructura del swing de 5m. Cada uno pasa por 2000 simulaciones con velas
   reales de 1 min, aplicando la regla de cerrar si no hay TP1 en 30 min. Se

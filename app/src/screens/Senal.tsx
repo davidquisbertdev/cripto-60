@@ -6,6 +6,7 @@ import { Campo, ErrorEstado, Esqueleto, Filas, KV, LadoTag, NivelTag, Nota, Pane
 import { BarraProb, COL, Reloj } from '../components/graficos';
 import { SelectorMoneda } from '../components/SelectorMoneda';
 import { EditorTPs, errorReparto } from '../components/EditorTPs';
+import { MapaCalorLiq, PanelConfluencias, PanelFib, PanelFlujo } from '../components/Confluencias';
 import { backend } from '../lib/api';
 import { useSesion } from '../lib/sesion';
 import { nombreExchange, estrategiaNombre, hace, hora, millones, numero, pct, pctSigno, precio as fp, usdt, usdtSigno, conSigno } from '../lib/formato';
@@ -279,6 +280,9 @@ function Resultado({ s, onSeguir, abierta }: { s: TSenal & { demo_nota?: string 
             </Panel>
           </div>
 
+          <PanelConfluencias s={s} />
+          {s.liquidaciones && <MapaCalorLiq m={s.liquidaciones} dec={dec} lado={opera ? s.lado : m?.lado} sl={opera ? p.sl : m?.sl} tp1={opera ? p.tps[0]?.precio : m?.tps[0]?.precio} />}
+          {s.flujo && <PanelFlujo f={s.flujo} dec={dec} />}
           {s.ballenas && <PanelBallenas s={s} />}
           <Panel titulo="Contexto del mercado" className="ord-5">
             <Filas items={[
@@ -326,6 +330,7 @@ function Resultado({ s, onSeguir, abierta }: { s: TSenal & { demo_nota?: string 
               </div>
             ) : <p className="muted">Sin operaciones comparables suficientes en esta moneda.</p>}
           </Panel>
+          {s.fibonacci && <PanelFib fib={s.fibonacci} dec={dec} precio={s.precio} />}
           <Panel titulo="Estrategias evaluadas" flush className="ord-6">
             <div className="table-wrap">
               <table className="t">

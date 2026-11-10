@@ -8,12 +8,12 @@
     "node": ">=18"
   },
   "scripts": {
-    "test": "node --test tests/lib.test.mjs tests/skills.test.mjs tests/ballenas.test.mjs tests/bybit.test.mjs servidor/acciones.test.mjs",
+    "test": "node --test tests/lib.test.mjs tests/skills.test.mjs tests/ballenas.test.mjs tests/bybit.test.mjs tests/confluencias.test.mjs servidor/acciones.test.mjs",
     "demo": "node scripts/demo.mjs",
     "motor:sync": "node scripts/sync-motor.mjs",
     "web:dev": "npm --prefix app run dev",
     "web:build": "npm --prefix app run build",
-    "deploy:funciones": "node scripts/sync-motor.mjs && supabase functions deploy motor",
+    "deploy:funciones": "node scripts/sync-motor.mjs && npx --yes supabase functions deploy motor",
     "deploy:web": "npm --prefix app run build && firebase deploy --only hosting"
   },
   "license": "MIT"

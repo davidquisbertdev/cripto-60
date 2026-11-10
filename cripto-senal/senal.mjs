@@ -12,10 +12,29 @@ import { historialSenal } from '../lib/historial.mjs';
 import { filtroBTC } from '../lib/btc.mjs';
 import { efectoFNG } from '../lib/noticias.mjs';
 import { efectoMacro, macroResumen } from '../lib/macro.mjs';
+import { efectoFib, entradaFib } from '../lib/fibonacci.mjs';
+import { efectoFlujo, flujoResumen } from '../lib/flujo.mjs';
+import { efectoLiquidaciones } from '../lib/liquidaciones.mjs';
 import { leerConfig, leerJSON, escribirJSON, rutaDiario, rutaSenal, estadoDiario, carpeta } from '../lib/config.mjs';
 import { args, precio as fp, usdt, pct, signo, hora, duracion, salir } from '../lib/formato.mjs';
 
 const BAJAR = { ALTA: 'MEDIA', MEDIA: 'BAJA', BAJA: 'NO OPERAR', 'NO OPERAR': 'NO OPERAR' };
+
+// Confluencias de la entrada para un lado: Fibonacci, flujo (CVD + OI) y mapa de liquidaciones. Cada una
+// pesa ±5 como mucho y juntas ±8: afinan la confianza, nunca deciden solas (el historial real manda).
+export const CONFLUENCIA_MAX = 8;
+export function confluencias(a, lado, estrategia) {
+  const partes = [
+    ['Fibonacci', efectoFib(a.fib, lado, estrategia)],
+    ['Flujo', efectoFlujo(a.flujo, lado, estrategia)],
+    ['Liquidaciones', efectoLiquidaciones(a.liquidaciones, lado, { flujo: a.flujo })],
+  ];
+  const suma = partes.reduce((s, [, x]) => s + x.ajuste_conf, 0);
+  return {
+    ajuste_conf: Math.max(-CONFLUENCIA_MAX, Math.min(CONFLUENCIA_MAX, suma)),
+    items: partes.flatMap(([que, x]) => x.textos.map((texto, i) => ({ que, texto, ajuste: i === 0 ? x.ajuste_conf : 0 }))),
+  };
+}
 
 // Evalúa UNA estrategia (tendencia o reversión) para un lado: calibra el SL por tiempo, simula y mide
 // el historial real de esa misma estrategia en la moneda. Devuelve el plan y el nivel final.
@@ -148,7 +167,9 @@ export async function generarSenal(a, op, cfg) {
     // oro y petróleo: un movimiento brusco (noticia macro) baja la confianza y avisa
     const em = efectoMacro(a.macro, lado);
     motivos.push(...em.textos);
-    const dd = { ...d, confianza: Math.round(Math.max(5, Math.min(e === 'tendencia' && d.lateral ? 64 : 90, d.confianza + fb.ajuste_conf + fg.ajuste_conf + em.ajuste_conf))) };
+    // Fibonacci, CVD/OI y liquidaciones: confluencias que suben o bajan un poco la confianza
+    const cf = confluencias(a, lado, e);
+    const dd = { ...d, confianza: Math.round(Math.max(5, Math.min(e === 'tendencia' && d.lateral ? 64 : 90, d.confianza + fb.ajuste_conf + fg.ajuste_conf + em.ajuste_conf + cf.ajuste_conf))) };
     if (fb.texto) motivos.unshift(`BTC: ${fb.texto}`);
     // Ballenas en long o en short frente a ESTE lado
     const eb = efectoBallenas(a.ballenas, lado);
@@ -160,7 +181,7 @@ export async function generarSenal(a, op, cfg) {
       if (ORDEN[nivelPorConfianza(dd.confianza)] < ORDEN[nivel]) nivel = nivelPorConfianza(dd.confianza);
     }
     const r = evaluarEstrategia(a, cfg, op, { estrategia: e, lado, nivel, motivos, capital, diario, fb, nivelSinBTC });
-    evaluadas.push({ ...r, d: dd, btc: fb, ballenas_a_favor: eb.a_favor });
+    evaluadas.push({ ...r, d: dd, btc: fb, ballenas_a_favor: eb.a_favor, cf });
   }
   // Elección: primero las recomendables, luego la de mejor historial real, luego la de más confianza
   const valorHist = (x) => (x.historial?.n >= cfg.historial_min_ops ? x.historial.r_medio_neto : -0.05);
@@ -183,6 +204,22 @@ export async function generarSenal(a, op, cfg) {
     no_perseguir: redondear(a.precio + L * 0.3 * atr, unidad),
     valida_hasta: ahora + cfg.validez_entrada_min * 60e3,
   };
+  // Afinar la entrada: un limit paciente en el 50/61.8 % de Fibonacci (si queda entre el precio y el SL)
+  // y un aviso si el SL cae dentro de una zona fuerte de liquidaciones (ahí suelen barrer)
+  const afinar = (ld, sl) => {
+    const fibE = entradaFib(a.fib, ld, a.precio, sl, atr);
+    const liq = efectoLiquidaciones(a.liquidaciones, ld, { sl, entrada: a.precio, flujo: a.flujo, slMaxPct: 0.8 });
+    const texto = liq.textos.find((t) => t.startsWith('Tu SL'));
+    return {
+      limit_fib: fibE ? { ...fibE, precio: redondear(fibE.precio, unidad) } : null,
+      sl_liquidaciones: texto ? { texto, sl_sugerido: liq.sl_sugerido == null ? null : redondear(liq.sl_sugerido, unidad) } : null,
+    };
+  };
+  if (plan.viable) {
+    const af = afinar(lado, plan.sl);
+    entrada.limit_fib = af.limit_fib;
+    if (af.sl_liquidaciones) { entrada.sl_liquidaciones = af.sl_liquidaciones; motivos.push(af.sl_liquidaciones.texto); }
+  }
   const esperaMin = sim ? Math.min(Math.max(sim.espera_max_min ?? cfg.espera_max_min, cfg.espera_min_min), cfg.espera_max_min) : null;
   const n5 = a.niveles5, n15 = a.niveles15;
   const reentrada = { long_si_rompe: n5.resistencia ?? n15.resistencia, short_si_pierde: n5.soporte ?? n15.soporte };
@@ -215,7 +252,7 @@ export async function generarSenal(a, op, cfg) {
       const opuesto = t0.lado === 'LONG' ? 'SHORT' : 'LONG';
       if (!evaluadas.some((x) => x.lado === opuesto && x.estrategia === 'tendencia')) {
         const r = evaluarEstrategia(a, cfg, op, { estrategia: 'tendencia', lado: opuesto, nivel: 'NO OPERAR', motivos: [], capital, diario });
-        extras.push({ ...r, d: t0.d, btc: filtroBTC(a.btc, a.btc?.relacion, opuesto === 'LONG' ? 1 : -1, 'tendencia') });
+        extras.push({ ...r, d: t0.d, btc: filtroBTC(a.btc, a.btc?.relacion, opuesto === 'LONG' ? 1 : -1, 'tendencia'), cf: confluencias(a, opuesto, 'tendencia') });
       }
     }
     // con una señal recomendada, la mejor entrada es esa misma; con NO OPERAR, la de más probabilidad
@@ -234,7 +271,8 @@ export async function generarSenal(a, op, cfg) {
         lado: m.lado, estrategia: m.estrategia, nivel: m.nivel, recomendada: m.nivel !== 'NO OPERAR' && !diario?.bloqueo,
         contra_btc: !!bloqueadaBTC(m), btc_estado: m.btc?.estado ?? null,
         prob: probDe(m), historial: resumenHist(m.historial), tp1_sim: m.sim?.prob.tp1 ?? null, sl_sim: m.sim?.prob.sl_antes_tp1 ?? null,
-        entrada: { mercado: a.precio, limit: redondear(a.precio - Lm * 0.3 * atr1, unidad), valida_hasta: ahora + cfg.validez_entrada_min * 60e3 },
+        entrada: { mercado: a.precio, limit: redondear(a.precio - Lm * 0.3 * atr1, unidad), valida_hasta: ahora + cfg.validez_entrada_min * 60e3, ...afinar(m.lado, m.plan.sl) },
+        confluencias: m.cf ? { ajuste: m.cf.ajuste_conf, textos: m.cf.items.map((x) => x.texto) } : null,
         sl: m.plan.sl, tps: m.plan.tps.map((t) => ({ n: t.n, precio: t.precio, cerrar_pct: t.cerrar_pct, contratos: t.contratos })),
         apalancamiento: m.plan.apalancamiento, margen: m.plan.margen, contratos: m.plan.contratos, cantidad_moneda: m.plan.cantidad_moneda,
         nocional: m.plan.nocional, riesgo_usdt: m.plan.riesgo_usdt, ganancia_todos: m.plan.escenarios?.todos_los_tps ?? null,
@@ -278,6 +316,11 @@ export async function generarSenal(a, op, cfg) {
       top_long: a.ballenas.posicionamiento?.top_long ?? null, minoristas_long: a.ballenas.posicionamiento?.minoristas_long ?? null,
       a_favor: g.ballenas_a_favor ?? null,
     } : null,
+    // confluencias del lado elegido + los datos para la web (Fibonacci, CVD/OI, mapa de liquidaciones)
+    confluencias: g.cf ? { ajuste: g.cf.ajuste_conf, items: g.cf.items } : null,
+    fibonacci: a.fib ?? null,
+    flujo: flujoResumen(a.flujo),
+    liquidaciones: a.liquidaciones ?? null,
     mejor_entrada: mejor,
     diario,
   };
@@ -296,7 +339,9 @@ function bloqueMejor(s, cfg, f, linea) {
   out.push(`  Posición:        ${m.lado} · estrategia ${NOMBRE[m.estrategia]}${m.btc_estado ? ` · BTC ${m.btc_estado}` : ''}`);
   if (m.contra_btc) out.push('  ! Va CONTRA BTC (el filtro la bloquea): no hay ninguna jugada a favor de BTC con plan. Mejor no entrar.');
   out.push(`  Precio entrada:  limit ${f(m.entrada.limit)} (o a mercado ${f(m.entrada.mercado)})`);
-  out.push(`  Stop loss:       ${f(m.sl)}`);
+  if (m.entrada.limit_fib) out.push(`                   paciente: limit ${f(m.entrada.limit_fib.precio)} en el Fibonacci ${m.entrada.limit_fib.nivel} de ${m.entrada.limit_fib.marco}`);
+  out.push(`  Stop loss:       ${f(m.sl)}${m.entrada.sl_liquidaciones?.sl_sugerido ? ` (zona de liquidaciones: mejor ${f(m.entrada.sl_liquidaciones.sl_sugerido)})` : ''}`);
+  if (m.confluencias?.textos.length) out.push(`  Confluencias:    ${signo(m.confluencias.ajuste, 0)} de confianza (Fibonacci, CVD/OI, liquidaciones)`);
   for (const t of m.tps) out.push(`  TP${t.n}:             ${f(t.precio)} → cierra ${t.cerrar_pct} % (${cant(t.contratos)})`);
   out.push(`  Apalancamiento:  ${m.apalancamiento}x AISLADO · margen ${usdt(m.margen)} · ${s.exchange !== 'MEXC' ? `${m.cantidad_moneda} ${s.base}` : `${m.contratos} contratos`} (${usdt(m.nocional)})`);
   out.push(`  Dinero:          SL ${usdt(-m.riesgo_usdt)} · solo TP1 ${signo(m.ganancia_tp1, 3)} · todos los TP ${signo(m.ganancia_todos, 3)} USDT`);
@@ -344,6 +389,25 @@ export function informe(s, cfg) {
     const m = s.ballenas.muros;
     if (m?.compra || m?.venta) out.push(`  · Muros ${nombreExchange(s.exchange)}: ${m.compra ? `compra ${f(m.compra.precio)}` : '—'} / ${m.venta ? `venta ${f(m.venta.precio)}` : '—'}`);
   }
+  const fl = s.flujo, lq = s.liquidaciones, fb = s.fibonacci;
+  if (fl) {
+    out.push(`CVD + OPEN INTEREST (Binance, última hora): ${fl.regimen} · precio ${signo(fl.precio_pct)} % · OI ${fl.oi_pct == null ? '—' : `${signo(fl.oi_pct)} %`} · CVD ${M(fl.cvd_usd)} USD (${signo(Math.round(fl.fuerza_cvd * 100), 0)} % del volumen)`);
+    out.push(`  · ${fl.frase}`);
+    if (fl.divergencia) out.push(`  · ${fl.divergencia.frase}`);
+  }
+  if (fb) for (const k of ['15m', '5m']) {
+    const x = fb[k];
+    if (x) out.push(`FIBONACCI ${k}: impulso ${x.direccion} ${f(x.desde)} → ${f(x.hasta)} · retroceso ${Math.round(x.retroceso * 100)} % (${x.estado}) · zona dorada ${f(x.zona_dorada.desde)}–${f(x.zona_dorada.hasta)} · extensión 1.272 en ${f(x.extensiones[0].precio)}`);
+  }
+  if (lq) {
+    const z = (t) => (t ? `${f(t.precio)} (${signo(t.dist_pct)} %, ~${M(t.usd)} USD)` : '—');
+    out.push(`MAPA DE LIQUIDACIONES (±${lq.rango_pct} %, ${lq.estimado ? 'estimado con el OI' : 'solo ballenas'}${lq.reales ? ` + ${lq.reales} ballenas reales` : ''}): imán arriba ${z(lq.zona_arriba)} · abajo ${z(lq.zona_abajo)}`);
+    out.push(`  · a 3 %: ${M(lq.arriba_3pct_usd)} USD de shorts arriba frente a ${M(lq.abajo_3pct_usd)} de longs abajo · barridos en 1 h: longs ${M(lq.barrida_1h.longs_usd)} / shorts ${M(lq.barrida_1h.shorts_usd)}`);
+  }
+  if (s.confluencias?.items.length) {
+    out.push(`Confluencias para el ${s.lado} (${signo(s.confluencias.ajuste, 0)} de confianza, máx. ±8):`);
+    for (const x of s.confluencias.items) out.push(`  · ${x.texto}`);
+  }
   if (s.alertas.length) {
     out.push('Atención:');
     for (const x of s.alertas) out.push(`  ! ${x}`);
@@ -360,6 +424,7 @@ export function informe(s, cfg) {
   out.push(`${etiqueta} · capital ${usdt(s.capital)} · margen elegido ${usdt(P.margen_elegido)}`);
   const e = s.entrada;
   out.push(`  Entrada    limit ${f(e.limit)} (comisión maker menor) o a mercado ${f(e.mercado)}`);
+  if (e.limit_fib) out.push(`             paciente: limit ${f(e.limit_fib.precio)} en el Fibonacci ${e.limit_fib.nivel} de ${e.limit_fib.marco} (puede no llenarse)`);
   out.push(`             no persigas: si ya está ${s.lado === 'LONG' ? 'por encima' : 'por debajo'} de ${f(e.no_perseguir)}, no entres · si a las ${hora(e.valida_hasta, tz)} no entraste, descártala`);
   out.push(`  Stop loss  ${f(P.sl)}  (${s.lado === 'LONG' ? '-' : '+'}${P.sl_pct} %)  ${P.sl_regla}`);
   const tamPaso = P.contratos ? P.cantidad_moneda / P.contratos : 1;
