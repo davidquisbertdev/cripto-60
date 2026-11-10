@@ -116,7 +116,9 @@ function backendDemo(): Backend {
         const pedida = String(params.moneda ?? '').toUpperCase();
         return { ...s, diario: d, id: 'demo', demo_nota: pedida && pedida !== D.senal.base ? `En modo demo solo hay datos grabados de ${D.senal.base}: esta es su señal, no la de ${pedida}.` : null } as T;
       }
-      const tabla: Record<string, unknown> = { posicion: D.posicion, btc: D.btc, ballenas: D.ballenas, billetera: D.billetera, noticias: D.noticias, escaner: D.escaner, mercado: D.mercado };
+      // BTC sin altcoin elegida: sin comparación (la grabada es de una sola altcoin)
+      const btc = params.moneda ? D.btc : { ...D.btc, alt: null };
+      const tabla: Record<string, unknown> = { posicion: D.posicion, btc, ballenas: D.ballenas, billetera: D.billetera, noticias: D.noticias, escaner: D.escaner, mercado: D.mercado };
       return ahora(tabla[accion]) as T;
     },
     async perfil() { return st.perfil; },
