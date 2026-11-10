@@ -47,7 +47,7 @@ button.nav-link { width: 100%; border: 0; background: none; cursor: pointer; fon
 .topbar h1 { font-size: var(--fs-xl); font-weight: 650; }
 .topbar .right { margin-left: auto; display: flex; gap: var(--sp-2); align-items: center; }
 .content { padding: var(--sp-6); display: grid; gap: var(--sp-5); align-content: start; max-width: 1360px; width: 100%; }
-.demo-band { display: flex; gap: var(--sp-2); align-items: center; padding: 6px var(--sp-6); background: var(--warn-soft); color: var(--warn-text); font-size: var(--fs-sm); border-bottom: 1px solid var(--line); }
+.demo-band { display: flex; flex-wrap: wrap; gap: var(--sp-2); align-items: center; padding: 6px var(--sp-6); background: var(--warn-soft); color: var(--warn-text); font-size: var(--fs-sm); border-bottom: 1px solid var(--line); }
 
 .tabbar { display: none; }
 

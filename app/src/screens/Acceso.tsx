@@ -1,7 +1,8 @@
 import { useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
-import { CandlestickChart, Crown } from 'lucide-react';
+import { CandlestickChart, Crown, PlayCircle } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { entrarDemo } from '../lib/modoDemo';
 import { Campo, Nota } from '../components/ui';
 
 // Solo entrar o recuperar la contraseña: las cuentas nuevas se crean al activar una suscripción.
@@ -71,6 +72,7 @@ export function Acceso() {
               : <button type="button" className="btn btn-ghost btn-sm" onClick={() => cambiar('entrar')}>Volver a entrar</button>}
           </div>
           <div className="divider">¿Sin cuenta?</div>
+          <button type="button" className="btn btn-block" onClick={entrarDemo}><PlayCircle size={16} aria-hidden />Ver demo, sin cuenta</button>
           <Link className="btn btn-block" to="/suscripcion"><Crown size={16} aria-hidden />Ver la suscripción: 100 USDT al mes</Link>
           <p className="faint" style={{ fontSize: 12 }}>Las cuentas se crean al activar la suscripción. Al entrar aceptas los <Link to="/terminos">términos y condiciones</Link>.</p>
         </form>

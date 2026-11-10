@@ -56,7 +56,7 @@ The product never touches the user's exchange account; orders are placed by hand
 
 ## Web app (`app/`)
 
-- **Demo mode** when `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` are missing: `app/src/lib/api.ts` uses recorded engine output and a localStorage journal. No login, no logout button.
+- **Demo mode** when `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` are missing, or when a visitor presses **"Ver demo"** (login screen `Acceso` and the `/suscripcion` header): `src/lib/modoDemo.ts` sets localStorage `cripto60-ver-demo` and `supabase.ts` then skips the client, so `app/src/lib/api.ts` uses recorded engine output and a localStorage journal. No login, no logout button; the Shell demo band offers "Suscribirme" / "Salir del demo" (`salirDemo`, any stored session comes back).
 - Env files: `app/.env` (tracked, public payment data: `VITE_BINANCE_NOMBRE`, `VITE_BINANCE_QR`, `VITE_CONTACTO_URL`, `VITE_CONTACTO_TEXTO`); `app/.env.local` (ignored, Supabase keys). Vite must be restarted after changing env files.
 - `src/App.tsx`: routing. Logged out → `Acceso` (sign in / reset only; **no sign-up**), `/suscripcion`, `/terminos`. Logged in without active subscription → only `SuscripcionPublica`. Active → `Shell` with `/ /senal /posicion /btc /ballenas /noticias /escaner /diario /ajustes /terminos` (`/legal` redirects). `/suscripcion` and the sidebar link only show when renewal is due (`porRenovar`: ≤ `RENOVAR_DIAS` 5 days left, in `sesion.tsx`); otherwise it redirects to `/`.
 - `src/lib/sesion.tsx`: session context (`perfil`, `suscrita`, `estado`, `errorPerfil`, `refrescar`, `salir`, `aviso`).

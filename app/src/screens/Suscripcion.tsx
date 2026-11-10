@@ -3,12 +3,13 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  Activity, Bitcoin, BookOpen, CalendarClock, CandlestickChart, Check, Clipboard, Clock, Download, Gauge, LogOut, Newspaper, Radar, ShieldCheck, Waves, Zap,
+  Activity, Bitcoin, BookOpen, CalendarClock, CandlestickChart, Check, Clipboard, Clock, Download, Gauge, LogOut, Newspaper, PlayCircle, Radar, ShieldCheck, Waves, Zap,
 } from 'lucide-react';
 import { ConfirmarSalida, Pagina } from '../components/Shell';
 import { Nota } from '../components/ui';
 import { useSesion } from '../lib/sesion';
 import { fechaHora } from '../lib/formato';
+import { entrarDemo } from '../lib/modoDemo';
 
 const PRECIO = 100;
 const PAY_ID = import.meta.env.VITE_BINANCE_PAY_ID?.trim() || '';
@@ -164,6 +165,7 @@ export function SuscripcionPublica() {
       <header className="sus-top">
         <Link to="/" className="brand"><span className="brand-mark"><CandlestickChart size={14} aria-hidden /></span>Cripto60</Link>
         <div className="right">
+          <button type="button" className="btn btn-sm btn-primary" onClick={entrarDemo}><PlayCircle size={14} aria-hidden />Ver demo</button>
           {sesion
             ? <button type="button" className="btn btn-sm btn-ghost" onClick={() => setConfirmar(true)}><LogOut size={14} aria-hidden />Cerrar sesión</button>
             : <Link className="btn btn-sm" to="/">Entrar</Link>}
