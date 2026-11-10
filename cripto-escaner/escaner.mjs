@@ -26,7 +26,7 @@ export function aptoScalping({ atr5Pct, comisionPct, spreadPct, ratioMin = 3 }) 
 // confirmar(simbolo): opcional, corre la SEÑAL COMPLETA (la misma de /cripto-senal y de la web) en las
 // mejores monedas del filtro rápido, para que el escáner no recomiende algo que la señal rechaza
 // (historial real negativo, BTC en contra, ballenas, simulación...). confirmarN: cuántas.
-export async function escanear(fuente, { top = 30, minVolumen = 5e6, ratioMin = 3, confirmar = null, confirmarN = 5 } = {}) {
+export async function escanear(fuente, { top = 30, minVolumen = 5e6, ratioMin = 3, confirmar = null, confirmarN = 3 } = {}) {
   const detalles = new Map((await fuente.detalles()).filter((d) => d.state === 0 && esCripto(d)).map((d) => [d.symbol, d]));
   const todos = (await fuente.tickers()).filter((t) => detalles.has(t.symbol) && t.symbol.endsWith('_USDT') && !ESTABLES.test(t.symbol) && +t.amount24 >= minVolumen);
   todos.sort((a, b) => +b.amount24 - +a.amount24);
@@ -92,7 +92,7 @@ async function main() {
     // capital: el indicado, o el del diario; sin ninguno, el margen base
     return generarSenal(a, op.capital != null ? { capital: op.capital } : {}, cfg).catch(() => generarSenal(a, { capital: cfg.margen_base }, cfg));
   };
-  const r = await escanear(fuente, { top: op.top ?? 30, minVolumen: op.min_volumen ?? 5e6, confirmar, confirmarN: op.confirmar ?? 5 });
+  const r = await escanear(fuente, { top: op.top ?? 30, minVolumen: op.min_volumen ?? 5e6, confirmar, confirmarN: op.confirmar ?? 3 });
   if (op.json) return console.log(JSON.stringify(r, null, 2));
   console.log(`BTC ahora (5m/15m): ${signo(r.btc)} (${r.btc >= 0.25 ? 'alcista' : r.btc <= -0.25 ? 'bajista' : 'neutral'}) · ${r.analizadas} futuros analizados · ${r.aptas} aptos para scalping`);
   console.log('');

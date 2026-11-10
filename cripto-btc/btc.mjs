@@ -5,6 +5,7 @@ import { pathToFileURL } from 'node:url';
 import { Fuente, simbolo, base as baseDe, cerradas } from '../lib/mexc.mjs';
 import { crearFuente, nombreExchange } from '../lib/fuentes.mjs';
 import { analizarBTC, relacionConBTC, filtroBTC, pesoBTC } from '../lib/btc.mjs';
+import { analizarMarco } from '../lib/analisis.mjs';
 import { analizarMacro } from '../lib/macro.mjs';
 import { leerConfig } from '../lib/config.mjs';
 import { args, signo, hora, salir } from '../lib/formato.mjs';
@@ -15,9 +16,17 @@ export async function informeBTC(fuente, moneda = null) {
   let alt = null;
   if (moneda && baseDe(moneda) !== 'BTC') {
     const sym = simbolo(moneda);
-    const v5 = cerradas(await fuente.velas(sym, '5m', 300));
+    const [v5, v15] = await Promise.all([fuente.velas(sym, '5m', 300).then(cerradas), fuente.velas(sym, '15m', 200).then(cerradas).catch(() => [])]);
+    if (!v5.length) throw new Error(`No hay velas de ${sym} en ${nombreExchange(fuente.exchange)}.`);
     const rel = relacionConBTC(v5, btc.velas5m);
-    alt = { simbolo: sym, base: baseDe(sym), relacion: rel, peso: +pesoBTC(rel).toFixed(2), long: filtroBTC(btc, rel, 1), short: filtroBTC(btc, rel, -1), long_rev: filtroBTC(btc, rel, 1, 'reversion'), short_rev: filtroBTC(btc, rel, -1, 'reversion') };
+    // lectura propia de la altcoin (5m y 15m), para ver en la misma pantalla qué hace frente a BTC
+    const precio = v5.at(-1).c;
+    const marco = (v) => { const x = v.length ? analizarMarco(v, precio) : null; return x ? { score: x.score, dir: x.score >= 0.25 ? 'alcista' : x.score <= -0.25 ? 'bajista' : 'neutral', rsi: x.rsi, adx: x.adx } : null; };
+    const marcos = { '5m': marco(v5), '15m': marco(v15) };
+    const pts = [[marcos['5m'], 0.55], [marcos['15m'], 0.45]].filter(([x]) => x);
+    const punt = pts.length ? +(pts.reduce((s, [x, w]) => s + w * x.score, 0) / pts.reduce((s, [, w]) => s + w, 0)).toFixed(3) : 0;
+    const cambio = (n) => (v5.length > n ? +((100 * (precio - v5.at(-n - 1).c)) / v5.at(-n - 1).c).toFixed(2) : null);
+    alt = { simbolo: sym, base: baseDe(sym), precio, cambio_15m_pct: cambio(3), cambio_1h_pct: cambio(12), puntuacion: punt, lectura: punt >= 0.25 ? 'ALCISTA' : punt <= -0.25 ? 'BAJISTA' : 'NEUTRAL', marcos, relacion: rel, peso: +pesoBTC(rel).toFixed(2), long: filtroBTC(btc, rel, 1), short: filtroBTC(btc, rel, -1), long_rev: filtroBTC(btc, rel, 1, 'reversion'), short_rev: filtroBTC(btc, rel, -1, 'reversion') };
   }
   // oro y petróleo frente a BTC (correlación de 1 h en 7 días)
   const macro = await analizarMacro(fuente, btc.series?.c1h ?? null).catch(() => null);
@@ -38,6 +47,7 @@ export function texto(r, cfg) {
     const a = r.alt, rel = a.relacion;
     out.push(linea);
     out.push(`${a.base} FRENTE A BTC`);
+    out.push(`  ${a.base}: ${a.lectura} (${signo(a.puntuacion)}) · precio ${a.precio} · 15 min ${signo(a.cambio_15m_pct)} % · 1 h ${signo(a.cambio_1h_pct)} %`);
     out.push(rel ? `  Correlación ${rel.correlacion} · beta ${rel.beta} (${rel.velas} velas de 5m): si BTC se mueve 1 %, ${a.base} suele moverse ~${rel.beta} %` : '  Sin datos suficientes para medir la correlación.');
     out.push(`  Peso de BTC en la señal de ${a.base}: ${Math.round(100 * a.peso)} %`);
     out.push(`  Para un LONG:  tendencia ${VEREDICTO(a.long)} · reversión ${VEREDICTO(a.long_rev)}`);

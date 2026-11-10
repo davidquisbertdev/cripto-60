@@ -23,7 +23,7 @@ node "${CLAUDE_SKILL_DIR}/escaner.mjs" --confirmar 8 --capital 20   # confirma l
 node "${CLAUDE_SKILL_DIR}/escaner.mjs" --json
 ```
 
-Tarda unos segundos por moneda (3 peticiones por cada una). Además, las 5 mejores aptas
+Tarda unos segundos por moneda (3 peticiones por cada una). Además, las 3 mejores aptas
 (`--confirmar N`, 0 para no confirmar) pasan por la **señal completa** de /cripto-senal (historial
 real, filtro de BTC, ballenas, Fear & Greed, simulación): la columna `SEÑAL` es lo que dirá la
 señal. Así el escáner no recomienda una moneda que la señal luego rechaza.

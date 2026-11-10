@@ -48,12 +48,22 @@ const tonoDir = (v: number) => (v > 0.15 ? 'gain' : v < -0.15 ? 'loss' : '');
 export function Btc() {
   const [moneda, setMoneda] = useState('');
   const r = usePeticion(() => backend.motor<InformeBTC>('btc', moneda ? { moneda } : {}), [moneda], { clave: `btc:${moneda}` });
-  const b = r.datos?.btc, alt = r.datos?.alt;
-  const fila = (que: string, f: FiltroBTC) => ({ k: que, v: f.bloquea ? 'bloqueado por BTC' : f.estado + (f.bajar ? ' · baja un nivel' : ''), cls: f.bloquea || f.estado === 'en contra' ? 'loss' : f.estado === 'a favor' ? 'gain' : '' });
+  const b = r.datos?.btc;
+  // la comparación solo vale si es de la moneda elegida (mientras carga otra, se muestra cargando)
+  // (en demo solo hay datos grabados de una altcoin: se muestra esa con un aviso)
+  const alt = moneda && r.datos?.alt && (r.datos.alt.base === moneda || backend.demo) ? r.datos.alt : null;
   return (
-    <Pagina titulo="BTC" acciones={<><Buscador valor={moneda} onBuscar={setMoneda} etiqueta="Comparar con una altcoin" placeholder="Altcoin" /><button className="btn btn-sm icon-btn" onClick={r.run} disabled={r.cargando} aria-busy={r.cargando} aria-label={r.cargando ? 'Actualizando' : 'Actualizar'}><RefreshCw size={14} className={r.cargando ? 'girando' : undefined} aria-hidden /></button></>}>
+    <Pagina titulo={moneda ? `BTC · ${moneda}` : 'BTC'} acciones={<><Buscador valor={moneda} onBuscar={(x) => setMoneda(x === 'BTC' ? '' : x)} etiqueta="Comparar con una altcoin" placeholder="Comparar altcoin" /><button className="btn btn-sm icon-btn" onClick={r.run} disabled={r.cargando} aria-busy={r.cargando} aria-label={r.cargando ? 'Actualizando' : 'Actualizar'}><RefreshCw size={14} className={r.cargando ? 'girando' : undefined} aria-hidden /></button></>}>
       {r.cargando && !r.datos ? <Esqueleto filas={5} /> : r.error ? <ErrorEstado mensaje={r.error} reintentar={r.run} /> : b && (
         <div className="grid g-main">
+          {moneda && (
+            <section style={{ gridColumn: '1 / -1' }} aria-label={`${moneda} frente a BTC`} aria-busy={r.cargando}>
+              {alt && backend.demo && alt.base !== moneda && <Nota tono="info">En modo demo solo hay datos grabados de {alt.base}: esta es su comparación, no la de {moneda}.</Nota>}
+              {alt ? <AltFrenteBTC alt={alt} /> : r.cargando ? <Panel titulo={`${moneda} frente a BTC`}><Esqueleto filas={3} /></Panel> : (
+                <Panel titulo={`${moneda} frente a BTC`}><p className="muted">No se pudo comparar {moneda} con BTC. Revisa que sea un perpetuo USDT.</p></Panel>
+              )}
+            </section>
+          )}
           <div className="stack">
             <section className="panel" aria-label="Lectura de BTC">
               <div className="verdict">
@@ -79,23 +89,42 @@ export function Btc() {
           </div>
           <div className="stack">
             <Panel titulo="Niveles de 5 min"><Filas items={[{ k: 'Resistencia', v: numero(b.resistencia_5m, 1) }, { k: 'Soporte', v: numero(b.soporte_5m, 1) }]} /></Panel>
-            {alt && (
-              <Panel titulo={`BTC frente a ${alt.base}`}>
-                <Filas items={[
-                  { k: 'Correlación (5m)', v: numero(alt.relacion.correlacion, 2) },
-                  { k: 'Beta', v: numero(alt.relacion.beta, 2) },
-                  { k: 'Peso de BTC en la señal', v: pct(alt.peso * 100, 0) },
-                  fila('LONG de tendencia', alt.long), fila('SHORT de tendencia', alt.short),
-                  fila('LONG de reversión', alt.long_rev), fila('SHORT de reversión', alt.short_rev),
-                ]} />
-              </Panel>
-            )}
             <Panel titulo="Lectura"><ul className="list">{b.frases.map((f) => <li key={f}><Info size={14} aria-hidden />{f}</li>)}</ul></Panel>
           </div>
           {r.datos?.macro?.activos.length ? <OroPetroleo activos={r.datos.macro.activos} /> : null}
         </div>
       )}
     </Pagina>
+  );
+}
+
+// Una altcoin frente a BTC: su propia lectura (5m y 15m) y si BTC acompaña o va en contra de cada jugada.
+function AltFrenteBTC({ alt }: { alt: NonNullable<InformeBTC['alt']> }) {
+  const fila = (que: string, f: FiltroBTC) => ({ k: que, v: f.bloquea ? 'bloqueado por BTC' : f.estado + (f.bajar ? ' · baja un nivel' : ''), cls: f.bloquea || f.estado === 'en contra' ? 'loss' : f.estado === 'a favor' ? 'gain' : '' });
+  const p = alt.puntuacion ?? 0;
+  return (
+    <div className="grid g-2">
+      <section className="panel" aria-label={`Lectura de ${alt.base}`}>
+        <div className="verdict">
+          <span className={`verdict-word ${tonoDir(p) === 'gain' ? 'long' : tonoDir(p) === 'loss' ? 'short' : 'none'}`}>{alt.lectura ?? '—'}</span>
+          <div className="verdict-meta"><span className="t1 num">{alt.base} {alt.precio != null ? fp(alt.precio) : '—'}</span><span className="t2">15 min {pctSigno(alt.cambio_15m_pct ?? null)} · 1 h {pctSigno(alt.cambio_1h_pct ?? null)}</span></div>
+        </div>
+        <div className="panel-b" style={{ display: 'grid', gap: 12 }}>
+          <MedidorDir v={p} etiqueta={`Dirección de ${alt.base}`} />
+          <Filas items={Object.entries(alt.marcos ?? {}).filter(([, x]) => x).map(([k, x]) => ({ k: `Marco ${k}`, v: `${x!.dir} · ${conSigno(x!.score)} · RSI ${numero(x!.rsi, 0)}`, cls: tonoDir(x!.score) }))} />
+          <Link to={`/senal?moneda=${alt.base}`} style={{ fontSize: 13 }}>Pedir la señal completa de {alt.base}</Link>
+        </div>
+      </section>
+      <Panel titulo={`¿BTC acompaña a ${alt.base}?`}>
+        <Filas items={[
+          { k: 'Correlación (5m)', v: numero(alt.relacion.correlacion, 2) },
+          { k: 'Beta', v: `${numero(alt.relacion.beta, 2)} · si BTC se mueve 1 %, ${alt.base} ~${numero(alt.relacion.beta, 2)} %` },
+          { k: 'Peso de BTC en la señal', v: pct(alt.peso * 100, 0) },
+          fila('LONG de tendencia', alt.long), fila('SHORT de tendencia', alt.short),
+          fila('LONG de reversión', alt.long_rev), fila('SHORT de reversión', alt.short_rev),
+        ]} />
+      </Panel>
+    </div>
   );
 }
 
@@ -325,8 +354,9 @@ function ListaNoticias({ items }: { items: InformeNoticias['monedas'][number]['p
 }
 
 // ---------------- Escáner ----------------
-// Confirma las 5 mejores aptas con la señal completa, una llamada por moneda (2 a la vez): en una sola
+// Confirma las 3 mejores aptas con la señal completa, una llamada por moneda (2 a la vez): en una sola
 // llamada no cabe en la Edge Function. Los resultados se guardan en la caché del escáner.
+const CONFIRMAR = 3;
 const PESO = (s?: SenalResumen) => (!s || s.error ? 0 : s.recomendacion && s.recomendacion !== 'NO OPERAR' ? 3 : s.mejor ? 1 : 0.5);
 function useConfirmar(e: InformeEscaner | null, setDatos: (v: (p: InformeEscaner | null) => InformeEscaner | null) => void, capital?: number) {
   const [estado, setEstado] = useState<{ hechas: number; total: number } | null>(null);
@@ -334,7 +364,7 @@ function useConfirmar(e: InformeEscaner | null, setDatos: (v: (p: InformeEscaner
   useEffect(() => {
     if (!e || backend.demo || lanzado.current === e || e.filas.some((x) => x.senal)) return;
     lanzado.current = e;
-    const elegidas = e.filas.filter((x) => x.apto).slice(0, 5);
+    const elegidas = e.filas.filter((x) => x.apto).slice(0, CONFIRMAR);
     if (!elegidas.length) return;
     const ahora = e.ahora;
     const res = new Map<string, SenalResumen>();
@@ -407,7 +437,7 @@ export function Escaner() {
             <label className="muted" style={{ marginLeft: 'auto', display: 'flex', gap: 6, alignItems: 'center', fontSize: 13 }}><input type="checkbox" checked={soloAptas} onChange={(x) => setSoloAptas(x.target.checked)} />Solo aptas para scalping</label>
           </div>
           {conf && <div className="muted" role="status" style={{ fontSize: 13, display: 'flex', gap: 8, alignItems: 'center' }}><RefreshCw size={14} className="girando" aria-hidden />Confirmando con la señal completa: {conf.hechas} de {conf.total}…</div>}
-          <Nota tono="info" titulo="Señal completa:">{conf ? 'las 5 mejores están pasando ahora por el mismo análisis de la pantalla Señal; la columna se va llenando.' : e.confirmadas ? `las ${e.confirmadas} mejores ya pasaron por el mismo análisis de la pantalla Señal (historial real, BTC, ballenas, Fear & Greed): esa columna es lo que te dirá al analizarlas.` : 'en este escaneo no se confirmó ninguna moneda con la señal completa.'} El resto solo pasó el filtro rápido (tendencia, momentum y BTC): su confianza no es la de la señal.</Nota>
+          <Nota tono="info" titulo="Señal completa:">{conf ? 'las 3 mejores están pasando ahora por el mismo análisis de la pantalla Señal; la columna se va llenando.' : e.confirmadas ? `las ${e.confirmadas} mejores ya pasaron por el mismo análisis de la pantalla Señal (historial real, BTC, ballenas, Fear & Greed): esa columna es lo que te dirá al analizarlas.` : 'en este escaneo no se confirmó ninguna moneda con la señal completa.'} El resto solo pasó el filtro rápido (tendencia, momentum y BTC): su confianza no es la de la señal.</Nota>
           <Panel flush>
             {filas.length ? (
               <div className="table-wrap"><table className="t">

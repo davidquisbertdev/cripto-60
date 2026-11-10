@@ -26,7 +26,7 @@ Fear & Greed de alternative.me.
 | `/cripto-posicion` | Revisa tu posición abierta: MANTENER, MOVER SL, REDUCIR o CERRAR, según el precio, el tiempo, las noticias nuevas y si el análisis cambió. |
 | `/cripto-ballenas` | Qué hacen las ballenas: posiciones reales de las billeteras grandes de Hyperliquid, qué abrieron o cerraron, qué cambió desde la última revisión, top traders frente a minoristas, open interest, flujo y muros. Lo usan también la señal y la revisión de posición. |
 | `/cripto-noticias` | Titulares recientes de la moneda y del mercado, sentimiento, alertas de riesgo y Fear & Greed. |
-| `/cripto-escaner` | Ordena los futuros cripto más líquidos (Binance, Bybit o MEXC) por claridad del setup y confirma las 5 mejores con la señal completa, para que el escáner y la señal digan lo mismo. |
+| `/cripto-escaner` | Ordena los futuros cripto más líquidos (Binance, Bybit o MEXC) por claridad del setup y confirma las 3 mejores con la señal completa, para que el escáner y la señal digan lo mismo. |
 | `/cripto-diario` | Registra tus resultados, lleva el capital y para la operativa si el día va mal. |
 
 ## Ejemplos
@@ -159,8 +159,12 @@ y Términos y condiciones.
   de 30 días, BTC en 24 h, cuántas monedas suben o bajan, la distribución de los cambios, las que
   más se mueven y el funding medio.
 - **Señal**: moneda (selector con buscador de los perpetuos USDT de Binance), capital, margen,
-  objetivo, **duración** y **TPs** de la operación; panel de ballenas (LONG frente a SHORT).
-- **Escáner**: la columna «Señal completa» confirma las 5 mejores con el mismo análisis de la
+  objetivo, **duración** y **TPs** de la operación; panel de ballenas (LONG frente a SHORT),
+  **confluencias** de la entrada, **mapa de calor de liquidaciones**, **CVD y open interest** y
+  niveles de **Fibonacci** (con una entrada limit paciente en el 50/61.8 %).
+- **BTC**: el buscador compara cualquier altcoin con BTC (su lectura de 5m/15m, correlación,
+  beta y si BTC acompaña cada jugada).
+- **Escáner**: la columna «Señal completa» confirma las 3 mejores con el mismo análisis de la
   pantalla Señal.
 - **Ballenas**: toca una billetera para ver **todas sus posiciones** en otras monedas y lo que hizo
   en 24 h (para seguirla, tipo copytrading).

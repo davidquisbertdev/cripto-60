@@ -28,15 +28,35 @@ export interface EstadoDiario {
 }
 export interface MejorEntrada {
   lado: Lado; estrategia: Estrategia; nivel: Nivel; recomendada: boolean; prob: { pct: number; fuente: string };
-  entrada: { mercado: number; limit: number; valida_hasta: number }; sl: number; tps: TP[];
+  entrada: { mercado: number; limit: number; valida_hasta: number } & AfinarEntrada; sl: number; tps: TP[];
+  confluencias?: { ajuste: number; textos: string[] } | null;
   apalancamiento: number; margen: number; contratos: number; cantidad_moneda: number; nocional: number;
   riesgo_usdt: number; ganancia_todos: number; ganancia_tp1: number; liquidacion: number; cerrar_si_no_tp1_a_las: number; cierre_total_a_las: number;
 }
-export interface Noticia { titulo: string; fecha: number; fuente: string; sentimiento: number; enlace?: string; resumen?: string; riesgo?: boolean }
+// Fibonacci, CVD + open interest y mapa de liquidaciones (confluencias de la entrada)
+export interface AfinarEntrada { limit_fib?: { precio: number; nivel: string; marco: string } | null; sl_liquidaciones?: { texto: string; sl_sugerido: number | null } | null }
+export interface FibMarco {
+  marco: string; direccion: 'alcista' | 'bajista'; desde: number; hasta: number; t_desde: number; rango_pct: number; retroceso: number;
+  estado: string; niveles: { r: number; precio: number }[]; zona_dorada: { desde: number; hasta: number }; extensiones: { r: number; precio: number }[];
+}
+export interface FlujoCVD {
+  simbolo: string; ahora: number; ventana_min: number; precio_pct: number | null; oi_pct: number | null; cvd_usd: number; fuerza_cvd: number;
+  oi_24h_pct: number | null; cvd_24h_usd: number; regimen: string; sesgo: number; frase: string; puntuacion: number;
+  divergencia: { tipo: 'alcista' | 'bajista'; frase: string; t: number; precio: number } | null;
+  serie: { t: number; c: number; cvd: number; oi: number | null }[];
+}
+export interface ZonaLiq { precio: number; desde: number; hasta: number; usd: number; dist_pct: number; real_usd: number }
+export interface MapaLiq {
+  precio: number; paso_pct: number; rango_pct: number;
+  tramos: { precio: number; longs_usd: number; shorts_usd: number; real_longs_usd: number; real_shorts_usd: number }[];
+  zona_arriba: ZonaLiq | null; zona_abajo: ZonaLiq | null; fuertes: { desde: number; hasta: number; lado: 'LONG' | 'SHORT'; usd: number }[];
+  arriba_3pct_usd: number; abajo_3pct_usd: number; asimetria: number; barrida_1h: { longs_usd: number; shorts_usd: number }; estimado: boolean; reales: number;
+}
+export interface Noticia{ titulo: string; fecha: number; fuente: string; sentimiento: number; enlace?: string; resumen?: string; riesgo?: boolean }
 export interface Senal {
   id?: string | number; tipo: 'senal'; estrategia: Estrategia; simbolo: string; base: string; exchange: string; creada: number;
   recomendacion: Lado | 'NO OPERAR'; lado: Lado; nivel: Nivel; confianza: number; razones: string[]; alertas: string[]; capital: number;
-  precio: number; decimales: number; entrada: { mercado: number; limit: number; no_perseguir: number; valida_hasta: number };
+  precio: number; decimales: number; entrada: { mercado: number; limit: number; no_perseguir: number; valida_hasta: number } & AfinarEntrada;
   plan: Plan; simulacion: Simulacion | null; historial: Historial | null;
   alternativa: { estrategia: Estrategia; lado: Lado; nivel: Nivel; confianza: number; historial: HistResumen | null } | null;
   estrategias_evaluadas: { estrategia: Estrategia; lado: Lado; nivel: Nivel; confianza: number; btc: string | null; historial: HistResumen | null }[];
@@ -50,6 +70,10 @@ export interface Senal {
     hl?: { longs: number; shorts: number; valor_long: number; valor_short: number; neto: number } | null;
     top_long?: number | null; minoristas_long?: number | null; a_favor?: boolean | null;
   } | null;
+  confluencias?: { ajuste: number; items: { que: string; texto: string; ajuste: number }[] } | null;
+  fibonacci?: Partial<Record<'5m' | '15m', FibMarco | null>> | null;
+  flujo?: FlujoCVD | null;
+  liquidaciones?: MapaLiq | null;
   mejor_entrada: MejorEntrada | null; diario: EstadoDiario | null;
 }
 export interface Bloqueo { bloqueado: true; motivo: string; pausa_hasta: number | null }
@@ -69,7 +93,9 @@ export interface FiltroBTC { estado: string; ajuste_conf: number; bloquea: boole
 export interface InformeBTC {
   ahora: number;
   btc: { precio: number; puntuacion: number; tendencia_mayor: number; lectura: string; fuerza: string; lateral: boolean; adx15m: number; cambio_15m_pct: number; cambio_1h_pct: number; rsi_5m: number; marcos: Record<string, { score: number; dir: string; rsi: number; adx: number }>; soporte_5m: number; resistencia_5m: number; frases: string[] };
-  alt: { base: string; relacion: { correlacion: number; beta: number; velas: number }; peso: number; long: FiltroBTC; short: FiltroBTC; long_rev: FiltroBTC; short_rev: FiltroBTC } | null;
+  alt: {
+    base: string; precio?: number; cambio_15m_pct?: number | null; cambio_1h_pct?: number | null; puntuacion?: number; lectura?: string;
+    marcos?: Record<string, { score: number; dir: string; rsi: number | null; adx: number | null } | null>; relacion: { correlacion: number; beta: number; velas: number }; peso: number; long: FiltroBTC; short: FiltroBTC; long_rev: FiltroBTC; short_rev: FiltroBTC } | null;
   macro?: { ahora: number; activos: ActivoMacro[] } | null;
 }
 export interface ActivoMacro {
