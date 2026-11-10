@@ -3,6 +3,7 @@
 import { Link } from 'react-router-dom';
 import { RefreshCw } from 'lucide-react';
 import { ErrorEstado, Esqueleto, Filas, Panel } from './ui';
+import { PanelCalendario } from './Calendario';
 import { Histograma, LineaSerie, MedidorFNG } from './graficos';
 import { backend } from '../lib/api';
 import { usePeticion } from '../lib/usar';
@@ -39,6 +40,7 @@ export function MercadoHoy() {
   const tonoBtc = b?.cambio_24h_pct == null ? 'var(--accent)' : b.cambio_24h_pct >= 0 ? 'var(--gain)' : 'var(--loss)';
   return (
     <section className="stack" aria-label="Cómo está el mercado hoy">
+      {m.calendario && <PanelCalendario c={m.calendario} />}
       <div className="grid g-2">
         <Panel titulo="Sentimiento (Fear & Greed)" aside={<span className="faint" style={{ fontSize: 12 }}>diario · alternative.me</span>}>
           {m.fng ? (

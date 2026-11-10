@@ -6,6 +6,7 @@ import {
 import { diasRestantes, porRenovar, useSesion } from '../lib/sesion';
 import { useLocal } from '../lib/usar';
 import { fechaCorta, tono, usdt, usdtSigno } from '../lib/formato';
+import { demoElegido, salirDemo } from '../lib/modoDemo';
 
 export const RUTAS = [
   { a: '/', t: 'Inicio', i: Home, g: 0 },
@@ -84,7 +85,15 @@ export function Shell() {
       </nav>
 
       <div className="main">
-        {demo && <div className="demo-band" role="status">Modo demo: datos reales grabados el 7/11/2026 con el motor, y un diario de ejemplo. Conecta Supabase para operar con datos en vivo.</div>}
+        {demo && (demoElegido ? (
+          <div className="demo-band" role="status">
+            <span style={{ flex: '1 1 260px' }}>Estás viendo el demo: análisis reales grabados con el motor y un diario de ejemplo. Para señales en vivo, suscríbete.</span>
+            <span style={{ marginLeft: 'auto', display: 'flex', gap: 8, flexShrink: 0 }}>
+              <button type="button" className="btn btn-sm btn-primary" onClick={() => salirDemo('/suscripcion')}>Suscribirme</button>
+              <button type="button" className="btn btn-sm" onClick={() => salirDemo()}>Salir del demo</button>
+            </span>
+          </div>
+        ) : <div className="demo-band" role="status">Modo demo: datos reales grabados con el motor y un diario de ejemplo. Conecta Supabase para operar con datos en vivo.</div>)}
         <Outlet />
       </div>
 

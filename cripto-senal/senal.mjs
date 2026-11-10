@@ -15,6 +15,7 @@ import { efectoMacro, macroResumen } from '../lib/macro.mjs';
 import { efectoFib, entradaFib } from '../lib/fibonacci.mjs';
 import { efectoFlujo, flujoResumen } from '../lib/flujo.mjs';
 import { efectoLiquidaciones } from '../lib/liquidaciones.mjs';
+import { efectoCalendario } from '../lib/calendario.mjs';
 import { leerConfig, leerJSON, escribirJSON, rutaDiario, rutaSenal, estadoDiario, carpeta } from '../lib/config.mjs';
 import { args, precio as fp, usdt, pct, signo, hora, duracion, salir } from '../lib/formato.mjs';
 
@@ -146,6 +147,10 @@ export async function generarSenal(a, op, cfg) {
   const vol5 = a.marcos['5m']?.vol_rel;
   if (vol5 != null && vol5 < 0.4) { comunes.push(`Volumen de 5m muy bajo (${vol5}x la media): el precio puede no moverse en 15 min.`); bajarComun = 1; }
   const bajar = (n, k) => { for (let i = 0; i < k; i++) n = BAJAR[n]; return n; };
+  // Calendario económico: un dato macro fuerte dentro de la operación (o recién salido) la puede barrer
+  const ecal = efectoCalendario(a.calendario, ahora, cfg.duracion_max_min);
+  comunes.unshift(...ecal.textos);
+  if (a.noticias?.alerta_macro) comunes.push(a.noticias.alerta_macro);
 
   const decisiones = { tendencia: a.decision, reversion: a.decisionReversion };
   const lista = op.estrategia ? [op.estrategia] : ['tendencia', 'reversion'];
@@ -169,7 +174,7 @@ export async function generarSenal(a, op, cfg) {
     motivos.push(...em.textos);
     // Fibonacci, CVD/OI y liquidaciones: confluencias que suben o bajan un poco la confianza
     const cf = confluencias(a, lado, e);
-    const dd = { ...d, confianza: Math.round(Math.max(5, Math.min(e === 'tendencia' && d.lateral ? 64 : 90, d.confianza + fb.ajuste_conf + fg.ajuste_conf + em.ajuste_conf + cf.ajuste_conf))) };
+    const dd = { ...d, confianza: Math.round(Math.max(5, Math.min(e === 'tendencia' && d.lateral ? 64 : 90, d.confianza + fb.ajuste_conf + fg.ajuste_conf + em.ajuste_conf + cf.ajuste_conf + ecal.ajuste_conf))) };
     if (fb.texto) motivos.unshift(`BTC: ${fb.texto}`);
     // Ballenas en long o en short frente a ESTE lado
     const eb = efectoBallenas(a.ballenas, lado);
@@ -177,7 +182,7 @@ export async function generarSenal(a, op, cfg) {
     const nivelSinBTC = nivel;
     if (fb.bloquea) nivel = 'NO OPERAR';
     else {
-      nivel = bajar(nivel, fb.bajar + eb.bajar);
+      nivel = bajar(nivel, fb.bajar + eb.bajar + ecal.bajar);
       if (ORDEN[nivelPorConfianza(dd.confianza)] < ORDEN[nivel]) nivel = nivelPorConfianza(dd.confianza);
     }
     const r = evaluarEstrategia(a, cfg, op, { estrategia: e, lado, nivel, motivos, capital, diario, fb, nivelSinBTC });
@@ -276,7 +281,7 @@ export async function generarSenal(a, op, cfg) {
         sl: m.plan.sl, tps: m.plan.tps.map((t) => ({ n: t.n, precio: t.precio, cerrar_pct: t.cerrar_pct, contratos: t.contratos })),
         apalancamiento: m.plan.apalancamiento, margen: m.plan.margen, contratos: m.plan.contratos, cantidad_moneda: m.plan.cantidad_moneda,
         nocional: m.plan.nocional, riesgo_usdt: m.plan.riesgo_usdt, ganancia_todos: m.plan.escenarios?.todos_los_tps ?? null,
-        ganancia_tp1: m.plan.escenarios?.tp1_y_luego_be ?? null, liquidacion: m.plan.liquidacion,
+        ganancia_tp1: m.plan.escenarios?.tp1_y_luego_be ?? null, liquidacion: m.plan.liquidacion, objetivo: m.plan.objetivo ?? null,
         cerrar_si_no_tp1_a_las: ahora + esp * 60e3, cierre_total_a_las: ahora + cfg.duracion_max_min * 60e3,
       };
     }
@@ -304,7 +309,7 @@ export async function generarSenal(a, op, cfg) {
       niveles5: { soporte: n5.soporte, resistencia: n5.resistencia }, niveles15: { soporte: n15.soporte, resistencia: n15.resistencia },
     },
     noticias: a.noticias ? {
-      sentimiento: a.noticias.sentimiento, evento_riesgo: a.noticias.evento_riesgo,
+      sentimiento: a.noticias.sentimiento, evento_riesgo: a.noticias.evento_riesgo, alerta_macro: a.noticias.alerta_macro ?? null,
       propias: a.noticias.propias.slice(0, 6).map(({ titulo, fecha, fuente, sentimiento, enlace }) => ({ titulo, fecha, fuente, sentimiento, enlace })),
       macro: a.noticias.macro.slice(0, 4).map(({ titulo, fecha, fuente, sentimiento }) => ({ titulo, fecha, fuente, sentimiento })),
     } : null,
@@ -318,6 +323,8 @@ export async function generarSenal(a, op, cfg) {
     } : null,
     // confluencias del lado elegido + los datos para la web (Fibonacci, CVD/OI, mapa de liquidaciones)
     confluencias: g.cf ? { ajuste: g.cf.ajuste_conf, items: g.cf.items } : null,
+    // datos macro de las últimas 24 h y los próximos días; en_ventana = los que caen dentro de esta operación
+    calendario: a.calendario ? { ...a.calendario, en_ventana: ecal.en_ventana.map((e) => e.titulo) } : null,
     fibonacci: a.fib ?? null,
     flujo: flujoResumen(a.flujo),
     liquidaciones: a.liquidaciones ?? null,
@@ -379,8 +386,20 @@ export function informe(s, cfg) {
     for (const x of b.frases ?? []) out.push(`  · ${x}`);
     if (rel) out.push(`  · ${s.base} sigue a BTC: correlación ${rel.correlacion} y beta ${rel.beta} (si BTC se mueve 1 %, ${s.base} suele moverse ~${rel.beta} %) · peso de BTC en la señal ${Math.round(100 * b.peso)} %`);
   }
+  if (s.calendario) {
+    const ev = s.calendario.eventos.filter((e) => e.importancia !== 'MEDIA' || s.calendario.en_ventana.includes(e.titulo));
+    if (ev.length) {
+      out.push(`CALENDARIO ECONÓMICO (${s.calendario.fuente}, últimas 24 h y próximos días):`);
+      for (const e of ev.slice(0, 6)) {
+        const r = e.reaccion_btc;
+        const reac = r ? ` → BTC ${signo(r.cambio_15m_pct)} % en 15 min, ${signo(r.cambio_60m_pct)} % en 1 h (mín. ${signo(r.min_pct)} %, máx. ${signo(r.max_pct)} %)` : '';
+        out.push(`  ${s.calendario.en_ventana.includes(e.titulo) ? '!' : '·'} ${hora(e.fecha, tz)} ${e.importancia} ${e.pais} ${e.que_es}${e.prevision ? ` · previsión ${e.prevision}` : ''}${e.anterior ? ` · anterior ${e.anterior}` : ''}${e.publicado ? ' · ya salió' : ''}${reac}`);
+      }
+    }
+  }
   if (s.noticias) {
     out.push(`Noticias 48 h: ${s.noticias.propias.length} de ${s.base}, sentimiento ${signo(s.noticias.sentimiento)}`);
+    if (s.noticias.alerta_macro) out.push(`  ! ${s.noticias.alerta_macro}`);
     for (const n of s.noticias.propias.slice(0, 3)) out.push(`  · ${hora(n.fecha, tz)} ${n.titulo} [${n.fuente}]`);
   }
   if (s.ballenas?.cobertura) {
@@ -443,7 +462,7 @@ export function informe(s, cfg) {
   const es = P.escenarios;
   out.push(`  Escenarios: SL directo ${signo(es.sl_directo, 3)} · TP1 y luego entrada ${signo(es.tp1_y_luego_be, 3)} ${es.tp1_tp2_y_luego_tp1 != null ? ` · TP1+TP2 ${signo(es.tp1_tp2_y_luego_tp1, 3)}` : ''} · todos los TP ${signo(es.todos_los_tps, 3)} USDT`);
   for (const x of P.avisos) out.push(`  ! ${x}`);
-  if (P.objetivo) out.push(`  Objetivo: ${P.objetivo.mensaje}`);
+  if (P.objetivo) { out.push(`  Objetivo ${P.objetivo.objetivo} USDT: ${P.objetivo.mensaje}`); if (P.objetivo.ayuda) out.push(`             ${P.objetivo.ayuda}`); }
   out.push(linea);
   if (sim) {
     out.push(`PROBABILIDADES en ${duracion(sim.horizonte_min)} (${sim.simulaciones} simulaciones con ${sim.velas_pool} velas reales de 1 min de ${s.base}, semilla ${sim.semilla})`);

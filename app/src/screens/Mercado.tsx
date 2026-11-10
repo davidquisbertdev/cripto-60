@@ -315,6 +315,7 @@ export function Noticias() {
             {n.monedas.map((m) => (
               <Panel key={m.moneda} titulo={`${m.moneda}: ${m.propias.length} noticias`} aside={<span className={`tag ${m.sentimiento > 0 ? 'tag-gain' : m.sentimiento < 0 ? 'tag-loss' : ''} num`}>sentimiento {conSigno(m.sentimiento, 1)}</span>} flush>
                 {m.evento_riesgo && <div className="panel-b"><Nota tono="loss" titulo="Evento de riesgo:">{m.evento_riesgo}</Nota></div>}
+                {m.alerta_macro && <div className="panel-b"><Nota tono="warn" titulo="Noticia macro:">{m.alerta_macro}</Nota></div>}
                 {m.propias.length ? <ListaNoticias items={m.propias} /> : <Vacio icono={<Info size={24} aria-hidden />} titulo="Sin noticias propias">Nada sobre {m.moneda} en las últimas {horas} h en Cointelegraph, Decrypt ni CoinDesk.</Vacio>}
                 {m.errores.length > 0 && <div className="panel-b faint" style={{ fontSize: 12 }}>Fuentes con error: {m.errores.join('; ')}</div>}
               </Panel>

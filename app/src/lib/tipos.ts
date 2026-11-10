@@ -3,6 +3,19 @@ export type Lado = 'LONG' | 'SHORT';
 export type Nivel = 'ALTA' | 'MEDIA' | 'BAJA' | 'NO OPERAR';
 export type Estrategia = 'tendencia' | 'reversion';
 
+// Objetivo en USDT pedido frente a lo que el plan puede dar sin pasar los frenos de riesgo
+export interface ObjetivoInfo {
+  objetivo: number; alcanzable: boolean; limitante: 'objetivo' | 'riesgo' | 'apalancamiento'; alcanza?: number; mensaje?: string; ayuda?: string | null;
+  riesgo_necesario?: number; riesgo_tope_pct?: number; capital_necesario?: number; margen_necesario?: number; apalancamiento_max?: number;
+}
+// Calendario económico (ForexFactory): datos macro que mueven a las cripto
+export type ImportanciaEvento = 'CRÍTICA' | 'ALTA' | 'MEDIA';
+export interface EventoMacro {
+  titulo: string; pais: string; fecha: number; importancia: ImportanciaEvento; que_es: string; efecto: string;
+  prevision: string | null; anterior: string | null; publicado: boolean;
+  reaccion_btc?: { cambio_15m_pct: number | null; cambio_60m_pct: number | null; max_pct: number; min_pct: number } | null;
+}
+export interface Calendario { ahora: number; fuente: string; leido?: number; eventos: EventoMacro[]; proximo_importante: EventoMacro | null; en_ventana?: string[] }
 export interface TP { n: number; precio: number; r?: number; cerrar_pct: number; contratos: number; movimiento_pct?: number; ganancia_usdt?: number; roe_pct?: number }
 export interface Plan {
   viable: boolean; lado: Lado; entrada: number; sl: number; sl_regla: string; sl_pct: number; R: number; tps: TP[];
@@ -10,7 +23,7 @@ export interface Plan {
   margen: number; margen_pct_capital: number; liquidacion: number; riesgo_usdt: number; riesgo_pct_real: number;
   comisiones: { taker: number; maker: number; tp1_cubre_x: number };
   escenarios: { sl_directo: number; tp1_y_luego_be: number; tp1_tp2_y_luego_tp1: number | null; todos_los_tps: number };
-  objetivo?: { objetivo: number; alcanzable: boolean; mensaje?: string };
+  objetivo?: ObjetivoInfo | null;
   avisos?: string[]; motivo?: string;
 }
 export interface Simulacion {
@@ -31,7 +44,7 @@ export interface MejorEntrada {
   entrada: { mercado: number; limit: number; valida_hasta: number } & AfinarEntrada; sl: number; tps: TP[];
   confluencias?: { ajuste: number; textos: string[] } | null;
   apalancamiento: number; margen: number; contratos: number; cantidad_moneda: number; nocional: number;
-  riesgo_usdt: number; ganancia_todos: number; ganancia_tp1: number; liquidacion: number; cerrar_si_no_tp1_a_las: number; cierre_total_a_las: number;
+  riesgo_usdt: number; ganancia_todos: number; ganancia_tp1: number; liquidacion: number; cerrar_si_no_tp1_a_las: number; cierre_total_a_las: number; objetivo?: ObjetivoInfo | null;
 }
 // Fibonacci, CVD + open interest y mapa de liquidaciones (confluencias de la entrada)
 export interface AfinarEntrada { limit_fib?: { precio: number; nivel: string; marco: string } | null; sl_liquidaciones?: { texto: string; sl_sugerido: number | null } | null }
@@ -64,7 +77,7 @@ export interface Senal {
   espera_max_min: number | null; cerrar_si_no_tp1_a_las: number | null; duracion_max_min: number; cierre_total_a_las: number;
   reentrada?: { long_si_rompe: number; short_si_pierde: number; rebote_long_bajo: number; rebote_short_sobre: number } | null;
   contexto: { funding: number | null; minutos_a_funding: number | null; spread_pct: number | null; cambio_24h_pct: number | null; cambio_15m_pct: number | null; atr5_pct: number; rsi: Record<string, number | null>; macro?: ActivoMacro[] | null; fng: { valor: number; clase: string; ayer?: number | null; semana?: number | null } | null; niveles5: { soporte: number; resistencia: number } };
-  noticias: { sentimiento: number; evento_riesgo: string | null; propias: Noticia[] } | null;
+  noticias: { sentimiento: number; evento_riesgo: string | null; alerta_macro?: string | null; propias: Noticia[] } | null;
   ballenas: {
     puntuacion: number; lectura: string; frases: string[]; cobertura?: number;
     hl?: { longs: number; shorts: number; valor_long: number; valor_short: number; neto: number } | null;
@@ -74,6 +87,7 @@ export interface Senal {
   fibonacci?: Partial<Record<'5m' | '15m', FibMarco | null>> | null;
   flujo?: FlujoCVD | null;
   liquidaciones?: MapaLiq | null;
+  calendario?: Calendario | null;
   mejor_entrada: MejorEntrada | null; diario: EstadoDiario | null;
 }
 export interface Bloqueo { bloqueado: true; motivo: string; pausa_hasta: number | null }
@@ -116,7 +130,7 @@ export interface InformeBallenas {
   desde_anterior: { minutos?: number; frases?: string[] } | null;
 }
 export interface FNG { valor: number; clase: string; ayer: number | null; semana?: number | null; historial?: { t: number; valor: number }[] }
-export interface InformeNoticias { ahora: number; horas: number; fng: FNG | null; monedas: { moneda: string; propias: Noticia[]; macro: Noticia[]; sentimiento: number; evento_riesgo: string | null; errores: string[] }[] }
+export interface InformeNoticias { ahora: number; horas: number; fng: FNG | null; monedas: { moneda: string; propias: Noticia[]; macro: Noticia[]; sentimiento: number; evento_riesgo: string | null; alerta_macro?: string | null; errores: string[] }[] }
 export interface FilaEscaner { simbolo: string; precio: number; sesgo: Lado; nivel: Nivel; confianza: number; cambio_15m: number | null; volumen_24h_musdt: number; funding_pct: number; atr5_pct: number; comision_pct: number; spread_pct: number | null; reversion: { lado: Lado; nivel: Nivel; confianza: number } | null; cero_promo: boolean; apto: boolean; motivo_no_apto: string | null; lateral: boolean; senal?: SenalResumen }
 export interface SenalResumen {
   error?: string; recomendacion?: Lado | 'NO OPERAR'; lado?: Lado; nivel?: Nivel; confianza?: number; estrategia?: Estrategia; motivo?: string | null;
@@ -130,7 +144,7 @@ export interface Billetera {
 }
 export interface MovMercado { moneda: string; cambio: number; precio: number; volumen_musdt: number }
 export interface InformeMercado {
-  ahora: number; exchange: string; fng: FNG | null;
+  ahora: number; exchange: string; fng: FNG | null; calendario?: Calendario | null;
   btc: { precio: number; cambio_24h_pct: number | null; max: number; min: number; serie: { t: number; c: number }[] } | null;
   amplitud: { total: number; suben: number; bajan: number; pct_suben: number | null; cambio_medio: number | null };
   distribucion: { tramo: string; n: number; positivo: boolean }[]; subidas: MovMercado[]; bajadas: MovMercado[]; funding_medio_pct: number | null;
