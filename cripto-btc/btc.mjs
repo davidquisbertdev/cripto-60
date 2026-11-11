@@ -10,23 +10,32 @@ import { analizarMacro } from '../lib/macro.mjs';
 import { leerConfig } from '../lib/config.mjs';
 import { args, signo, hora, salir } from '../lib/formato.mjs';
 
+// Lectura rápida de una moneda (5m y 15m): precio, cambios 15 min / 1 h / 24 h, dirección. Para comparar una
+// altcoin con BTC y para la vista general del mercado (ETH, SOL...).
+export async function lecturaMoneda(fuente, moneda) {
+  const sym = simbolo(moneda);
+  const [v5, v15] = await Promise.all([fuente.velas(sym, '5m', 300).then(cerradas), fuente.velas(sym, '15m', 200).then(cerradas).catch(() => [])]);
+  if (!v5.length) throw new Error(`No hay velas de ${sym} en ${nombreExchange(fuente.exchange)}.`);
+  const precio = v5.at(-1).c;
+  const marco = (v) => { const x = v.length ? analizarMarco(v, precio) : null; return x ? { score: x.score, dir: x.score >= 0.25 ? 'alcista' : x.score <= -0.25 ? 'bajista' : 'neutral', rsi: x.rsi, adx: x.adx } : null; };
+  const marcos = { '5m': marco(v5), '15m': marco(v15) };
+  const pts = [[marcos['5m'], 0.55], [marcos['15m'], 0.45]].filter(([x]) => x);
+  const punt = pts.length ? +(pts.reduce((s, [x, w]) => s + w * x.score, 0) / pts.reduce((s, [, w]) => s + w, 0)).toFixed(3) : 0;
+  const cambio = (v, n) => (v.length > n ? +((100 * (precio - v.at(-n - 1).c)) / v.at(-n - 1).c).toFixed(2) : null);
+  return {
+    simbolo: sym, base: baseDe(sym), precio, cambio_15m_pct: cambio(v5, 3), cambio_1h_pct: cambio(v5, 12), cambio_24h_pct: cambio(v15, 96),
+    puntuacion: punt, lectura: punt >= 0.25 ? 'ALCISTA' : punt <= -0.25 ? 'BAJISTA' : 'NEUTRAL', marcos, v5,
+  };
+}
+
 export async function informeBTC(fuente, moneda = null) {
   const btc = await analizarBTC(fuente);
   if (!btc) throw new Error(`No se pudieron leer las velas de BTC (${nombreExchange(fuente.exchange)}).`);
   let alt = null;
   if (moneda && baseDe(moneda) !== 'BTC') {
-    const sym = simbolo(moneda);
-    const [v5, v15] = await Promise.all([fuente.velas(sym, '5m', 300).then(cerradas), fuente.velas(sym, '15m', 200).then(cerradas).catch(() => [])]);
-    if (!v5.length) throw new Error(`No hay velas de ${sym} en ${nombreExchange(fuente.exchange)}.`);
+    const { v5, ...l } = await lecturaMoneda(fuente, moneda);
     const rel = relacionConBTC(v5, btc.velas5m);
-    // lectura propia de la altcoin (5m y 15m), para ver en la misma pantalla qué hace frente a BTC
-    const precio = v5.at(-1).c;
-    const marco = (v) => { const x = v.length ? analizarMarco(v, precio) : null; return x ? { score: x.score, dir: x.score >= 0.25 ? 'alcista' : x.score <= -0.25 ? 'bajista' : 'neutral', rsi: x.rsi, adx: x.adx } : null; };
-    const marcos = { '5m': marco(v5), '15m': marco(v15) };
-    const pts = [[marcos['5m'], 0.55], [marcos['15m'], 0.45]].filter(([x]) => x);
-    const punt = pts.length ? +(pts.reduce((s, [x, w]) => s + w * x.score, 0) / pts.reduce((s, [, w]) => s + w, 0)).toFixed(3) : 0;
-    const cambio = (n) => (v5.length > n ? +((100 * (precio - v5.at(-n - 1).c)) / v5.at(-n - 1).c).toFixed(2) : null);
-    alt = { simbolo: sym, base: baseDe(sym), precio, cambio_15m_pct: cambio(3), cambio_1h_pct: cambio(12), puntuacion: punt, lectura: punt >= 0.25 ? 'ALCISTA' : punt <= -0.25 ? 'BAJISTA' : 'NEUTRAL', marcos, relacion: rel, peso: +pesoBTC(rel).toFixed(2), long: filtroBTC(btc, rel, 1), short: filtroBTC(btc, rel, -1), long_rev: filtroBTC(btc, rel, 1, 'reversion'), short_rev: filtroBTC(btc, rel, -1, 'reversion') };
+    alt = { ...l, relacion: rel, peso: +pesoBTC(rel).toFixed(2), long: filtroBTC(btc, rel, 1), short: filtroBTC(btc, rel, -1), long_rev: filtroBTC(btc, rel, 1, 'reversion'), short_rev: filtroBTC(btc, rel, -1, 'reversion') };
   }
   // oro y petróleo frente a BTC (correlación de 1 h en 7 días)
   const macro = await analizarMacro(fuente, btc.series?.c1h ?? null).catch(() => null);

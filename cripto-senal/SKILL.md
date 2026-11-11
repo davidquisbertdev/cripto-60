@@ -35,7 +35,7 @@ node "${CLAUDE_SKILL_DIR}/senal.mjs" SOL --capital 10                 # señal c
 node "${CLAUDE_SKILL_DIR}/senal.mjs" SOL --capital 20 --margen 15    # 20 en la cuenta, 15 en esta operación
 node "${CLAUDE_SKILL_DIR}/senal.mjs" SOL --capital 20 --objetivo 5    # otro objetivo (por defecto 3 USDT; 0 = sin objetivo)
 node "${CLAUDE_SKILL_DIR}/senal.mjs" ENA --capital 10 --comision 0    # moneda con 0 comisión confirmada en la app
-node "${CLAUDE_SKILL_DIR}/senal.mjs" ETH --capital 50 --lado long     # el lado lo eliges tú: mejor entrada de ese lado + aviso de lo que recomienda el sistema y por qué
+node "${CLAUDE_SKILL_DIR}/senal.mjs" ETH --capital 50 --lado long --apalancamiento 50 # lado y apalancamiento los eliges tú: mejor entrada de ese lado + aviso de lo que recomienda el sistema y por qué
 node "${CLAUDE_SKILL_DIR}/senal.mjs" SOL --capital 10 --sin-ballenas  # más rápido (unos 3 s en lugar de 12)
 node "${CLAUDE_SKILL_DIR}/senal.mjs" SOL --capital 10 --estrategia reversion   # solo una estrategia
 node "${CLAUDE_SKILL_DIR}/senal.mjs" SOL --capital 10 --exchange bybit  # datos y comisiones de Bybit en lugar de Binance
@@ -145,7 +145,10 @@ Otras opciones: `--json`, `--sin-noticias`, `--semilla N`, `--no-guardar`,
   **BTC siempre se revisa** (1m, 5m, 15m y 1h, ver `/cripto-btc`) y pesa
   10 % + 20 % × la correlación de la moneda con BTC (con 0.7, un 24 %). El
   funding extremo, el libro, las noticias y las **ballenas** (15 %, con
-  prioridad al flujo de los últimos 15 min) la ajustan.
+  prioridad al flujo de los últimos 15 min) la ajustan. De las posiciones de
+  Hyperliquid solo cuenta lo que las ballenas abrieron o aumentaron en las
+  últimas 24 h: las que llevan semanas abiertas se muestran como contexto,
+  pero no pesan (la página y /cripto-ballenas sí las cuentan todas).
 - **Filtro de BTC** (moneda con correlación ≥ 0.5): una **reversión** contra
   BTC, con BTC fuerte, moviéndose ahora o con su tendencia 15m + 1h en contra,
   sale **NO OPERAR**. Si no, -15 de confianza. En **tendencia**, BTC en contra

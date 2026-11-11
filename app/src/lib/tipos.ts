@@ -5,7 +5,7 @@ export type Estrategia = 'tendencia' | 'reversion';
 
 // Objetivo en USDT pedido frente a lo que el plan puede dar sin pasar los frenos de riesgo
 export interface ObjetivoInfo {
-  objetivo: number; alcanzable: boolean; limitante: 'objetivo' | 'riesgo' | 'apalancamiento'; alcanza?: number; mensaje?: string; ayuda?: string | null;
+  objetivo: number; alcanzable: boolean; limitante: 'objetivo' | 'riesgo' | 'apalancamiento' | 'usuario'; alcanza?: number; mensaje?: string; ayuda?: string | null;
   riesgo_necesario?: number; riesgo_tope_pct?: number; riesgo_ajuste_pct?: number; riesgo_max_pct?: number; factor_riesgo?: number; nivel_riesgo?: string; capital_necesario?: number; margen_necesario?: number; apalancamiento_max?: number;
 }
 // Calendario económico (ForexFactory): datos macro que mueven a las cripto
@@ -24,6 +24,7 @@ export interface Plan {
   comisiones: { taker: number; maker: number; tp1_cubre_x: number };
   escenarios: { sl_directo: number; tp1_y_luego_be: number; tp1_tp2_y_luego_tp1: number | null; todos_los_tps: number };
   objetivo?: ObjetivoInfo | null;
+  apalancamiento_recomendado?: number; apalancamiento_usuario?: number | null; aviso_apalancamiento?: string | null; liquida_antes_sl?: boolean;
   avisos?: string[]; motivo?: string;
 }
 export interface Simulacion {
@@ -47,7 +48,11 @@ export interface MejorEntrada {
   riesgo_usdt: number; ganancia_todos: number; ganancia_tp1: number; liquidacion: number; cerrar_si_no_tp1_a_las: number; cierre_total_a_las: number; objetivo?: ObjetivoInfo | null;
 }
 // Fibonacci, CVD + open interest y mapa de liquidaciones (confluencias de la entrada)
-export interface AfinarEntrada { limit_fib?: { precio: number; nivel: string; marco: string } | null; sl_liquidaciones?: { texto: string; sl_sugerido: number | null } | null }
+export interface EntradaOptima {
+  recomendada: 'mercado' | 'limit'; precio: number; prob_llenado: number; mejora_r: number; razon: string; minutos: number; retroceso_mediano_pct: number; momento_1m: number;
+  opciones: { tipo: 'mercado' | 'limit'; precio: number; distancia_pct: number; prob_llenado: number; mejora_r: number; que: string }[];
+}
+export interface AfinarEntrada { optima?: EntradaOptima | null; limit_fib?: { precio: number; nivel: string; marco: string } | null; sl_liquidaciones?: { texto: string; sl_sugerido: number | null } | null }
 export interface FibMarco {
   marco: string; direccion: 'alcista' | 'bajista'; desde: number; hasta: number; t_desde: number; rango_pct: number; retroceso: number;
   estado: string; niveles: { r: number; precio: number }[]; zona_dorada: { desde: number; hasta: number }; extensiones: { r: number; precio: number }[];
@@ -80,7 +85,7 @@ export interface Senal {
   noticias: { sentimiento: number; evento_riesgo: string | null; alerta_macro?: string | null; propias: Noticia[] } | null;
   ballenas: {
     puntuacion: number; lectura: string; frases: string[]; cobertura?: number;
-    hl?: { longs: number; shorts: number; valor_long: number; valor_short: number; neto: number } | null;
+    hl?: { ventana?: '24h' | 'todas'; longs: number; shorts: number; valor_long: number; valor_short: number; neto: number; revisadas?: number | null; nuevas?: number | null; total?: { longs: number; shorts: number; valor_long: number; valor_short: number } } | null;
     top_long?: number | null; minoristas_long?: number | null; a_favor?: boolean | null;
   } | null;
   confluencias?: { ajuste: number; items: { que: string; texto: string; ajuste: number }[] } | null;
@@ -88,6 +93,7 @@ export interface Senal {
   flujo?: FlujoCVD | null;
   liquidaciones?: MapaLiq | null;
   calendario?: Calendario | null;
+  bots?: Bots | null;
   lado_pedido?: Lado | null; contra_sistema?: boolean; aviso_lado?: string | null;
   mejor_entrada: MejorEntrada | null; diario: EstadoDiario | null;
 }
@@ -129,7 +135,18 @@ export interface InformeBallenas {
   grandes: { compras_usd: number; ventas_usd: number; n: number; umbral_usd: number } | null;
   muros: { compra: { precio: number; usd: number } | null; venta: { precio: number; usd: number } | null } | null;
   desde_anterior: { minutos?: number; frases?: string[] } | null;
+  bots?: Bots | null;
 }
+// Bots de trading (huella en datos públicos: TWAP/iceberg, grids del libro, market makers de Hyperliquid)
+export interface Bots {
+  puntuacion: number; lectura: 'COMPRADORES' | 'VENDEDORES' | 'NEUTRAL'; disponible: boolean; frases: string[];
+  algoritmico: { operaciones: number; segundos: number; patrones: number; compras_usd: number; ventas_usd: number; neto: number; mayor: { lado: string; veces: number; orden_usd: number; total_usd: number } | null } | null;
+  grids: { lado: 'compra' | 'venta'; niveles: number; desde: number; hasta: number; paso_pct: number; usd: number }[];
+  hl: { revisadas: number; longs: number; shorts: number; valor_long: number; valor_short: number; neto: number } | null;
+}
+export interface LecturaMoneda { simbolo: string; base: string; precio: number; cambio_15m_pct: number | null; cambio_1h_pct: number | null; cambio_24h_pct: number | null; puntuacion: number; lectura: string }
+export interface Dominancia { btc_pct: number | null; eth_pct: number | null; usdt_pct: number | null; usdc_pct: number | null; estables_pct: number | null; capitalizacion_usd: number | null; cambio_cap_24h_pct: number | null; lectura: string | null }
+export interface InformePanorama { ahora: number; monedas: LecturaMoneda[]; dominancia: Dominancia | null }
 export interface FNG { valor: number; clase: string; ayer: number | null; semana?: number | null; historial?: { t: number; valor: number }[] }
 export interface InformeNoticias { ahora: number; horas: number; fng: FNG | null; monedas: { moneda: string; propias: Noticia[]; macro: Noticia[]; sentimiento: number; evento_riesgo: string | null; alerta_macro?: string | null; errores: string[] }[] }
 export interface FilaEscaner { simbolo: string; precio: number; sesgo: Lado; nivel: Nivel; confianza: number; cambio_15m: number | null; volumen_24h_musdt: number; funding_pct: number; atr5_pct: number; comision_pct: number; spread_pct: number | null; reversion: { lado: Lado; nivel: Nivel; confianza: number } | null; cero_promo: boolean; apto: boolean; motivo_no_apto: string | null; lateral: boolean; senal?: SenalResumen }

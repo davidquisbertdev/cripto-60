@@ -12,7 +12,8 @@ import { leerNoticias, miedoCodicia } from '../lib/noticias.mjs';
 import { decimales } from '../lib/plan.mjs';
 import { generarSenal } from '../cripto-senal/senal.mjs';
 import { cargarPosicion, evaluar } from '../cripto-posicion/posicion.mjs';
-import { informeBTC } from '../cripto-btc/btc.mjs';
+import { informeBTC, lecturaMoneda } from '../cripto-btc/btc.mjs';
+import { dominancia } from '../lib/dominancia.mjs';
 import { escanear, ESTABLES, resumenSenal } from '../cripto-escaner/escaner.mjs';
 
 // Lado elegido por el usuario y la señal previa que vio (solo los campos que usa la advertencia)
@@ -35,7 +36,7 @@ function previaValida(p) {
 // Caché del calendario económico en la base de datos (la tabla de instantáneas, clave '_calendario')
 const cacheCal = (db) => (db?.leerInstantanea ? { leer: () => db.leerInstantanea('_calendario'), guardar: (doc) => db.guardarInstantanea('_calendario', doc) } : null);
 
-export const ACCIONES = ['estado', 'senal', 'posicion', 'btc', 'ballenas', 'billetera', 'noticias', 'escaner', 'mercado'];
+export const ACCIONES = ['estado', 'senal', 'posicion', 'btc', 'ballenas', 'billetera', 'noticias', 'escaner', 'mercado', 'panorama'];
 
 // Ajustes que el usuario puede cambiar desde la web (el resto queda en los valores del motor).
 export const AJUSTES_EDITABLES = [
@@ -147,6 +148,8 @@ export async function ejecutar(accion, params = {}, { db, fuente = null } = /** 
         capital: num(params.capital, 'El capital', { min: 1 }),
         margen: num(params.margen, 'El margen', { min: 0.5 }),
         objetivo: num(params.objetivo, 'El objetivo', { min: 0 }),
+        // apalancamiento elegido para esta operación (sin él, el que calcula el motor)
+        apalancamiento: num(params.apalancamiento, 'El apalancamiento', { min: 1, max: DEFAULTS.apalancamiento_tope }),
         lado: params.lado ? ladoValido(params.lado) : undefined,
         estrategia: params.estrategia || undefined,
         // la señal automática que el usuario vio antes de pedir el otro lado (para la advertencia)
@@ -195,6 +198,16 @@ export async function ejecutar(accion, params = {}, { db, fuente = null } = /** 
 
     case 'btc':
       return informeBTC(f, params.moneda ? moneda(params.moneda) : null);
+
+    case 'panorama': {
+      // Vista general: BTC, ETH y SOL (o las que pida, hasta 4) en una lectura rápida + dominancia de BTC y USDT
+      const lista = (Array.isArray(params.monedas) && params.monedas.length ? params.monedas : ['BTC', 'ETH', 'SOL']).slice(0, 4).map(moneda);
+      const [lecturas, dom] = await Promise.all([
+        Promise.all(lista.map((m) => lecturaMoneda(f, m).then(({ v5, ...l }) => l).catch(() => null))),
+        dominancia(f).catch(() => null),
+      ]);
+      return { ahora, monedas: lecturas.filter(Boolean), dominancia: dom };
+    }
 
     case 'ballenas': {
       const sym = simboloDe(moneda(params.moneda)), b = baseDe(sym);

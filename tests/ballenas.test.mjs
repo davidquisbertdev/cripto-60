@@ -91,6 +91,21 @@ test('las ballenas en contra bajan la confianza de la señal', () => {
   assert.ok(contra.alertas.some((a) => /ballenas van en contra/.test(a)));
 });
 
+test('señal: las posiciones viejas de las ballenas no pesan, solo lo abierto en 24 h', () => {
+  // 120 M en SHORT abiertos hace semanas y, hoy, solo 2 ballenas que abrieron LONG
+  const hl = {
+    disponible: true, con_posicion: 12, longs: 3, shorts: 9, valor_long: 1.2e6, valor_short: 120e6, neto: -0.98,
+    recientes: { revisadas: 12, longs: 2, shorts: 0, valor_long: 6e5, valor_short: 0, nuevas: 1, neto: 1 },
+  };
+  const general = puntuarBallenas({ hl });
+  const senal = puntuarBallenas({ hl }, { soloRecientes: true });
+  assert.ok(general.componentes.hl_posiciones < -0.9); // la página Ballenas: posicionamiento total, SHORT
+  assert.ok(senal.componentes.hl_posiciones > 0.5); // la señal: lo de hoy, LONG
+  // sin aperturas en 24 h, las posiciones no cuentan en la señal
+  const quieto = puntuarBallenas({ hl: { ...hl, recientes: { ...hl.recientes, longs: 0, shorts: 0, valor_long: 0, valor_short: 0, neto: 0 } } }, { soloRecientes: true });
+  assert.equal(quieto.componentes.hl_posiciones, undefined);
+});
+
 test('puntuación sin datos = neutral, con cobertura 0', () => {
   const p = puntuarBallenas({});
   assert.equal(p.puntuacion, 0);

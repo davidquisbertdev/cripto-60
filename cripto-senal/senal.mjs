@@ -16,19 +16,22 @@ import { efectoFib, entradaFib } from '../lib/fibonacci.mjs';
 import { efectoFlujo, flujoResumen } from '../lib/flujo.mjs';
 import { efectoLiquidaciones } from '../lib/liquidaciones.mjs';
 import { efectoCalendario } from '../lib/calendario.mjs';
+import { mejorEntrada } from '../lib/entrada.mjs';
+import { efectoBots } from '../lib/bots.mjs';
 import { leerConfig, leerJSON, escribirJSON, rutaDiario, rutaSenal, estadoDiario, carpeta } from '../lib/config.mjs';
 import { args, precio as fp, usdt, pct, signo, hora, duracion, salir } from '../lib/formato.mjs';
 
 const BAJAR = { ALTA: 'MEDIA', MEDIA: 'BAJA', BAJA: 'NO OPERAR', 'NO OPERAR': 'NO OPERAR' };
 
-// Confluencias de la entrada para un lado: Fibonacci, flujo (CVD + OI) y mapa de liquidaciones. Cada una
-// pesa ±5 como mucho y juntas ±8: afinan la confianza, nunca deciden solas (el historial real manda).
+// Confluencias de la entrada para un lado: Fibonacci, flujo (CVD + OI), mapa de liquidaciones (±5 cada una)
+// y bots de trading (±3); juntas ±8: afinan la confianza, nunca deciden solas (el historial real manda).
 export const CONFLUENCIA_MAX = 8;
 export function confluencias(a, lado, estrategia) {
   const partes = [
     ['Fibonacci', efectoFib(a.fib, lado, estrategia)],
     ['Flujo', efectoFlujo(a.flujo, lado, estrategia)],
     ['Liquidaciones', efectoLiquidaciones(a.liquidaciones, lado, { flujo: a.flujo })],
+    ['Bots', efectoBots(a.ballenas?.bots, lado)],
   ];
   const suma = partes.reduce((s, [, x]) => s + x.ajuste_conf, 0);
   return {
@@ -45,7 +48,7 @@ function evaluarEstrategia(a, cfg, op, { estrategia, lado, nivel, motivos, capit
   const n5 = a.niveles5;
   const base = {
     lado, entrada: a.precio, atr, soporte: n5.soporte, resistencia: n5.resistencia, contrato: a.contrato, capital, cfg,
-    factorRiesgo: diario?.factor_riesgo ?? 1, objetivo: op.objetivo ?? cfg.objetivo_usdt, margen: op.margen ?? diario?.margen_sugerido ?? null,
+    factorRiesgo: diario?.factor_riesgo ?? 1, objetivo: op.objetivo ?? cfg.objetivo_usdt, margen: op.margen ?? diario?.margen_sugerido ?? null, apalancamiento: op.apalancamiento ?? null,
   };
   // La simulación sortea velas reales de 1 min: no tiene ventaja direccional, sirve para medir TIEMPOS.
   // Se elige el SL más amplio con el que la mayoría de operaciones se resuelve (TP1 o SL) en la espera.
@@ -119,8 +122,10 @@ export function efectoBallenas(b, lado) {
   if (!b?.cobertura) return { bajar: 0, texto: null, a_favor: null };
   const L = lado === 'LONG' ? 1 : -1;
   const bw = b.puntuacion * Math.min(1, b.cobertura);
-  const hl = b.hl?.disponible && b.hl.con_posicion >= 3 ? b.hl : null;
-  const hlTxt = hl ? ` En Hyperliquid: ${hl.longs} ballenas LONG (${M(hl.valor_long)}) y ${hl.shorts} SHORT (${M(hl.valor_short)}).` : '';
+  // en la señal, solo lo que las ballenas abrieron o aumentaron en 24 h (las posiciones viejas no empujan hoy)
+  const r = b.solo_recientes ? b.hl?.recientes : b.hl;
+  const hl = b.hl?.disponible && r && (b.solo_recientes ? r.longs + r.shorts >= 2 : r.con_posicion >= 3) ? r : null;
+  const hlTxt = hl ? ` En Hyperliquid${b.solo_recientes ? ' (abiertas o aumentadas en 24 h)' : ''}: ${hl.longs} ballenas LONG (${M(hl.valor_long)}) y ${hl.shorts} SHORT (${M(hl.valor_short)}).` : '';
   if (Math.sign(bw) === -L && Math.abs(bw) >= 0.45) return { bajar: 1, a_favor: false, texto: `Ballenas FUERTE en contra del ${lado} (${b.lectura}, ${bw.toFixed(2)}): se baja un nivel.${hlTxt}` };
   if (hl && Math.sign(hl.neto) === -L && Math.abs(hl.neto) >= 0.5 && Math.abs(bw) >= 0.15 && Math.sign(bw) === -L)
     return { bajar: 0, a_favor: false, texto: `Las ballenas de Hyperliquid están ${hl.neto > 0 ? 'LONG' : 'SHORT'} (neto ${Math.round(Math.abs(hl.neto) * 100)} %), en contra del ${lado}.${hlTxt}` };
@@ -254,7 +259,20 @@ export async function generarSenal(a, op, cfg) {
       sl_liquidaciones: texto ? { texto, sl_sugerido: liq.sl_sugerido == null ? null : redondear(liq.sl_sugerido, unidad) } : null,
     };
   };
+  // ¿Entrar ya o esperar un precio mejor en los próximos minutos? (retrocesos reales de 1 min + niveles)
+  const optima = (ld, sl, hist) => {
+    const Ld = ld === 'LONG' ? 1 : -1;
+    const fibE = entradaFib(a.fib, ld, a.precio, sl, atr);
+    const z = a.liquidaciones?.[Ld > 0 ? 'zona_abajo' : 'zona_arriba'];
+    const niveles = [
+      { precio: Ld > 0 ? a.niveles5.soporte : a.niveles5.resistencia, que: Ld > 0 ? 'soporte de 5 min' : 'resistencia de 5 min' },
+      fibE && { precio: fibE.precio, que: `Fibonacci ${fibE.nivel} de ${fibE.marco}` },
+      z && { precio: z.precio, que: `zona de liquidaciones de ${Ld > 0 ? 'longs' : 'shorts'}: suelen barrerla y girarse` },
+    ].filter(Boolean);
+    return mejorEntrada({ lado: ld, precio: a.precio, sl, velas1m: a.velas1m, momento1m: a.marcos['1m']?.score ?? 0, ev: hist?.n >= cfg.historial_min_ops ? hist.r_medio_neto : null, niveles, minutos: cfg.validez_entrada_min, unidad });
+  };
   if (plan.viable) {
+    entrada.optima = optima(lado, plan.sl, historial);
     const af = afinar(lado, plan.sl);
     entrada.limit_fib = af.limit_fib;
     if (af.sl_liquidaciones) { entrada.sl_liquidaciones = af.sl_liquidaciones; motivos.push(af.sl_liquidaciones.texto); }
@@ -310,7 +328,7 @@ export async function generarSenal(a, op, cfg) {
         lado: m.lado, estrategia: m.estrategia, nivel: m.nivel, recomendada: m.nivel !== 'NO OPERAR' && !diario?.bloqueo,
         contra_btc: !!bloqueadaBTC(m), btc_estado: m.btc?.estado ?? null,
         prob: probDe(m), historial: resumenHist(m.historial), tp1_sim: m.sim?.prob.tp1 ?? null, sl_sim: m.sim?.prob.sl_antes_tp1 ?? null,
-        entrada: { mercado: a.precio, limit: redondear(a.precio - Lm * 0.3 * atr1, unidad), valida_hasta: ahora + cfg.validez_entrada_min * 60e3, ...afinar(m.lado, m.plan.sl) },
+        entrada: { mercado: a.precio, limit: redondear(a.precio - Lm * 0.3 * atr1, unidad), valida_hasta: ahora + cfg.validez_entrada_min * 60e3, ...afinar(m.lado, m.plan.sl), optima: optima(m.lado, m.plan.sl, m.historial) },
         confluencias: m.cf ? { ajuste: m.cf.ajuste_conf, textos: m.cf.items.map((x) => x.texto) } : null,
         sl: m.plan.sl, tps: m.plan.tps.map((t) => ({ n: t.n, precio: t.precio, cerrar_pct: t.cerrar_pct, contratos: t.contratos })),
         apalancamiento: m.plan.apalancamiento, margen: m.plan.margen, contratos: m.plan.contratos, cantidad_moneda: m.plan.cantidad_moneda,
@@ -351,7 +369,12 @@ export async function generarSenal(a, op, cfg) {
       puntuacion: a.ballenas.puntuacion, lectura: a.ballenas.lectura, cobertura: a.ballenas.cobertura, frases: a.ballenas.frases,
       muros: a.ballenas.muros, precio_hl: a.ballenas.hl?.precio_hl ?? null, instantanea: a.ballenas.hl?.instantanea ?? null,
       // posicionamiento de las ballenas de Hyperliquid en esta moneda (para la web: barra LONG/SHORT)
-      hl: a.ballenas.hl?.disponible ? { longs: a.ballenas.hl.longs, shorts: a.ballenas.hl.shorts, valor_long: a.ballenas.hl.valor_long, valor_short: a.ballenas.hl.valor_short, neto: a.ballenas.hl.neto } : null,
+      // la barra LONG/SHORT de la web: lo abierto o aumentado en 24 h (lo que pesa en la señal) y aparte el total
+      hl: a.ballenas.hl?.disponible ? (({ hl: h }) => {
+        const r = a.ballenas.solo_recientes && h.recientes ? h.recientes : h;
+        return { ventana: r === h ? 'todas' : '24h', longs: r.longs, shorts: r.shorts, valor_long: r.valor_long, valor_short: r.valor_short, neto: r.neto, revisadas: h.recientes?.revisadas ?? null, nuevas: h.recientes?.nuevas ?? null,
+          total: { longs: h.longs, shorts: h.shorts, valor_long: h.valor_long, valor_short: h.valor_short } };
+      })(a.ballenas) : null,
       top_long: a.ballenas.posicionamiento?.top_long ?? null, minoristas_long: a.ballenas.posicionamiento?.minoristas_long ?? null,
       a_favor: g.ballenas_a_favor ?? null,
     } : null,
@@ -361,6 +384,7 @@ export async function generarSenal(a, op, cfg) {
     ...ladoElegido(a, op),
     // datos macro de las últimas 24 h y los próximos días; en_ventana = los que caen dentro de esta operación
     calendario: a.calendario ? { ...a.calendario, en_ventana: ecal.en_ventana.map((e) => e.titulo) } : null,
+    bots: a.ballenas?.bots ?? null,
     fibonacci: a.fib ?? null,
     flujo: flujoResumen(a.flujo),
     liquidaciones: a.liquidaciones ?? null,
@@ -382,6 +406,7 @@ function bloqueMejor(s, cfg, f, linea) {
   out.push(`  Posición:        ${m.lado} · estrategia ${NOMBRE[m.estrategia]}${m.btc_estado ? ` · BTC ${m.btc_estado}` : ''}`);
   if (m.contra_btc) out.push('  ! Va CONTRA BTC (el filtro la bloquea): no hay ninguna jugada a favor de BTC con plan. Mejor no entrar.');
   out.push(`  Precio entrada:  limit ${f(m.entrada.limit)} (o a mercado ${f(m.entrada.mercado)})`);
+  if (m.entrada.optima) out.push(`  Mejor momento:   ${m.entrada.optima.recomendada === 'mercado' ? 'a mercado ya' : `limit ${f(m.entrada.optima.precio)} (se llena ${m.entrada.optima.prob_llenado} % en ${m.entrada.optima.minutos} min)`} · ${m.entrada.optima.razon}`);
   if (m.entrada.limit_fib) out.push(`                   paciente: limit ${f(m.entrada.limit_fib.precio)} en el Fibonacci ${m.entrada.limit_fib.nivel} de ${m.entrada.limit_fib.marco}`);
   out.push(`  Stop loss:       ${f(m.sl)}${m.entrada.sl_liquidaciones?.sl_sugerido ? ` (zona de liquidaciones: mejor ${f(m.entrada.sl_liquidaciones.sl_sugerido)})` : ''}`);
   if (m.confluencias?.textos.length) out.push(`  Confluencias:    ${signo(m.confluencias.ajuste, 0)} de confianza (Fibonacci, CVD/OI, liquidaciones)`);
@@ -481,6 +506,10 @@ export function informe(s, cfg) {
   const e = s.entrada;
   out.push(`  Entrada    limit ${f(e.limit)} (comisión maker menor) o a mercado ${f(e.mercado)}`);
   if (e.limit_fib) out.push(`             paciente: limit ${f(e.limit_fib.precio)} en el Fibonacci ${e.limit_fib.nivel} de ${e.limit_fib.marco} (puede no llenarse)`);
+  if (e.optima) {
+    out.push(`  MEJOR MOMENTO (${e.optima.minutos} min): ${e.optima.recomendada === 'mercado' ? `a mercado ${f(e.optima.precio)}` : `limit ${f(e.optima.precio)} (se llena ${e.optima.prob_llenado} %, +${e.optima.mejora_r} R)`} · ${e.optima.razon}`);
+    out.push(`             opciones: ${e.optima.opciones.map((o) => `${f(o.precio)} ${o.prob_llenado} %`).join(' · ')}`);
+  }
   out.push(`             no persigas: si ya está ${s.lado === 'LONG' ? 'por encima' : 'por debajo'} de ${f(e.no_perseguir)}, no entres · si a las ${hora(e.valida_hasta, tz)} no entraste, descártala`);
   out.push(`  Stop loss  ${f(P.sl)}  (${s.lado === 'LONG' ? '-' : '+'}${P.sl_pct} %)  ${P.sl_regla}`);
   const tamPaso = P.contratos ? P.cantidad_moneda / P.contratos : 1;
@@ -494,7 +523,7 @@ export function informe(s, cfg) {
   out.push(`  APALANCAMIENTO ${P.apalancamiento}x AISLADO (máx. seguro ${P.apalancamiento_max_seguro}x) · margen ${usdt(P.margen)}`);
   out.push(`             ${P.apalancamiento_razon}`);
   out.push(s.exchange !== 'MEXC' ? `  Cantidad ${P.cantidad_moneda} ${s.base} (${usdt(P.nocional)} de posición) · ponla en la orden en ${s.base}` : `  Tamaño ${P.contratos} contratos = ${P.cantidad_moneda} ${s.base} (${usdt(P.nocional)} de posición)`);
-  out.push(`  Liquidación aprox. ${f(P.liquidacion)} (más allá del SL)`);
+  out.push(`  Liquidación aprox. ${f(P.liquidacion)} ${P.liquida_antes_sl ? "(ANTES del SL: te liquidan sin que salte el stop)" : "(más allá del SL)"}`);
   out.push(`  Si salta el SL pierdes ${usdt(-P.riesgo_usdt)} = ${P.riesgo_pct_real} % del capital (comisiones incluidas)`);
   const es = P.escenarios;
   out.push(`  Escenarios: SL directo ${signo(es.sl_directo, 3)} · TP1 y luego entrada ${signo(es.tp1_y_luego_be, 3)} ${es.tp1_tp2_y_luego_tp1 != null ? ` · TP1+TP2 ${signo(es.tp1_tp2_y_luego_tp1, 3)}` : ''} · todos los TP ${signo(es.todos_los_tps, 3)} USDT`);
@@ -540,7 +569,7 @@ export function informe(s, cfg) {
 }
 
 async function main() {
-  const { pos, op } = args(process.argv.slice(2), { flags: ['json', 'sin_noticias', 'sin_ballenas', 'no_guardar'], numeros: ['capital', 'margen', 'objetivo', 'semilla', 'simulaciones', 'comision'] });
+  const { pos, op } = args(process.argv.slice(2), { flags: ['json', 'sin_noticias', 'sin_ballenas', 'no_guardar'], numeros: ['capital', 'margen', 'objetivo', 'apalancamiento', 'semilla', 'simulaciones', 'comision'] });
   if (op.estrategia) op.estrategia = op.estrategia.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
   if (!pos[0]) throw new Error('Uso: senal.mjs SOL --capital 10 [--objetivo 3] [--lado long|short] [--json]');
   const cfg = leerConfig(op.config);

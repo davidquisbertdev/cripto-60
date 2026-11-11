@@ -9,6 +9,7 @@ import { ejecutar } from '../servidor/acciones.mjs';
 import { dbMemoria } from '../servidor/db-memoria.mjs';
 import { resumenSenal } from '../cripto-escaner/escaner.mjs';
 import { leerCalendario } from '../lib/calendario.mjs';
+import { dominancia } from '../lib/dominancia.mjs';
 
 const RAIZ = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 const fx = (n) => new Fuente({ offline: path.join(RAIZ, 'tests', 'fixtures', n) });
@@ -46,8 +47,11 @@ mercado.fng ??= noticias.fng; // la grabación del escáner no trae el Fear & Gr
 // calendario económico grabado el día del IPC de EE. UU. (10/11/2026), con BTC de 15 min de esas horas
 const btc15 = JSON.parse(fs.readFileSync(path.join(RAIZ, 'tests', 'fixtures', 'calendario', 'btc-15m.json'), 'utf8')).map((k) => ({ t: +k[0], o: +k[1], h: +k[2], l: +k[3], c: +k[4] }));
 mercado.calendario = await leerCalendario(fx('calendario'), { velasBTC5m: btc15 });
+// vista general: SOL grabado (no hay grabación de ETH) y la dominancia de CoinGecko del mismo día
+const panorama = await ejecutar('panorama', { monedas: ['SOL'] }, { db, fuente: fx('sol') });
+panorama.dominancia ??= await dominancia(fx('calendario')).catch(() => null);
 const estado = await ejecutar('estado', { zona }, { db, fuente: fx('near') });
 
 const out = path.join(RAIZ, 'app', 'src', 'demo', 'datos.json');
-fs.writeFileSync(out, JSON.stringify({ generado: ahora, zona, senal, senal_lado: senalLado, posicion, btc, ballenas, billetera, noticias, escaner, mercado, estado, operaciones, capital_inicial: 20 }));
+fs.writeFileSync(out, JSON.stringify({ generado: ahora, zona, senal, senal_lado: senalLado, posicion, btc, ballenas, billetera, noticias, escaner, mercado, panorama, estado, operaciones, capital_inicial: 20 }));
 console.log(`${out} (${(fs.statSync(out).size / 1024).toFixed(0)} KB) · señal ${senal.recomendacion} · posición ${posicion.accion}`);
