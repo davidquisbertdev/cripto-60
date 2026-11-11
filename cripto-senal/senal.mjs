@@ -16,6 +16,7 @@ import { efectoFib, entradaFib } from '../lib/fibonacci.mjs';
 import { efectoFlujo, flujoResumen } from '../lib/flujo.mjs';
 import { efectoLiquidaciones } from '../lib/liquidaciones.mjs';
 import { efectoCalendario } from '../lib/calendario.mjs';
+import { efectoAperturas, agenda as agendaAperturas } from '../lib/aperturas.mjs';
 import { mejorEntrada } from '../lib/entrada.mjs';
 import { efectoBots } from '../lib/bots.mjs';
 import { leerConfig, leerJSON, escribirJSON, rutaDiario, rutaSenal, estadoDiario, carpeta } from '../lib/config.mjs';
@@ -187,6 +188,9 @@ export async function generarSenal(a, op, cfg) {
   // Calendario económico: un dato macro fuerte dentro de la operación (o recién salido) la puede barrer
   const ecal = efectoCalendario(a.calendario, ahora, cfg.duracion_max_min);
   comunes.unshift(...ecal.textos);
+  // aperturas de mercado (NY, Hong Kong, CME…): golpe fuerte de pocos minutos dentro de la operación
+  const eap = efectoAperturas(ahora, cfg.duracion_max_min, { calendario: a.calendario });
+  comunes.unshift(...eap.textos);
   if (a.noticias?.alerta_macro) comunes.push(a.noticias.alerta_macro);
 
   const decisiones = { tendencia: a.decision, reversion: a.decisionReversion };
@@ -213,7 +217,7 @@ export async function generarSenal(a, op, cfg) {
     motivos.push(...em.textos);
     // Fibonacci, CVD/OI y liquidaciones: confluencias que suben o bajan un poco la confianza
     const cf = confluencias(a, lado, e);
-    const dd = { ...d, confianza: Math.round(Math.max(5, Math.min(e === 'tendencia' && d.lateral ? 64 : 90, d.confianza + fb.ajuste_conf + fg.ajuste_conf + em.ajuste_conf + cf.ajuste_conf + ecal.ajuste_conf))) };
+    const dd = { ...d, confianza: Math.round(Math.max(5, Math.min(e === 'tendencia' && d.lateral ? 64 : 90, d.confianza + fb.ajuste_conf + fg.ajuste_conf + em.ajuste_conf + cf.ajuste_conf + ecal.ajuste_conf + eap.ajuste_conf))) };
     if (fb.texto) motivos.unshift(`BTC: ${fb.texto}`);
     // Ballenas en long o en short frente a ESTE lado
     const eb = efectoBallenas(a.ballenas, lado);
@@ -385,6 +389,8 @@ export async function generarSenal(a, op, cfg) {
     // datos macro de las últimas 24 h y los próximos días; en_ventana = los que caen dentro de esta operación
     calendario: a.calendario ? { ...a.calendario, en_ventana: ecal.en_ventana.map((e) => e.titulo) } : null,
     bots: a.ballenas?.bots ?? null,
+    // aperturas de mercado: las que caen dentro de esta operación y las próximas 6 h
+    aperturas: { en_ventana: eap.en_ventana, proximas: agendaAperturas(ahora, { horas: 6 }) },
     fibonacci: a.fib ?? null,
     flujo: flujoResumen(a.flujo),
     liquidaciones: a.liquidaciones ?? null,
@@ -447,6 +453,9 @@ export function informe(s, cfg) {
     out.push(`BITCOIN: ${b.lectura}${b.fuerza ? ` ${b.fuerza}` : ''} (${signo(b.puntuacion)}) · precio ${b.precio}${efecto}`);
     for (const x of b.frases ?? []) out.push(`  · ${x}`);
     if (rel) out.push(`  · ${s.base} sigue a BTC: correlación ${rel.correlacion} y beta ${rel.beta} (si BTC se mueve 1 %, ${s.base} suele moverse ~${rel.beta} %) · peso de BTC en la señal ${Math.round(100 * b.peso)} %`);
+  }
+  if (s.aperturas?.proximas?.length) {
+    out.push(`APERTURAS (próximas 6 h): ${s.aperturas.proximas.map((x) => `${s.aperturas.en_ventana.includes(x.clave) ? '! ' : ''}${hora(x.t, tz)} ${x.corto}${x.importancia === 'ALTA' ? ' (fuerte)' : ''}`).join(' · ')}`);
   }
   if (s.calendario) {
     const ev = s.calendario.eventos.filter((e) => e.importancia !== 'MEDIA' || s.calendario.en_ventana.includes(e.titulo));

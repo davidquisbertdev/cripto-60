@@ -16,7 +16,7 @@ interface Ctx {
   estado: Estado | null;
   refrescar: () => Promise<void>;
   salir: () => Promise<void>;
-  aviso: (msg: string) => void;
+  aviso: (msg: string, ms?: number) => void;
   toast: string | null;
 }
 const C = createContext<Ctx>(null as unknown as Ctx);
@@ -65,7 +65,7 @@ export function ProveedorSesion({ children }: { children: ReactNode }) {
     } catch { /* sin almacenamiento */ }
   }, []);
 
-  const aviso = useCallback((msg: string) => { setToast(msg); setTimeout(() => setToast(null), 3200); }, []);
+  const aviso = useCallback((msg: string, ms = 3200) => { setToast(msg); setTimeout(() => setToast(null), ms); }, []);
   // Cierra la sesión de este dispositivo y SIEMPRE vuelve a la pantalla de entrar. Si el token caducó y no
   // se puede renovar (403/400), supabase-js devuelve el error sin borrar la sesión guardada: se borra a mano.
   const salir = useCallback(async () => {

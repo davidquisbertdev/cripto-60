@@ -8,6 +8,7 @@ import { useSesion } from '../lib/sesion';
 import { fechaHora, hace, hora, pct, tono, usdt, usdtSigno } from '../lib/formato';
 import { usePeticion } from '../lib/usar';
 import { MercadoHoy } from '../components/MercadoHoy';
+import { PanelAperturas } from '../components/Aperturas';
 
 export function Inicio() {
   const { estado, perfil } = useSesion();
@@ -57,6 +58,7 @@ export function Inicio() {
         </Panel>
       </div>
 
+      <PanelAperturas horas={24} />
       <MercadoHoy />
     </Pagina>
   );

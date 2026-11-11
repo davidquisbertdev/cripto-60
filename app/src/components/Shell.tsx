@@ -7,6 +7,7 @@ import { diasRestantes, porRenovar, useSesion } from '../lib/sesion';
 import { useLocal } from '../lib/usar';
 import { fechaCorta, tono, usdt, usdtSigno } from '../lib/formato';
 import { demoElegido, salirDemo } from '../lib/modoDemo';
+import { useAlertasAperturas } from './Aperturas';
 
 export const RUTAS = [
   { a: '/', t: 'Inicio', i: Home, g: 0 },
@@ -37,6 +38,7 @@ export function Shell() {
   const [mas, setMas] = useState(false);
   const [plegada, setPlegada] = useLocal('cripto60-nav-plegada', false);
   const [confirmar, setConfirmar] = useState(false);
+  useAlertasAperturas(); // alertas de aperturas de mercado (5 y 1 min antes), en cualquier pantalla
   useEffect(() => setMas(false), [loc]);
   const actual = RUTAS.find((r) => (r.a === '/' ? loc === '/' : loc.startsWith(r.a)))?.t ?? Object.entries(EXTRA).find(([k]) => loc.startsWith(k))?.[1] ?? '';
   const d = estado?.diario;

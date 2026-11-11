@@ -165,6 +165,9 @@ y Términos y condiciones.
   niveles de **Fibonacci** (con una entrada limit paciente en el 50/61.8 %). Si un dato macro
   fuerte cae dentro de la operación, la señal baja un nivel y avisa. Si el **objetivo** en USDT
   no se alcanza, dice qué lo frena y cuánto capital o margen haría falta.
+- **Aperturas de mercado** (Inicio y Mercado): las del día con cuenta atrás (datos de EE. UU., bolsa
+  de Nueva York, Hong Kong, futuros de Chicago) y alertas 5 y 1 min antes, con notificación y sonido.
+  Son ventanas de riesgo para no entrar en el golpe; la señal avisa si una cae dentro de tu operación.
 - **Mercado**: vista general (BTC, ETH, SOL, oro, petróleo, Fear & Greed, dominancia de BTC y USDT,
   calendario económico, ballenas, bots de trading y noticias). Con el filtro de moneda: esa moneda
   frente a BTC, sus ballenas, bots y noticias.
