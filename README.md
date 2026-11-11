@@ -165,8 +165,11 @@ y Términos y condiciones.
   niveles de **Fibonacci** (con una entrada limit paciente en el 50/61.8 %). Si un dato macro
   fuerte cae dentro de la operación, la señal baja un nivel y avisa. Si el **objetivo** en USDT
   no se alcanza, dice qué lo frena y cuánto capital o margen haría falta.
-- **BTC**: el buscador compara cualquier altcoin con BTC (su lectura de 5m/15m, correlación,
-  beta y si BTC acompaña cada jugada).
+- **Mercado**: vista general (BTC, ETH, SOL, oro, petróleo, Fear & Greed, dominancia de BTC y USDT,
+  calendario económico, ballenas, bots de trading y noticias). Con el filtro de moneda: esa moneda
+  frente a BTC, sus ballenas, bots y noticias.
+- **Señal**: también eliges lado y apalancamiento (con aviso de lo que recomienda el sistema) y te dice
+  el mejor momento para entrar en los próximos 5 min (a mercado o con un limit y su probabilidad).
 - **Escáner**: la columna «Señal completa» confirma las 3 mejores con el mismo análisis de la
   pantalla Señal.
 - **Ballenas**: toca una billetera para ver **todas sus posiciones** en otras monedas y lo que hizo

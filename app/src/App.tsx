@@ -7,7 +7,8 @@ import { ErrorEstado, Vacio } from './components/ui';
 import { Inicio } from './screens/Inicio';
 import { Senal } from './screens/Senal';
 import { Posicion } from './screens/Posicion';
-import { Btc, Ballenas, Noticias, Escaner } from './screens/Mercado';
+import { Ballenas, Noticias, Escaner } from './screens/Mercado';
+import { Panorama } from './screens/Panorama';
 import { Diario, Ajustes, Legal } from './screens/Cuenta';
 import { Acceso } from './screens/Acceso';
 import { Suscripcion, SuscripcionPublica } from './screens/Suscripcion';
@@ -46,7 +47,8 @@ function Rutas() {
             <Route index element={<Inicio />} />
             <Route path="senal" element={<Senal />} />
             <Route path="posicion" element={<Posicion />} />
-            <Route path="btc" element={<Btc />} />
+            <Route path="mercado" element={<Panorama />} />
+            <Route path="btc" element={<Navigate to="/mercado" replace />} />
             <Route path="ballenas" element={<Ballenas />} />
             <Route path="noticias" element={<Noticias />} />
             <Route path="escaner" element={<Escaner />} />

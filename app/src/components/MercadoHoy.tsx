@@ -59,7 +59,7 @@ export function MercadoHoy() {
                 <span className="faint num" style={{ fontSize: 13 }}>mín. {numero(b.min, 1)} · máx. {numero(b.max, 1)}</span>
               </div>
               <LineaSerie puntos={b.serie.map((x) => ({ t: x.t, v: x.c }))} fmtV={(v) => numero(v, 0)} fmtT={(t) => hora(t)} etiqueta="BTC en las últimas 24 h (velas de 15 min)" tono={tonoBtc} alto={170} />
-              <Link to="/btc" style={{ fontSize: 13 }}>Ver la lectura de BTC</Link>
+              <Link to="/mercado" style={{ fontSize: 13 }}>Ver el mercado completo</Link>
             </div>
           ) : <p className="muted">Sin datos de BTC.</p>}
         </Panel>

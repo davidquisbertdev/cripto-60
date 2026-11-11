@@ -13,7 +13,7 @@ import { nombreExchange, conSigno, hace, hora, millones, numero, pct, pctSigno, 
 import type { ActivoMacro, Billetera, FiltroBTC, InformeBallenas, InformeBTC, InformeEscaner, InformeNoticias, FilaEscaner, SenalResumen } from '../lib/tipos';
 import { useSesion } from '../lib/sesion';
 
-function Buscador({ valor, onBuscar, etiqueta = 'Moneda', placeholder = 'SOL' }: { valor: string; onBuscar: (m: string) => void; etiqueta?: string; placeholder?: string }) {
+export function Buscador({ valor, onBuscar, etiqueta = 'Moneda', placeholder = 'SOL' }: { valor: string; onBuscar: (m: string) => void; etiqueta?: string; placeholder?: string }) {
   const id = `b-${etiqueta.replace(/\W+/g, '-')}`;
   return (
     <div className="search" role="search">
@@ -45,61 +45,43 @@ function VariasMonedas({ valor, onCambio, max = 4 }: { valor: string[]; onCambio
 const tonoDir = (v: number) => (v > 0.15 ? 'gain' : v < -0.15 ? 'loss' : '');
 
 // ---------------- BTC ----------------
-export function Btc() {
-  const [moneda, setMoneda] = useState('');
-  const r = usePeticion(() => backend.motor<InformeBTC>('btc', moneda ? { moneda } : {}), [moneda], { clave: `btc:${moneda}` });
-  const b = r.datos?.btc;
-  // la comparación solo vale si es de la moneda elegida (mientras carga otra, se muestra cargando)
-  // (en demo solo hay datos grabados de una altcoin: se muestra esa con un aviso)
-  const alt = moneda && r.datos?.alt && (r.datos.alt.base === moneda || backend.demo) ? r.datos.alt : null;
+// Lectura detallada de BTC (puntuación, marcos, niveles y frases): sección de la página Mercado.
+export function DetalleBTC({ b, ahora }: { b: InformeBTC['btc']; ahora: number }) {
   return (
-    <Pagina titulo={moneda ? `BTC · ${moneda}` : 'BTC'} acciones={<><Buscador valor={moneda} onBuscar={(x) => setMoneda(x === 'BTC' ? '' : x)} etiqueta="Comparar con una altcoin" placeholder="Comparar altcoin" /><button className="btn btn-sm icon-btn" onClick={r.run} disabled={r.cargando} aria-busy={r.cargando} aria-label={r.cargando ? 'Actualizando' : 'Actualizar'}><RefreshCw size={14} className={r.cargando ? 'girando' : undefined} aria-hidden /></button></>}>
-      {r.cargando && !r.datos ? <Esqueleto filas={5} /> : r.error ? <ErrorEstado mensaje={r.error} reintentar={r.run} /> : b && (
-        <div className="grid g-main">
-          {moneda && (
-            <section style={{ gridColumn: '1 / -1' }} aria-label={`${moneda} frente a BTC`} aria-busy={r.cargando}>
-              {alt && backend.demo && alt.base !== moneda && <Nota tono="info">En modo demo solo hay datos grabados de {alt.base}: esta es su comparación, no la de {moneda}.</Nota>}
-              {alt ? <AltFrenteBTC alt={alt} /> : r.cargando ? <Panel titulo={`${moneda} frente a BTC`}><Esqueleto filas={3} /></Panel> : (
-                <Panel titulo={`${moneda} frente a BTC`}><p className="muted">No se pudo comparar {moneda} con BTC. Revisa que sea un perpetuo USDT.</p></Panel>
-              )}
-            </section>
-          )}
-          <div className="stack">
-            <section className="panel" aria-label="Lectura de BTC">
-              <div className="verdict">
-                <span className={`verdict-word ${tonoDir(b.puntuacion) === 'gain' ? 'long' : tonoDir(b.puntuacion) === 'loss' ? 'short' : 'none'}`}>{b.lectura}</span>
-                <div className="verdict-meta"><span className="t1 num">BTC {numero(b.precio, 1)}</span><span className="t2">fuerza {b.fuerza}{b.lateral ? ' · lateral' : ''} · {hace(r.datos!.ahora)}</span></div>
-              </div>
-              <div className="panel-b"><MedidorDir v={b.puntuacion} etiqueta="Dirección de BTC" /></div>
-              <KV items={[
-                { k: 'Puntuación', v: conSigno(b.puntuacion), cls: tonoDir(b.puntuacion) },
-                { k: 'Tendencia mayor', v: conSigno(b.tendencia_mayor), cls: tonoDir(b.tendencia_mayor) },
-                { k: 'Cambio 15 min', v: pctSigno(b.cambio_15m_pct, 3) },
-                { k: 'Cambio 1 h', v: pctSigno(b.cambio_1h_pct, 3) },
-                { k: 'RSI 5m', v: numero(b.rsi_5m, 1) },
-                { k: 'ADX 15m', v: numero(b.adx15m, 1) },
-              ]} />
-            </section>
-            <Panel titulo="Marcos de tiempo" flush>
-              <div className="table-wrap"><table className="t"><thead><tr><th scope="col">Marco</th><th scope="col">Dirección</th><th scope="col" className="r">Puntuación</th><th scope="col" className="r">RSI</th><th scope="col" className="r">ADX</th></tr></thead>
-                <tbody>{Object.entries(b.marcos).map(([k, m]) => (
-                  <tr key={k}><td className="strong">{k}</td><td>{m.dir}</td><td className={`r num ${tonoDir(m.score)}`}>{conSigno(m.score)}</td><td className="r num">{numero(m.rsi, 1)}</td><td className="r num">{numero(m.adx, 1)}</td></tr>
-                ))}</tbody></table></div>
-            </Panel>
+    <div className="grid g-main">
+      <div className="stack">
+        <section className="panel" aria-label="Lectura de BTC">
+          <div className="verdict">
+            <span className={`verdict-word ${tonoDir(b.puntuacion) === 'gain' ? 'long' : tonoDir(b.puntuacion) === 'loss' ? 'short' : 'none'}`}>{b.lectura}</span>
+            <div className="verdict-meta"><span className="t1 num">BTC {numero(b.precio, 1)}</span><span className="t2">fuerza {b.fuerza}{b.lateral ? ' · lateral' : ''} · {hace(ahora)}</span></div>
           </div>
-          <div className="stack">
-            <Panel titulo="Niveles de 5 min"><Filas items={[{ k: 'Resistencia', v: numero(b.resistencia_5m, 1) }, { k: 'Soporte', v: numero(b.soporte_5m, 1) }]} /></Panel>
-            <Panel titulo="Lectura"><ul className="list">{b.frases.map((f) => <li key={f}><Info size={14} aria-hidden />{f}</li>)}</ul></Panel>
-          </div>
-          {r.datos?.macro?.activos.length ? <OroPetroleo activos={r.datos.macro.activos} /> : null}
-        </div>
-      )}
-    </Pagina>
+          <div className="panel-b"><MedidorDir v={b.puntuacion} etiqueta="Dirección de BTC" /></div>
+          <KV items={[
+            { k: 'Puntuación', v: conSigno(b.puntuacion), cls: tonoDir(b.puntuacion) },
+            { k: 'Tendencia mayor', v: conSigno(b.tendencia_mayor), cls: tonoDir(b.tendencia_mayor) },
+            { k: 'Cambio 15 min', v: pctSigno(b.cambio_15m_pct, 3) },
+            { k: 'Cambio 1 h', v: pctSigno(b.cambio_1h_pct, 3) },
+            { k: 'RSI 5m', v: numero(b.rsi_5m, 1) },
+            { k: 'ADX 15m', v: numero(b.adx15m, 1) },
+          ]} />
+        </section>
+        <Panel titulo="Marcos de tiempo de BTC" flush>
+          <div className="table-wrap"><table className="t"><thead><tr><th scope="col">Marco</th><th scope="col">Dirección</th><th scope="col" className="r">Puntuación</th><th scope="col" className="r">RSI</th><th scope="col" className="r">ADX</th></tr></thead>
+            <tbody>{Object.entries(b.marcos).map(([k, m]) => (
+              <tr key={k}><td className="strong">{k}</td><td>{m.dir}</td><td className={`r num ${tonoDir(m.score)}`}>{conSigno(m.score)}</td><td className="r num">{numero(m.rsi, 1)}</td><td className="r num">{numero(m.adx, 1)}</td></tr>
+            ))}</tbody></table></div>
+        </Panel>
+      </div>
+      <div className="stack">
+        <Panel titulo="Niveles de 5 min de BTC"><Filas items={[{ k: 'Resistencia', v: numero(b.resistencia_5m, 1) }, { k: 'Soporte', v: numero(b.soporte_5m, 1) }]} /></Panel>
+        <Panel titulo="Lectura de BTC"><ul className="list">{b.frases.map((f) => <li key={f}><Info size={14} aria-hidden />{f}</li>)}</ul></Panel>
+      </div>
+    </div>
   );
 }
 
 // Una altcoin frente a BTC: su propia lectura (5m y 15m) y si BTC acompaña o va en contra de cada jugada.
-function AltFrenteBTC({ alt }: { alt: NonNullable<InformeBTC['alt']> }) {
+export function AltFrenteBTC({ alt }: { alt: NonNullable<InformeBTC['alt']> }) {
   const fila = (que: string, f: FiltroBTC) => ({ k: que, v: f.bloquea ? 'bloqueado por BTC' : f.estado + (f.bajar ? ' · baja un nivel' : ''), cls: f.bloquea || f.estado === 'en contra' ? 'loss' : f.estado === 'a favor' ? 'gain' : '' });
   const p = alt.puntuacion ?? 0;
   return (
@@ -130,7 +112,7 @@ function AltFrenteBTC({ alt }: { alt: NonNullable<InformeBTC['alt']> }) {
 
 // Oro y petróleo: cómo se mueven y cuánto se parecen a BTC. Contexto macro: solo avisan (y bajan un poco
 // la confianza de la señal) cuando uno de los dos se mueve de golpe.
-function OroPetroleo({ activos }: { activos: ActivoMacro[] }) {
+export function OroPetroleo({ activos }: { activos: ActivoMacro[] }) {
   const dec = (x: number) => (x < 200 ? 2 : 1);
   const corr = (c: number | null) => (c == null ? 'sin dato' : Math.abs(c) < 0.3 ? `${numero(c, 2)} · casi no se mueve con BTC` : `${numero(c, 2)} · se mueve ${c > 0 ? 'con' : 'al revés que'} BTC`);
   return (
@@ -339,7 +321,7 @@ export function Noticias() {
   );
 }
 
-function ListaNoticias({ items }: { items: InformeNoticias['monedas'][number]['propias'] }) {
+export function ListaNoticias({ items }: { items: InformeNoticias['monedas'][number]['propias'] }) {
   return (
     <div className="news">{items.map((x) => (
       <a className="item" key={x.titulo} href={x.enlace} target="_blank" rel="noreferrer">

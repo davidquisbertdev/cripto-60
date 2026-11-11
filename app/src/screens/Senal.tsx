@@ -8,6 +8,8 @@ import { SelectorMoneda } from '../components/SelectorMoneda';
 import { EditorTPs, errorReparto } from '../components/EditorTPs';
 import { MapaCalorLiq, PanelConfluencias, PanelFib, PanelFlujo } from '../components/Confluencias';
 import { PanelCalendario } from '../components/Calendario';
+import { MejorMomento } from '../components/MejorMomento';
+import { PanelBots } from './Panorama';
 import { backend } from '../lib/api';
 import { useSesion } from '../lib/sesion';
 import { nombreExchange, estrategiaNombre, hace, hora, millones, numero, pct, pctSigno, precio as fp, usdt, usdtSigno, conSigno } from '../lib/formato';
@@ -22,6 +24,8 @@ export function Senal() {
   const [moneda, setMoneda] = useState(q.get('moneda') ?? 'BTC');
   const [capital, setCapital] = useState('');
   const [margen, setMargen] = useState('');
+  // apalancamiento elegido para esta señal ('' = el que calcula el motor)
+  const [apal, setApal] = useState('');
   const [objetivo, setObjetivo] = useState('');
   const [duracion, setDuracion] = useState('');
   const [errDur, setErrDur] = useState<string | null>(null);
@@ -46,7 +50,7 @@ export function Senal() {
     if (estado.cfg) { setObjetivo(String(estado.cfg.objetivo_usdt)); setDuracion(String(estado.cfg.duracion_max_min)); setReparto(repartoCfg(estado.cfg)); }
   }, [estado]);
 
-  const analizar = async (e?: FormEvent, capitalInicial?: string, ladoPedido?: '' | Lado) => {
+  const analizar = async (e?: FormEvent, capitalInicial?: string, ladoPedido?: '' | Lado, apalPedido?: string) => {
     e?.preventDefault();
     const m = moneda.trim().toUpperCase();
     if (!m) { setErrCampo('Escribe una moneda, por ejemplo SOL.'); return; }
@@ -62,10 +66,12 @@ export function Senal() {
     // solo se manda si es distinto del de Ajustes
     const rep = reparto && estado?.cfg && reparto.join() !== repartoCfg(estado.cfg).join() ? reparto : undefined;
     const l = ladoPedido ?? lado;
+    const ap = (apalPedido ?? apal).trim();
+    if (ap && !(Number(ap) >= 1 && Number(ap) <= 500)) { setError('El apalancamiento va de 1x a 500x.'); return; }
     const prev = l && previa && previa.base === m ? { recomendacion: previa.recomendacion, lado: previa.lado, estrategia: previa.estrategia, nivel: previa.nivel, razones: previa.razones } : undefined;
     setError(null); setCargando(true);
     try {
-      const r = await backend.motor<Res>('senal', { moneda: m, capital: cap, margen: margen || undefined, objetivo: objetivo || (estado?.cfg ? String(estado.cfg.objetivo_usdt) : undefined), duracion: dur, reparto: rep, lado: l || undefined, previa: prev });
+      const r = await backend.motor<Res>('senal', { moneda: m, capital: cap, margen: margen || undefined, objetivo: objetivo || (estado?.cfg ? String(estado.cfg.objetivo_usdt) : undefined), duracion: dur, reparto: rep, lado: l || undefined, previa: prev, apalancamiento: ap ? Number(ap) : undefined });
       setRes(r);
       if (!l && !('bloqueado' in r)) setPrevia(r);
     } catch (x) { setError((x as Error).message); setRes(null); }
@@ -94,6 +100,9 @@ export function Senal() {
           </Campo>
           <Campo etiqueta="Margen (opcional)" hint={estado?.diario ? `Sugerido ${usdt(estado.diario.margen_sugerido)}` : undefined}>
             <div className="input-wrap"><input className="input num" inputMode="decimal" value={margen} onChange={(e) => setMargen(e.target.value)} placeholder="auto" /><span className="suf">USDT</span></div>
+          </Campo>
+          <Campo etiqueta="Apalancamiento (opcional)" hint={apal ? 'Lo eliges tú: te aviso si no es el que recomiendo.' : 'Auto: el que calcule el motor.'}>
+            <div className="input-wrap"><input className="input num" type="number" min={1} max={500} step={1} value={apal} onChange={(e) => setApal(e.target.value)} placeholder="auto" /><span className="suf">x</span></div>
           </Campo>
           <Campo etiqueta="Objetivo">
             <div className="input-wrap"><input className="input num" inputMode="decimal" value={objetivo} onChange={(e) => setObjetivo(e.target.value)} /><span className="suf">USDT</span></div>
@@ -133,7 +142,7 @@ export function Senal() {
       ) : 'bloqueado' in res ? (
         <Nota tono="loss" titulo="No se genera la orden.">{res.motivo} {res.pausa_hasta ? `Vuelve a las ${hora(res.pausa_hasta)}.` : ''} <Link to="/diario">Ver diario</Link></Nota>
       ) : (
-        <Resultado s={res} onSeguir={seguir} abierta={!!estado?.posicion_abierta} onLado={(l) => { setLado(l); analizar(undefined, undefined, l); }} />
+        <Resultado s={res} onSeguir={seguir} abierta={!!estado?.posicion_abierta} onLado={(l) => { setLado(l); analizar(undefined, undefined, l); }} onApal={(x) => { setApal(x); analizar(undefined, undefined, undefined, x); }} />
       )}
     </Pagina>
   );
@@ -175,9 +184,10 @@ function PanelBallenas({ s }: { s: TSenal }) {
   return (
     <Panel titulo="Ballenas en la señal" aside={<span className={`tag ${va ? (va === lado ? 'tag-gain' : 'tag-loss') : ''}`}>{relacion}</span>} className="ord-5">
       <div style={{ display: 'grid', gap: 12 }}>
+        {hl?.ventana === '24h' && <p style={{ fontSize: 13, fontWeight: 600 }}>Hyperliquid: lo que abrieron o aumentaron en las últimas 24 h{hl.nuevas ? ` (${hl.nuevas} posiciones nuevas)` : ''}</p>}
         {hl && total > 0 ? (
           <div>
-            <div className="split-bar" role="img" aria-label={`Hyperliquid: ${hl.longs} ballenas LONG con ${millones(hl.valor_long)} y ${hl.shorts} SHORT con ${millones(hl.valor_short)}`}>
+            <div className="split-bar" role="img" aria-label={`Hyperliquid${hl.ventana === '24h' ? ' en 24 h' : ''}: ${hl.longs} ballenas LONG con ${millones(hl.valor_long)} y ${hl.shorts} SHORT con ${millones(hl.valor_short)}`}>
               <i style={{ width: `${(100 * hl.valor_long) / total}%`, background: 'var(--gain)' }} />
               <i style={{ width: `${(100 * hl.valor_short) / total}%`, background: 'var(--loss)' }} />
             </div>
@@ -186,7 +196,10 @@ function PanelBallenas({ s }: { s: TSenal }) {
               <span><i className="sw" style={{ background: 'var(--loss)' }} aria-hidden />{hl.shorts} SHORT <b className="num">{millones(hl.valor_short)}</b></span>
             </div>
           </div>
-        ) : <p className="muted" style={{ fontSize: 13 }}>Ninguna ballena de Hyperliquid tiene posición grande en {s.base}: cuentan el flujo, el open interest y los top traders.</p>}
+        ) : <p className="muted" style={{ fontSize: 13 }}>{hl?.ventana === '24h' ? `Ninguna de las ${hl.revisadas ?? ''} ballenas más grandes de Hyperliquid en ${s.base} abrió ni aumentó posición en 24 h` : `Ninguna ballena de Hyperliquid tiene posición grande en ${s.base}`}: cuentan el flujo, el open interest y los top traders.</p>}
+        {hl?.ventana === '24h' && hl.total && hl.total.longs + hl.total.shorts > 0 && (
+          <p className="faint" style={{ fontSize: 12 }}>Posiciones abiertas de antes: {hl.total.longs} LONG ({millones(hl.total.valor_long)}) y {hl.total.shorts} SHORT ({millones(hl.total.valor_short)}). Son contexto de fondo y no pesan en la señal; las ves todas en <Link to="/ballenas">Ballenas</Link>.</p>
+        )}
         <Filas items={[
           { k: 'Lectura del dinero grande', v: `${b.lectura} (${conSigno(b.puntuacion)})`, cls: b.puntuacion > 0.15 ? 'gain' : b.puntuacion < -0.15 ? 'loss' : '' },
           ...(b.top_long != null ? [{ k: 'Top traders en LONG', v: pct(b.top_long * 100, 0) }] : []),
@@ -206,7 +219,7 @@ function ObjetivoNota({ o }: { o: ObjetivoInfo }) {
   const origen = o.riesgo_ajuste_pct == null ? 'con esta confianza'
     : o.factor_riesgo != null && o.factor_riesgo < 1 ? `tu ajuste para confianza ${nivel} es ${o.riesgo_ajuste_pct} %, a la mitad por las pérdidas seguidas del diario`
     : `tu ajuste «Pérdida en el SL, confianza ${nivel}»; lo puedes subir en Ajustes`;
-  const freno = o.limitante === 'riesgo' ? `tu pérdida máxima en el SL: ${o.riesgo_tope_pct ?? '—'} % del capital (${origen})` : `el apalancamiento seguro (${o.apalancamiento_max ?? '—'}x) con tu margen`;
+  const freno = o.limitante === 'riesgo' ? `tu pérdida máxima en el SL: ${o.riesgo_tope_pct ?? '—'} % del capital (${origen})` : o.limitante === 'usuario' ? 'el apalancamiento que elegiste' : `el apalancamiento seguro (${o.apalancamiento_max ?? '—'}x) con tu margen`;
   return (
     <Nota tono="warn" titulo={`Objetivo ${usdt(o.objetivo)}: este plan llega a ${usdt(o.alcanza ?? null)}.`}>
       Lo frena {freno}. {o.ayuda ?? o.mensaje}
@@ -239,7 +252,7 @@ function CambiarLado({ s, onLado }: { s: TSenal; onLado: (l: '' | Lado) => void 
   );
 }
 
-function Resultado({ s, onSeguir, abierta, onLado }: { s: TSenal & { demo_nota?: string | null }; onSeguir: (s: TSenal) => void; abierta: boolean; onLado: (l: '' | Lado) => void }) {
+function Resultado({ s, onSeguir, abierta, onLado, onApal }: { s: TSenal & { demo_nota?: string | null }; onSeguir: (s: TSenal) => void; abierta: boolean; onLado: (l: '' | Lado) => void; onApal: (x: string) => void }) {
   const { aviso } = useSesion();
   const opera = s.recomendacion !== 'NO OPERAR';
   const p = s.plan, dec = s.decimales, sim = s.simulacion, h = s.historial;
@@ -275,13 +288,22 @@ function Resultado({ s, onSeguir, abierta, onLado }: { s: TSenal & { demo_nota?:
             {verPlan ? (
               <>
                 <Tabla filas={filasNiveles(p.lado, p.entrada, p.sl, p.tps, dec, p.riesgo_usdt)} entrada={{ ...s.entrada, dec }} />
+                {s.entrada.optima && <MejorMomento o={s.entrada.optima} dec={dec} />}
                 <div className="money">
                   <div><div className="k">Si salta el SL pierdes</div><div className="v num loss">{conSigno(p.escenarios.sl_directo, 3)}<span className="u">USDT</span></div><div className="s num">{pct(p.riesgo_pct_real)} del capital</div></div>
                   <div><div className="k">{p.tps.length > 1 ? `Si llegan los ${p.tps.length} TP ganas` : 'Si llega el TP ganas'}</div><div className="v num gain">{conSigno(p.escenarios.todos_los_tps, 3)}<span className="u">USDT</span></div><div className="s num">{p.objetivo ? <>Tu objetivo: {usdt(p.objetivo.objetivo)}{p.objetivo.alcanzable ? ' ✓' : ' · no alcanzable'}</> : p.tps.length > 1 ? <>Solo TP1 y luego a entrada: {usdtSigno(p.escenarios.tp1_y_luego_be)}</> : <>cierra el 100 % en el TP1</>}</div></div>
                 </div>
+                {p.aviso_apalancamiento && (
+                  <div className="panel-b" style={{ paddingBottom: 0 }}>
+                    <Nota tono={p.liquida_antes_sl ? 'loss' : 'warn'} titulo={`Apalancamiento ${p.apalancamiento}x elegido por ti.`}>
+                      {p.aviso_apalancamiento.replace(/^Elegiste d+x; /, '')}{' '}
+                      <button type="button" className="link-btn" onClick={() => onApal('')}>Usar el recomendado ({p.apalancamiento_recomendado}x)</button>
+                    </Nota>
+                  </div>
+                )}
                 {p.objetivo && !p.objetivo.alcanzable && <div className="panel-b" style={{ paddingBottom: 0 }}><ObjetivoNota o={p.objetivo} /></div>}
                 <KV items={[
-                  { k: 'Apalancamiento', v: `${p.apalancamiento}x`, s: 'margen aislado' },
+                  { k: 'Apalancamiento', v: `${p.apalancamiento}x`, s: p.apalancamiento_usuario ? `elegido · recomendado ${p.apalancamiento_recomendado}x` : 'margen aislado' },
                   { k: 'Margen', v: usdt(p.margen, 2), s: `${pct(p.margen_pct_capital, 0)} del capital` },
                   { k: 'Posición', v: `${numero(p.cantidad_moneda, p.cantidad_moneda < 10 ? 3 : 0)} ${s.base}`, s: `${usdt(p.nocional, 0)} nocional` },
                   { k: 'Liquidación', v: fp(p.liquidacion, dec), s: `SL a ${pct(p.sl_pct, 2)}` },
@@ -316,6 +338,7 @@ function Resultado({ s, onSeguir, abierta, onLado }: { s: TSenal & { demo_nota?:
                       <Nota tono="warn">El sistema dice NO OPERAR. Esta es la jugada con más probabilidad ({pct(m.prob.pct, 0)}, {m.prob.fuente}), no una recomendación.</Nota>
                       <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}><LadoTag lado={m.lado} /><span className="muted">{estrategiaNombre(m.estrategia)} · {m.apalancamiento}x · margen {usdt(m.margen)}</span></div>
                       <Tabla filas={filasNiveles(m.lado, m.entrada.mercado, m.sl, m.tps, dec, m.riesgo_usdt)} entrada={{ ...m.entrada, dec }} />
+                      {m.entrada.optima && <MejorMomento o={m.entrada.optima} dec={dec} />}
                       {m.objetivo && !m.objetivo.alcanzable && <ObjetivoNota o={m.objetivo} />}
                     </div>
                   </details>
@@ -336,6 +359,7 @@ function Resultado({ s, onSeguir, abierta, onLado }: { s: TSenal & { demo_nota?:
           <PanelConfluencias s={s} />
           {s.liquidaciones && <MapaCalorLiq m={s.liquidaciones} dec={dec} lado={opera ? s.lado : m?.lado} sl={opera ? p.sl : m?.sl} tp1={opera ? p.tps[0]?.precio : m?.tps[0]?.precio} />}
           {s.flujo && <PanelFlujo f={s.flujo} dec={dec} />}
+          {s.bots?.disponible && <PanelBots b={s.bots} moneda={s.base} className="ord-5" />}
           {s.calendario && <PanelCalendario c={s.calendario} className="ord-4" max={6} />}
           {s.ballenas && <PanelBallenas s={s} />}
           <Panel titulo="Contexto del mercado" className="ord-5">

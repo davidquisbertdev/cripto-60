@@ -7,7 +7,7 @@ import { estadoDiario } from '../../../lib/diario.mjs';
 import type { Ajustes, Estado, Operacion, Perfil, PosicionGuardada } from './tipos';
 import demoDatos from '../demo/datos.json';
 
-export type Accion = 'estado' | 'senal' | 'posicion' | 'btc' | 'ballenas' | 'billetera' | 'noticias' | 'escaner' | 'mercado';
+export type Accion = 'estado' | 'senal' | 'posicion' | 'btc' | 'ballenas' | 'billetera' | 'noticias' | 'escaner' | 'mercado' | 'panorama';
 export interface NuevaOperacion { simbolo: string; lado: 'LONG' | 'SHORT' | null; pnl: number; margen?: number | null; nota?: string | null; fecha?: string; senal_id?: number | null }
 export interface NuevaPosicion { base: string; lado: 'LONG' | 'SHORT'; entrada: number; sl: number; tps: number[]; contratos?: number | null; estrategia?: string; senal_id?: number | null; duracion_max_min?: number | null }
 
@@ -120,7 +120,7 @@ function backendDemo(): Backend {
       }
       // BTC sin altcoin elegida: sin comparación (la grabada es de una sola altcoin)
       const btc = params.moneda ? D.btc : { ...D.btc, alt: null };
-      const tabla: Record<string, unknown> = { posicion: D.posicion, btc, ballenas: D.ballenas, billetera: D.billetera, noticias: D.noticias, escaner: D.escaner, mercado: D.mercado };
+      const tabla: Record<string, unknown> = { posicion: D.posicion, btc, ballenas: D.ballenas, billetera: D.billetera, noticias: D.noticias, escaner: D.escaner, mercado: D.mercado, panorama: D.panorama };
       return ahora(tabla[accion]) as T;
     },
     async perfil() { return st.perfil; },
