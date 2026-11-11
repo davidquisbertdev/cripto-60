@@ -6,7 +6,7 @@ export type Estrategia = 'tendencia' | 'reversion';
 // Objetivo en USDT pedido frente a lo que el plan puede dar sin pasar los frenos de riesgo
 export interface ObjetivoInfo {
   objetivo: number; alcanzable: boolean; limitante: 'objetivo' | 'riesgo' | 'apalancamiento'; alcanza?: number; mensaje?: string; ayuda?: string | null;
-  riesgo_necesario?: number; riesgo_tope_pct?: number; capital_necesario?: number; margen_necesario?: number; apalancamiento_max?: number;
+  riesgo_necesario?: number; riesgo_tope_pct?: number; riesgo_ajuste_pct?: number; riesgo_max_pct?: number; factor_riesgo?: number; nivel_riesgo?: string; capital_necesario?: number; margen_necesario?: number; apalancamiento_max?: number;
 }
 // Calendario económico (ForexFactory): datos macro que mueven a las cripto
 export type ImportanciaEvento = 'CRÍTICA' | 'ALTA' | 'MEDIA';
@@ -88,6 +88,7 @@ export interface Senal {
   flujo?: FlujoCVD | null;
   liquidaciones?: MapaLiq | null;
   calendario?: Calendario | null;
+  lado_pedido?: Lado | null; contra_sistema?: boolean; aviso_lado?: string | null;
   mejor_entrada: MejorEntrada | null; diario: EstadoDiario | null;
 }
 export interface Bloqueo { bloqueado: true; motivo: string; pausa_hasta: number | null }

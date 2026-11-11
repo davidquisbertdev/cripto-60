@@ -70,5 +70,5 @@ test('objetivo: explica qué lo frena y cuánto capital haría falta', () => {
   assert.equal(p.objetivo.alcanzable, false);
   assert.ok(p.objetivo.alcanza < 30);
   assert.ok(p.objetivo.capital_necesario > 20);
-  assert.match(p.objetivo.ayuda, /no sube el riesgo|margen/);
+  assert.match(p.objetivo.ayuda, /no la sube solo|margen/);
 });

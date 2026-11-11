@@ -203,12 +203,12 @@ export function Ajustes() {
                     {[30, 50, 100, 200, 500].map((x) => <button type="button" key={x} className="chip" aria-pressed={Number(v('apalancamiento_max')) === x} onClick={() => setA({ ...a, apalancamiento_max: x })}>{x}x</button>)}
                   </div>
                 </Campo>
-                {num('max_perdida_dia_pct', 'Pérdida máxima del día', '%', 'Al llegar, se para hasta mañana.', 20)}
+                {num('max_perdida_dia_pct', 'Pérdida máxima del día', '%', Number(v('max_perdida_dia_pct')) < Math.max(Number(rc.ALTA), Number(rc.MEDIA), Number(rc.BAJA)) ? 'Es menor que tu pérdida en un SL: un solo SL te para el día.' : 'Al llegar, se para hasta mañana (hasta 100 %).', 100)}
               </div>
               <div className="form-row">
                 {(['ALTA', 'MEDIA', 'BAJA'] as const).map((k) => (
-                  <Campo key={k} etiqueta={`Pérdida en el SL, confianza ${k.toLowerCase()}`}>
-                    <div className="input-wrap"><input className="input num" type="number" min={0.5} max={10} step="0.5" value={rc[k]} onChange={(e) => setA({ ...a, riesgo_por_confianza: { ...rc, [k]: Number(e.target.value) } })} /><span className="suf">%</span></div>
+                  <Campo key={k} etiqueta={`Pérdida en el SL, confianza ${k.toLowerCase()}`} hint={Number(rc[k]) > 10 ? `Un SL te quita el ${rc[k]} % del capital de una vez (lo recomendado es 10 % o menos).` : 'Del capital, si salta el SL (0.5 a 100 %).'}>
+                    <div className="input-wrap"><input className="input num" type="number" min={0.5} max={100} step="0.5" value={rc[k]} onChange={(e) => setA({ ...a, riesgo_por_confianza: { ...rc, [k]: Number(e.target.value) } })} /><span className="suf">%</span></div>
                   </Campo>
                 ))}
               </div>

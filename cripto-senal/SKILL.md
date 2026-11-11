@@ -35,7 +35,7 @@ node "${CLAUDE_SKILL_DIR}/senal.mjs" SOL --capital 10                 # señal c
 node "${CLAUDE_SKILL_DIR}/senal.mjs" SOL --capital 20 --margen 15    # 20 en la cuenta, 15 en esta operación
 node "${CLAUDE_SKILL_DIR}/senal.mjs" SOL --capital 20 --objetivo 5    # otro objetivo (por defecto 3 USDT; 0 = sin objetivo)
 node "${CLAUDE_SKILL_DIR}/senal.mjs" ENA --capital 10 --comision 0    # moneda con 0 comisión confirmada en la app
-node "${CLAUDE_SKILL_DIR}/senal.mjs" ETH --capital 50 --lado long     # forzar un lado (baja la confianza si va en contra)
+node "${CLAUDE_SKILL_DIR}/senal.mjs" ETH --capital 50 --lado long     # el lado lo eliges tú: mejor entrada de ese lado + aviso de lo que recomienda el sistema y por qué
 node "${CLAUDE_SKILL_DIR}/senal.mjs" SOL --capital 10 --sin-ballenas  # más rápido (unos 3 s en lugar de 12)
 node "${CLAUDE_SKILL_DIR}/senal.mjs" SOL --capital 10 --estrategia reversion   # solo una estrategia
 node "${CLAUDE_SKILL_DIR}/senal.mjs" SOL --capital 10 --exchange bybit  # datos y comisiones de Bybit en lugar de Binance
