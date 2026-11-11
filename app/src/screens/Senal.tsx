@@ -59,7 +59,7 @@ export function Senal() {
     if (!(Number(cap.replace(',', '.')) > 0)) { setErrCapital('Indica tu capital en USDT, por ejemplo 20.'); return; }
     setErrCapital(null);
     const dur = duracion.trim() === '' ? undefined : Number(duracion);
-    if (dur !== undefined && !(dur >= 15 && dur <= 1440)) { setErrDur('Entre 15 y 1440 minutos.'); return; }
+    if (dur !== undefined && !(dur >= 15 && dur <= 1440)) { setErrDur('Entre 15 y 1440 minutos.'); setVerTPs(true); return; }
     setErrDur(null);
     const eR = reparto ? errorReparto(reparto) : null;
     if (eR) { setVerTPs(true); return; }
@@ -90,41 +90,74 @@ export function Senal() {
 
   return (
     <Pagina titulo="Señal">
-      <form className="panel" onSubmit={analizar} noValidate>
-        <div className="panel-b form-row">
-          <Campo etiqueta="Moneda" error={errCampo}>
-            <SelectorMoneda valor={moneda} onCambio={setMoneda} placeholder="BTC" invalido={!!errCampo} />
-          </Campo>
-          <Campo etiqueta="Capital" error={errCapital}>
-            <div className="input-wrap"><input className="input num" inputMode="decimal" value={capital} onChange={(e) => setCapital(e.target.value)} aria-invalid={!!errCapital} /><span className="suf">USDT</span></div>
-          </Campo>
-          <Campo etiqueta="Margen (opcional)" hint={estado?.diario ? `Sugerido ${usdt(estado.diario.margen_sugerido)}` : undefined}>
-            <div className="input-wrap"><input className="input num" inputMode="decimal" value={margen} onChange={(e) => setMargen(e.target.value)} placeholder="auto" /><span className="suf">USDT</span></div>
-          </Campo>
-          <Campo etiqueta="Apalancamiento (opcional)" hint={apal ? 'Lo eliges tú: te aviso si no es el que recomiendo.' : 'Auto: el que calcule el motor.'}>
-            <div className="input-wrap"><input className="input num" type="number" min={1} max={500} step={1} value={apal} onChange={(e) => setApal(e.target.value)} placeholder="auto" /><span className="suf">x</span></div>
-          </Campo>
-          <Campo etiqueta="Objetivo">
-            <div className="input-wrap"><input className="input num" inputMode="decimal" value={objetivo} onChange={(e) => setObjetivo(e.target.value)} /><span className="suf">USDT</span></div>
-          </Campo>
-          <Campo etiqueta="Duración" error={errDur} hint={estado?.cfg && duracion !== '' && Number(duracion) !== estado.cfg.duracion_max_min ? `En Ajustes: ${estado.cfg.duracion_max_min} min` : 'Cierre total de la operación.'}>
-            <div className="input-wrap"><input className="input num" type="number" min={15} max={1440} step={5} value={duracion} onChange={(e) => setDuracion(e.target.value)} aria-invalid={!!errDur} /><span className="suf">min</span></div>
-          </Campo>
-          <Campo etiqueta="Lado" hint={lado ? 'Lo eliges tú: te aviso si va contra mi análisis.' : 'El que recomiende el análisis.'}>
-            <div className="seg" role="group" aria-label="Lado de la operación">
-              {([['', 'Auto'], ['LONG', 'LONG'], ['SHORT', 'SHORT']] as const).map(([v, t]) => <button type="button" key={t} aria-pressed={lado === v} onClick={() => setLado(v)}>{t}</button>)}
+      <form className="panel senal-form" onSubmit={analizar} noValidate aria-label="Pedir una señal">
+        <div className="panel-b sf-grid">
+          <section className="sf-grupo" aria-labelledby="sf-que">
+            <h2 className="sf-tit" id="sf-que"><span className="sf-num" aria-hidden>1</span>Qué operar</h2>
+            <div className="sf-fila sf-fila-que">
+              <Campo etiqueta="Moneda" error={errCampo}>
+                <SelectorMoneda valor={moneda} onCambio={setMoneda} placeholder="BTC" invalido={!!errCampo} />
+              </Campo>
+              <Campo etiqueta="Lado" hint={lado ? 'Lo eliges tú: te aviso si va contra mi análisis.' : undefined}>
+                <div className="seg sf-seg" role="group" aria-label="Lado de la operación">
+                  {([['', 'Auto'], ['LONG', 'LONG'], ['SHORT', 'SHORT']] as const).map(([v, t]) => <button type="button" key={t} aria-pressed={lado === v} onClick={() => setLado(v)}>{t}</button>)}
+                </div>
+              </Campo>
             </div>
-          </Campo>
-          <div className="field field-btn"><span aria-hidden>&nbsp;</span><button className="btn btn-primary" type="submit" disabled={cargando}><Search size={16} aria-hidden />{cargando ? 'Analizando…' : 'Analizar'}</button></div>
+          </section>
+          <section className="sf-grupo" aria-labelledby="sf-dinero">
+            <h2 className="sf-tit" id="sf-dinero"><span className="sf-num" aria-hidden>2</span>Tu dinero</h2>
+            <div className="sf-fila">
+              <Campo etiqueta="Capital" error={errCapital}>
+                <div className="input-wrap"><input className="input num" inputMode="decimal" value={capital} onChange={(e) => setCapital(e.target.value)} aria-invalid={!!errCapital} /><span className="suf">USDT</span></div>
+              </Campo>
+              <Campo etiqueta="Margen" hint={estado?.diario ? `Sugerido ${usdt(estado.diario.margen_sugerido)}` : 'Opcional'}>
+                <div className="input-wrap"><input className="input num" inputMode="decimal" value={margen} onChange={(e) => setMargen(e.target.value)} placeholder="auto" /><span className="suf">USDT</span></div>
+              </Campo>
+              <Campo etiqueta="Objetivo" hint="Si llegan todos los TP">
+                <div className="input-wrap"><input className="input num" inputMode="decimal" value={objetivo} onChange={(e) => setObjetivo(e.target.value)} /><span className="suf">USDT</span></div>
+              </Campo>
+            </div>
+          </section>
         </div>
-        {reparto && (
-          <div className="panel-b" style={{ borderTop: '1px solid var(--line)', display: 'grid', gap: 10 }}>
-            <button type="button" className="link-btn" aria-expanded={verTPs} aria-controls="senal-tps" onClick={() => setVerTPs(!verTPs)} style={{ fontSize: 13 }}>
-              Take profits: {reparto.length} TP · {reparto.map((x) => `${Number.isFinite(x) ? x : '—'} %`).join(' · ')}{estado?.cfg && reparto.join() !== repartoCfg(estado.cfg).join() ? ' (solo esta señal)' : ' (de Ajustes)'} {verTPs ? '▲' : '▼'}
-            </button>
-            {verTPs && <div id="senal-tps"><EditorTPs id="senal-tp" valor={reparto} onCambio={setReparto} /></div>}
-          </div>
-        )}
+
+        <div className="sf-avanzado">
+          <button type="button" className="sf-toggle" aria-expanded={verTPs} aria-controls="sf-opciones" onClick={() => setVerTPs(!verTPs)}>
+            <span className="sf-num" aria-hidden>3</span>
+            <span className="sf-toggle-t">Opciones avanzadas</span>
+            <span className="sf-resumen">
+              <span className={`chip${apal ? ' sf-chip-on' : ''}`}>{apal ? `${apal}x` : 'apalancamiento auto'}</span>
+              <span className={`chip${estado?.cfg && duracion !== '' && Number(duracion) !== estado.cfg.duracion_max_min ? ' sf-chip-on' : ''}`}>{duracion || '—'} min</span>
+              {reparto && <span className={`chip${estado?.cfg && reparto.join() !== repartoCfg(estado.cfg).join() ? ' sf-chip-on' : ''}`}>{reparto.length} TP · {reparto.map((x) => (Number.isFinite(x) ? x : '—')).join('/')}</span>}
+            </span>
+            <span className="sf-flecha" aria-hidden>{verTPs ? '▲' : '▼'}</span>
+          </button>
+          {verTPs && (
+            <div id="sf-opciones" className="sf-opciones">
+              <div className="sf-fila">
+                <Campo etiqueta="Apalancamiento" hint={apal ? 'Lo eliges tú: te aviso si no es el que recomiendo.' : 'Vacío: el que calcule el motor.'}>
+                  <div className="input-wrap"><input className="input num" type="number" min={1} max={500} step={1} value={apal} onChange={(e) => setApal(e.target.value)} placeholder="auto" /><span className="suf">x</span></div>
+                </Campo>
+                <Campo etiqueta="Duración" error={errDur} hint={estado?.cfg && duracion !== '' && Number(duracion) !== estado.cfg.duracion_max_min ? `En Ajustes: ${estado.cfg.duracion_max_min} min` : 'Cierre total de la operación.'}>
+                  <div className="input-wrap"><input className="input num" type="number" min={15} max={1440} step={5} value={duracion} onChange={(e) => setDuracion(e.target.value)} aria-invalid={!!errDur} /><span className="suf">min</span></div>
+                </Campo>
+              </div>
+              {reparto && (
+                <div className="sf-tps">
+                  <span className="sf-sub">Take profits{estado?.cfg && reparto.join() !== repartoCfg(estado.cfg).join() ? ' (solo esta señal)' : ' (de Ajustes)'}</span>
+                  <EditorTPs id="senal-tp" valor={reparto} onCambio={setReparto} />
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        <div className="sf-pie">
+          <p className="sf-frase">
+            <b>{moneda.trim().toUpperCase() || 'BTC'}</b> · {lado ? <b className={lado === 'LONG' ? 'gain' : 'loss'}>{lado}</b> : 'lado automático'} · capital {capital || '—'} USDT{objetivo ? ` · objetivo ${objetivo} USDT` : ''}
+          </p>
+          <button className="btn btn-primary btn-lg sf-boton" type="submit" disabled={cargando}><Search size={18} aria-hidden />{cargando ? 'Analizando…' : 'Analizar'}</button>
+        </div>
       </form>
 
       {estado?.diario?.bloqueo && !res && <Nota tono="loss" titulo="Freno del diario activo.">{estado.diario.bloqueo} <Link to="/diario">Ver diario</Link></Nota>}
