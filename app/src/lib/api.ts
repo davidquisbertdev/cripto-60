@@ -4,10 +4,11 @@ import { supabase } from './supabase';
 import { zonaNavegador } from './formato';
 import { DEFAULTS } from '../../../lib/defaults.mjs';
 import { estadoDiario } from '../../../lib/diario.mjs';
-import type { Ajustes, Estado, Operacion, Perfil, PosicionGuardada } from './tipos';
+import type { Ajustes, Estado, Operacion, Perfil, PosicionGuardada, SwingOperacion, NuevaSwing, InformeSwing } from './tipos';
 import demoDatos from '../demo/datos.json';
+import { evaluarSwing } from '../../../lib/swing.mjs';
 
-export type Accion = 'estado' | 'senal' | 'posicion' | 'btc' | 'ballenas' | 'billetera' | 'noticias' | 'escaner' | 'mercado' | 'panorama';
+export type Accion = 'estado' | 'senal' | 'posicion' | 'btc' | 'ballenas' | 'billetera' | 'noticias' | 'escaner' | 'mercado' | 'panorama' | 'swing' | 'swing_revisar';
 export interface NuevaOperacion { simbolo: string; lado: 'LONG' | 'SHORT' | null; pnl: number; margen?: number | null; nota?: string | null; fecha?: string; senal_id?: number | null }
 export interface NuevaPosicion { base: string; lado: 'LONG' | 'SHORT'; entrada: number; sl: number; tps: number[]; contratos?: number | null; estrategia?: string; senal_id?: number | null; duracion_max_min?: number | null }
 
@@ -22,6 +23,11 @@ export interface Backend {
   abrirPosicion(p: NuevaPosicion): Promise<void>;
   cerrarPosicion(id: number): Promise<void>;
   duracionPosicion(id: number, minutos: number | null): Promise<void>;
+  // operaciones de swing guardadas en la cuenta
+  swingListar(): Promise<SwingOperacion[]>;
+  swingCrear(op: NuevaSwing): Promise<SwingOperacion>;
+  swingActualizar(id: number, cambios: Partial<Pick<SwingOperacion, 'sl' | 'tp1' | 'eventos' | 'cerrada_en' | 'nota'>>): Promise<void>;
+  swingBorrar(id: number): Promise<void>;
 }
 
 export class ErrorApi extends Error {}
@@ -65,8 +71,22 @@ function backendSupabase(): Backend {
     },
     async cerrarPosicion(id) { const { error } = await sb.from('posiciones').update({ cerrada: new Date().toISOString() }).eq('id', id); falla(error); },
     async duracionPosicion(id, minutos) { const { error } = await sb.from('posiciones').update({ duracion_max_min: minutos }).eq('id', id); falla(error); },
+    async swingListar() {
+      const { data, error } = await sb.from('swing_operaciones').select('*').order('abierta_en', { ascending: false }).limit(200);
+      falla(error);
+      return (data ?? []).map(numSwing);
+    },
+    async swingCrear(op) {
+      const { data, error } = await sb.from('swing_operaciones').insert(op).select('*').single();
+      falla(error);
+      return numSwing(data);
+    },
+    async swingActualizar(id, cambios) { const { error } = await sb.from('swing_operaciones').update(cambios).eq('id', id); falla(error); },
+    async swingBorrar(id) { const { error } = await sb.from('swing_operaciones').delete().eq('id', id); falla(error); },
   };
 }
+// numeric de Postgres llega como texto
+const numSwing = (o: Record<string, unknown>): SwingOperacion => ({ ...(o as unknown as SwingOperacion), entrada: Number(o.entrada), sl: Number(o.sl), tp1: o.tp1 == null ? null : Number(o.tp1), eventos: (o.eventos as SwingOperacion['eventos']) ?? [] });
 
 // ---------------- Demo ----------------
 type Datos = typeof demoDatos & Record<string, unknown>;
@@ -83,7 +103,7 @@ function mover<T>(x: T, delta: number): T {
 const ahoraDe = (x: unknown) => ((x as { ahora?: number; creada?: number }).creada ?? (x as { ahora?: number }).ahora ?? D.generado);
 const espera = (ms = 650) => new Promise((r) => setTimeout(r, ms));
 
-interface EstadoDemo { perfil: Perfil; operaciones: Operacion[]; posicion: PosicionGuardada | null; sig: number }
+interface EstadoDemo { perfil: Perfil; operaciones: Operacion[]; posicion: PosicionGuardada | null; sig: number; swing?: SwingOperacion[] }
 function cargarDemo(): EstadoDemo {
   try { const s = localStorage.getItem(CLAVE); if (s) return JSON.parse(s); } catch { /* sin almacenamiento */ }
   const delta = Date.now() - D.generado;
@@ -118,6 +138,15 @@ function backendDemo(): Backend {
         const pedida = String(params.moneda ?? '').toUpperCase();
         return { ...s, diario: d, id: 'demo', demo_nota: pedida && pedida !== D.senal.base ? `En modo demo solo hay datos grabados de ${D.senal.base}: esta es su señal, no la de ${pedida}.` : null } as T;
       }
+      // Swing: el análisis grabado de BTC; las operaciones guardadas se evalúan aquí con el mismo motor
+      if (accion === 'swing' || accion === 'swing_revisar') {
+        const s = ahora(D.swing) as unknown as InformeSwing;
+        const ops = (Array.isArray(params.operaciones) ? params.operaciones : []) as { id: string; base: string; lado: 'LONG' | 'SHORT'; entrada: number; sl: number; tp1: number | null; trailing: boolean; abierta_en: number; eventos: unknown[] }[];
+        const evaluaciones = Object.fromEntries(ops.map((o) => [o.id, o.base === s.base ? { ...evaluarSwing(o, s.velas, Date.now()), base: o.base } : null]));
+        if (accion === 'swing_revisar') return { ahora: Date.now(), evaluaciones } as T;
+        const pedida = String(params.moneda ?? '').toUpperCase();
+        return { ...s, evaluaciones, demo_nota: pedida && pedida !== s.base ? `En modo demo solo hay datos grabados de ${s.base}: este es su análisis, no el de ${pedida}.` : null } as T;
+      }
       // BTC sin altcoin elegida: sin comparación (la grabada es de una sola altcoin)
       const btc = params.moneda ? D.btc : { ...D.btc, alt: null };
       const tabla: Record<string, unknown> = { posicion: D.posicion, btc, ballenas: D.ballenas, billetera: D.billetera, noticias: D.noticias, escaner: D.escaner, mercado: D.mercado, panorama: D.panorama };
@@ -138,6 +167,15 @@ function backendDemo(): Backend {
     },
     async cerrarPosicion() { st.posicion = null; guardar(); },
     async duracionPosicion(_id, minutos) { if (st.posicion) { st.posicion = { ...st.posicion, duracion_max_min: minutos }; guardar(); } },
+    async swingListar() { await espera(150); return st.swing ?? []; },
+    async swingCrear(op) {
+      const nueva: SwingOperacion = { id: st.sig++, abierta_en: new Date().toISOString(), cerrada_en: null, eventos: [], nota: null, setup: null, tp1: null, trailing: true, ...op, creada: new Date().toISOString() };
+      st.swing = [nueva, ...(st.swing ?? [])];
+      guardar();
+      return nueva;
+    },
+    async swingActualizar(id, cambios) { st.swing = (st.swing ?? []).map((o) => (o.id === id ? { ...o, ...cambios } : o)); guardar(); },
+    async swingBorrar(id) { st.swing = (st.swing ?? []).filter((o) => o.id !== id); guardar(); },
   };
 }
 

@@ -6,9 +6,10 @@ description: >-
   riesgo (hacks, deslistados, caídas de red), alertas de noticias macro
   (inflación, Fed, aranceles), el CALENDARIO ECONÓMICO (IPC, empleo, Fed de
   EE. UU. con su importancia, previsión y cuánto se movió BTC tras cada dato) y
-  el índice Fear & Greed. Úsala
+  las APERTURAS de mercado del día (cuándo da su golpe la bolsa de Nueva York,
+  Hong Kong o los futuros de Chicago) y el índice Fear & Greed. Úsala
   cuando el usuario pregunte "¿hay noticias de SOL?", "¿qué pasa con el
-  mercado?", "¿por qué cae BTC?", "¿qué datos salen hoy?", "calendario económico", "¿salió algo de MNT?", "sentimiento del
+  mercado?", "¿por qué cae BTC?", "¿qué datos salen hoy?", "calendario económico", "¿a qué hora abre Nueva York?", "¿salió algo de MNT?", "sentimiento del
   mercado", o antes de una operación si quiere revisar el contexto.
 argument-hint: "[MONEDA ...] [--horas 24]"
 ---

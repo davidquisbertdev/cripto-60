@@ -6,6 +6,7 @@ import { Fuente, base } from '../lib/mexc.mjs';
 import { crearFuente, nombreExchange } from '../lib/fuentes.mjs';
 import { leerNoticias, miedoCodicia } from '../lib/noticias.mjs';
 import { leerCalendario, cacheArchivo } from '../lib/calendario.mjs';
+import { agenda as agendaAperturas } from '../lib/aperturas.mjs';
 import { leerConfig, carpeta } from '../lib/config.mjs';
 import { args, hora, signo, salir } from '../lib/formato.mjs';
 
@@ -32,6 +33,12 @@ async function main() {
       if (!e.publicado && e.importancia === 'CRÍTICA') console.log(`      ${e.efecto}`);
     }
     if (!cal.eventos.length) console.log('  Sin datos importantes en las últimas 24 h ni en los próximos 3 días.');
+  }
+  // aperturas de mercado de las próximas 24 h: golpes fuertes de pocos minutos (no entres justo ahí)
+  const aps = agendaAperturas(fuente.ahora(), { horas: 24 });
+  if (aps.length) {
+    console.log('\nAPERTURAS DE MERCADO (24 h): golpes de pocos minutos; evita entrar justo ahí');
+    for (const x of aps) console.log(`  ${hora(x.t, tz)} ${x.importancia.padEnd(5)} ${x.nombre} · mueve ~${x.mueve_x}x lo normal en 5 min${x.estado === 'golpe' ? ' · AHORA' : ''}`);
   }
   for (const r of res) {
     if (r.alerta_macro) console.log(`\n! ${r.alerta_macro}`);

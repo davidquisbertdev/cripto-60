@@ -1,17 +1,19 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import {
-  Activity, BookOpen, Globe, CandlestickChart, Crown, FileText, Home, LogOut, MoreHorizontal, Newspaper, PanelLeftClose, PanelLeftOpen, Radar, Settings, Waves, Zap, CheckCircle2,
+  Activity, BookOpen, Globe, TrendingUp, CandlestickChart, Crown, FileText, Home, LogOut, MoreHorizontal, Newspaper, PanelLeftClose, PanelLeftOpen, Radar, Settings, Waves, Zap, CheckCircle2,
 } from 'lucide-react';
 import { diasRestantes, porRenovar, useSesion } from '../lib/sesion';
 import { useLocal } from '../lib/usar';
 import { fechaCorta, tono, usdt, usdtSigno } from '../lib/formato';
 import { demoElegido, salirDemo } from '../lib/modoDemo';
+import { useAlertasAperturas } from './Aperturas';
 
 export const RUTAS = [
   { a: '/', t: 'Inicio', i: Home, g: 0 },
   { a: '/senal', t: 'Señal', i: Zap, g: 0 },
   { a: '/posicion', t: 'Posición', i: Activity, g: 0 },
+  { a: '/swing', t: 'Swing', i: TrendingUp, g: 0 },
   { a: '/mercado', t: 'Mercado', i: Globe, g: 1 },
   { a: '/ballenas', t: 'Ballenas', i: Waves, g: 1 },
   { a: '/noticias', t: 'Noticias', i: Newspaper, g: 1 },
@@ -37,6 +39,7 @@ export function Shell() {
   const [mas, setMas] = useState(false);
   const [plegada, setPlegada] = useLocal('cripto60-nav-plegada', false);
   const [confirmar, setConfirmar] = useState(false);
+  useAlertasAperturas(); // alertas de aperturas de mercado (5 y 1 min antes), en cualquier pantalla
   useEffect(() => setMas(false), [loc]);
   const actual = RUTAS.find((r) => (r.a === '/' ? loc === '/' : loc.startsWith(r.a)))?.t ?? Object.entries(EXTRA).find(([k]) => loc.startsWith(k))?.[1] ?? '';
   const d = estado?.diario;

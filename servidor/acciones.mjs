@@ -14,6 +14,7 @@ import { generarSenal } from '../cripto-senal/senal.mjs';
 import { cargarPosicion, evaluar } from '../cripto-posicion/posicion.mjs';
 import { informeBTC, lecturaMoneda } from '../cripto-btc/btc.mjs';
 import { dominancia } from '../lib/dominancia.mjs';
+import { analizarSwing, datosSwing, evaluarSwing, indicadoresSwing, SETUPS } from '../lib/swing.mjs';
 import { escanear, ESTABLES, resumenSenal } from '../cripto-escaner/escaner.mjs';
 
 // Lado elegido por el usuario y la señal previa que vio (solo los campos que usa la advertencia)
@@ -33,10 +34,21 @@ function previaValida(p) {
   };
 }
 
+// Operaciones swing que manda la web para evaluarlas (solo los campos que usa el seguimiento)
+function opsSwing(lista) {
+  if (!Array.isArray(lista)) return [];
+  return lista.slice(0, 20).map((o) => ({
+    id: String(o?.id ?? ''), base: baseDe(simboloDe(String(o?.base ?? 'BTC'))), lado: o?.lado === 'SHORT' ? 'SHORT' : 'LONG',
+    entrada: +o?.entrada, sl: +o?.sl, tp1: o?.tp1 == null ? null : +o.tp1, trailing: o?.trailing !== false,
+    abierta_en: typeof o?.abierta_en === 'number' ? o.abierta_en : Date.parse(o?.abierta_en),
+    eventos: Array.isArray(o?.eventos) ? o.eventos.slice(0, 50).map((x) => ({ tipo: x?.tipo === 'salida' ? 'salida' : 'entrada', precio: +x?.precio, porcentaje: Math.min(100, Math.max(0, +x?.porcentaje || 0)) })) : [],
+  })).filter((o) => o.id && o.entrada > 0 && o.sl > 0 && Number.isFinite(o.abierta_en));
+}
+
 // Caché del calendario económico en la base de datos (la tabla de instantáneas, clave '_calendario')
 const cacheCal = (db) => (db?.leerInstantanea ? { leer: () => db.leerInstantanea('_calendario'), guardar: (doc) => db.guardarInstantanea('_calendario', doc) } : null);
 
-export const ACCIONES = ['estado', 'senal', 'posicion', 'btc', 'ballenas', 'billetera', 'noticias', 'escaner', 'mercado', 'panorama'];
+export const ACCIONES = ['estado', 'senal', 'posicion', 'btc', 'ballenas', 'billetera', 'noticias', 'escaner', 'mercado', 'panorama', 'swing', 'swing_revisar'];
 
 // Ajustes que el usuario puede cambiar desde la web (el resto queda en los valores del motor).
 export const AJUSTES_EDITABLES = [
@@ -198,6 +210,38 @@ export async function ejecutar(accion, params = {}, { db, fuente = null } = /** 
 
     case 'btc':
       return informeBTC(f, params.moneda ? moneda(params.moneda) : null);
+
+    case 'swing': {
+      // Swing (días a semanas, velas diarias): análisis de la moneda + evaluación de las operaciones guardadas en ella
+      const sym = simboloDe(moneda(params.moneda)), b = baseDe(sym);
+      const contrato = await f.detalle(sym);
+      if (!esCripto(contrato)) throw new ErrorUsuario(`${sym} no es una criptomoneda.`);
+      const { velas, funding } = await datosSwing(f, sym);
+      if (velas.length < 260) throw new ErrorUsuario(`${b} tiene menos de un año de velas diarias: el swing necesita historial.`);
+      const capital = num(params.capital, 'El capital', { min: 1 }) ?? diario?.capital ?? cfg.capital ?? 100;
+      const a = analizarSwing({ v: velas, ahora, contrato, capital, margen: num(params.margen, 'El margen', { min: 0.5 }) ?? null, apalancamiento: num(params.apalancamiento, 'El apalancamiento', { min: 1, max: DEFAULTS.apalancamiento_tope }) ?? null, cfg, funding, base: b });
+      const I = indicadoresSwing(velas);
+      const n = 180, desde = Math.max(0, velas.length - n);
+      const evaluaciones = Object.fromEntries(opsSwing(params.operaciones).map((o) => [o.id, evaluarSwing(o, velas, ahora)]));
+      return {
+        ...a, decimales: decimales(contrato.priceUnit), setups: SETUPS, evaluaciones,
+        velas: velas.slice(desde).map(({ t, o, h, l, c }) => ({ t, o, h, l, c })),
+        medias: velas.slice(desde).map((v, k) => ({ t: v.t, e20: +I.e20[desde + k].toPrecision(8), e50: +I.e50[desde + k].toPrecision(8), e200: +I.e200[desde + k].toPrecision(8) })),
+      };
+    }
+
+    case 'swing_revisar': {
+      // Seguimiento de las operaciones swing guardadas (de varias monedas): ¿cerca del TP1, rompió el SL, mover SL?
+      const ops = opsSwing(params.operaciones).slice(0, 20);
+      const porBase = new Map();
+      for (const o of ops) porBase.set(o.base, [...(porBase.get(o.base) ?? []), o]);
+      const evaluaciones = {};
+      await Promise.all([...porBase].map(async ([b, lista]) => {
+        const v = await f.velas(simboloDe(b), '1d', 120).catch(() => null);
+        for (const o of lista) { const e = v?.length ? evaluarSwing(o, v, ahora) : null; evaluaciones[o.id] = e ? { ...e, base: b } : null; }
+      }));
+      return { ahora, evaluaciones };
+    }
 
     case 'panorama': {
       // Vista general: BTC, ETH y SOL (o las que pida, hasta 4) en una lectura rápida + dominancia de BTC y USDT

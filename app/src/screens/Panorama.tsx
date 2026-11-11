@@ -8,6 +8,7 @@ import { Pagina } from '../components/Shell';
 import { ErrorEstado, Esqueleto, Filas, Nota, Panel } from '../components/ui';
 import { MedidorFNG } from '../components/graficos';
 import { PanelCalendario } from '../components/Calendario';
+import { PanelAperturas } from '../components/Aperturas';
 import { AltFrenteBTC, Buscador, DetalleBTC, ListaNoticias, OroPetroleo } from './Mercado';
 import { backend } from '../lib/api';
 import { usePeticion } from '../lib/usar';
@@ -109,6 +110,7 @@ export function Panorama() {
         </section>
       )}
 
+      {!moneda && <PanelAperturas horas={24} />}
       <div className="grid g-2">
         {/* Sentimiento y dominancia */}
         <Panel titulo="Sentimiento y dominancia">
