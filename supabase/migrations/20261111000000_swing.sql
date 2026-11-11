@@ -10,7 +10,7 @@ create table public.swing_operaciones (
   entrada numeric not null check (entrada > 0),
   sl numeric not null check (sl > 0),
   tp1 numeric check (tp1 is null or tp1 > 0),
-  trailing boolean not null default true,
+  "trailing" boolean not null default true, -- entre comillas: TRAILING es palabra reservada en Postgres
   abierta_en timestamptz not null default now(),
   cerrada_en timestamptz,
   eventos jsonb not null default '[]'::jsonb,
