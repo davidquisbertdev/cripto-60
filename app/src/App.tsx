@@ -10,6 +10,7 @@ import { Posicion } from './screens/Posicion';
 import { Ballenas, Noticias, Escaner } from './screens/Mercado';
 import { Panorama } from './screens/Panorama';
 import { Swing } from './screens/Swing';
+import { Prediccion } from './screens/Prediccion';
 import { Diario, Ajustes, Legal } from './screens/Cuenta';
 import { Acceso } from './screens/Acceso';
 import { Suscripcion, SuscripcionPublica } from './screens/Suscripcion';
@@ -50,6 +51,7 @@ function Rutas() {
             <Route path="posicion" element={<Posicion />} />
             <Route path="mercado" element={<Panorama />} />
             <Route path="swing" element={<Swing />} />
+            <Route path="prediccion" element={<Prediccion />} />
             <Route path="btc" element={<Navigate to="/mercado" replace />} />
             <Route path="ballenas" element={<Ballenas />} />
             <Route path="noticias" element={<Noticias />} />

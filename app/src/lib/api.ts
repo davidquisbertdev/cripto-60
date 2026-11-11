@@ -8,7 +8,7 @@ import type { Ajustes, Estado, Operacion, Perfil, PosicionGuardada, SwingOperaci
 import demoDatos from '../demo/datos.json';
 import { evaluarSwing } from '../../../lib/swing.mjs';
 
-export type Accion = 'estado' | 'senal' | 'posicion' | 'btc' | 'ballenas' | 'billetera' | 'noticias' | 'escaner' | 'mercado' | 'panorama' | 'swing' | 'swing_revisar';
+export type Accion = 'estado' | 'senal' | 'posicion' | 'btc' | 'ballenas' | 'billetera' | 'noticias' | 'escaner' | 'mercado' | 'panorama' | 'swing' | 'swing_revisar' | 'prediccion' | 'prediccion_analisis';
 export interface NuevaOperacion { simbolo: string; lado: 'LONG' | 'SHORT' | null; pnl: number; margen?: number | null; nota?: string | null; fecha?: string; senal_id?: number | null }
 export interface NuevaPosicion { base: string; lado: 'LONG' | 'SHORT'; entrada: number; sl: number; tps: number[]; contratos?: number | null; estrategia?: string; senal_id?: number | null; duracion_max_min?: number | null }
 
@@ -146,6 +146,16 @@ function backendDemo(): Backend {
         if (accion === 'swing_revisar') return { ahora: Date.now(), evaluaciones } as T;
         const pedida = String(params.moneda ?? '').toUpperCase();
         return { ...s, evaluaciones, demo_nota: pedida && pedida !== s.base ? `En modo demo solo hay datos grabados de ${s.base}: este es su análisis, no el de ${pedida}.` : null } as T;
+      }
+      // Predicción de MEXC: las cajas grabadas de BTC a 5 min; el análisis según la caja pulsada
+      if (accion === 'prediccion' || accion === 'prediccion_analisis') {
+        const P = D.prediccion, delta = Date.now() - P.lista.ahora;
+        const otra = String(params.moneda ?? 'BTC') !== P.lista.moneda || Number(params.plazo ?? 5) !== P.lista.plazo;
+        const demo_nota = otra ? `En modo demo solo hay cajas grabadas de ${P.lista.moneda} a ${P.lista.plazo} min: son las que ves.` : null;
+        if (accion === 'prediccion') return { ...mover(P.lista, delta), demo_nota } as T;
+        const actual = P.lista.cajas.find((c) => c.estado === 'actual')!.inicio + delta, k = Math.round((actual - Number(params.inicio)) / (P.lista.plazo * 60e3));
+        const a = k <= 0 ? (k === 0 ? P.actual : P.proxima) : P.cerradas[Math.min(k, P.cerradas.length) - 1];
+        return { ...mover(a, delta), demo_nota } as T;
       }
       // BTC sin altcoin elegida: sin comparación (la grabada es de una sola altcoin)
       const btc = params.moneda ? D.btc : { ...D.btc, alt: null };

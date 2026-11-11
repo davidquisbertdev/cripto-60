@@ -16,6 +16,7 @@ import { informeBTC, lecturaMoneda } from '../cripto-btc/btc.mjs';
 import { dominancia } from '../lib/dominancia.mjs';
 import { analizarSwing, datosSwing, evaluarSwing, indicadoresSwing, SETUPS } from '../lib/swing.mjs';
 import { escanear, ESTABLES, resumenSenal } from '../cripto-escaner/escaner.mjs';
+import { listaPrediccion, analizarPrediccion, MONEDAS_PRED, PLAZOS_PRED } from '../lib/prediccion.mjs';
 
 // Lado elegido por el usuario y la señal previa que vio (solo los campos que usa la advertencia)
 const LADOS = ['LONG', 'SHORT'];
@@ -48,7 +49,7 @@ function opsSwing(lista) {
 // Caché del calendario económico en la base de datos (la tabla de instantáneas, clave '_calendario')
 const cacheCal = (db) => (db?.leerInstantanea ? { leer: () => db.leerInstantanea('_calendario'), guardar: (doc) => db.guardarInstantanea('_calendario', doc) } : null);
 
-export const ACCIONES = ['estado', 'senal', 'posicion', 'btc', 'ballenas', 'billetera', 'noticias', 'escaner', 'mercado', 'panorama', 'swing', 'swing_revisar'];
+export const ACCIONES = ['estado', 'senal', 'posicion', 'btc', 'ballenas', 'billetera', 'noticias', 'escaner', 'mercado', 'panorama', 'swing', 'swing_revisar', 'prediccion', 'prediccion_analisis'];
 
 // Ajustes que el usuario puede cambiar desde la web (el resto queda en los valores del motor).
 export const AJUSTES_EDITABLES = [
@@ -289,6 +290,19 @@ export async function ejecutar(accion, params = {}, { db, fuente = null } = /** 
         return generarSenal(a, { capital, diario }, cfg);
       };
       return { ahora, exchange: f.exchange ?? 'MEXC', ...(await escanear(f, { top, confirmar, confirmarN })) };
+    }
+
+    case 'prediccion':
+    case 'prediccion_analisis': {
+      // Predicción de MEXC (Up/Down de 5 y 15 min): lista de cajas, o el análisis de una con su veredicto
+      const m = String(params.moneda ?? 'BTC').toUpperCase(), plazo = +params.plazo || 5;
+      if (!MONEDAS_PRED.includes(m)) throw new ErrorUsuario('La Predicción de MEXC solo tiene BTC y ETH.');
+      if (!PLAZOS_PRED.includes(plazo)) throw new ErrorUsuario('El plazo debe ser 5 o 15 minutos.');
+      try {
+        if (accion === 'prediccion') return await listaPrediccion(f, { moneda: m, plazo });
+        const inicio = num(params.inicio, 'La caja', { min: 1.6e12, max: 3e12, opcional: false });
+        return await analizarPrediccion(f, { moneda: m, plazo, inicio });
+      } catch (e) { if (e instanceof ErrorUsuario) throw e; throw new ErrorUsuario(e.message, 502); }
     }
 
     case 'billetera': {

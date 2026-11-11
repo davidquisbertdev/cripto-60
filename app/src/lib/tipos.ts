@@ -199,3 +199,36 @@ export interface Estado { ahora: number; cfg: Required<Ajustes> & Record<string,
 export interface Operacion { id: number; fecha: string; simbolo: string; lado: Lado | null; pnl: number; margen: number | null; nota: string | null }
 export interface Perfil { id: string; nombre: string | null; capital_inicial: number | null; ajustes: Ajustes; acepto_aviso_en: string | null; activo?: boolean; suscripcion_hasta?: string | null }
 export interface PosicionGuardada { id: number; base: string; lado: Lado; entrada: number; sl: number; tps: number[]; contratos: number | null; estrategia: Estrategia; abierta: string; senal_id: number | null; duracion_max_min?: number | null }
+
+// Predicción de MEXC (Up/Down de 5 y 15 min en BTC y ETH)
+export type LadoPred = 'UP' | 'DOWN';
+export interface PreciosPred { up: { compra: number | null; venta: number | null } | null; down: { compra: number | null; venta: number | null } | null }
+export interface CajaPred {
+  inicio: number; fin: number; plazo_min: number; estado: 'cerrada' | 'actual' | 'proxima'; id: number | null;
+  base: number | null; cierre: number | null; resultado: LadoPred | null; cambio_pct: number | null; volumen: number | null;
+  mercado: PreciosPred | null; p_up: number | null; base_estimada?: number | null;
+}
+export interface ResumenPred { n: number; up: number; up_pct: number; racha: { lado: LadoPred; n: number }; repite_pct: number | null }
+export interface ListaPred {
+  ahora: number; moneda: string; plazo: number; cajas: CajaPred[]; indice: { t: number; precio: number } | null;
+  spot: { precio: number; dif_indice: number | null } | null; resumen: ResumenPred | null; comision: number; demo_nota?: string | null;
+}
+export interface FactorPred { nombre: string; valor: string; hacia: LadoPred | null; cuenta: boolean; texto: string }
+export interface AnalisisPred {
+  ahora: number; moneda: string; plazo: number; demo_nota?: string | null;
+  caja: { inicio: number; fin: number; plazo_min: number; estado: 'cerrada' | 'actual' | 'proxima'; id: number | null; base: number | null; base_estimada?: number | null; base_fija?: boolean; cierre?: number; resultado?: LadoPred; cambio?: number; cambio_pct?: number; volumen: number | null };
+  serie: { t: number; indice: number; spot?: number | null }[];
+  // caja cerrada
+  recorrido?: { max: number; min: number; sobre_base_pct: number; cruces: number; ultimo_cruce_s: number } | null;
+  // caja actual o próxima
+  faltan_s?: number; transcurrido_s?: number; indice?: number; spot?: number; dif_usd?: number; volatilidad_pb_min?: number;
+  proyeccion?: { p_up: number; p_down: number; cierre_esperado: number; margen: number; distancia: number; distancia_pb: number; z: number | null; conocido_pct: number; decidido: boolean };
+  veredicto?: LadoPred | 'NO OPERAR'; lado_probable?: LadoPred; probabilidad?: number; nivel?: Nivel;
+  precio_mercado?: number | null; precio_maximo?: number; valor_esperado_pct?: number | null; razones?: string[]; avisos?: string[];
+  mercado?: PreciosPred | null; comision?: number; factores?: FactorPred[];
+  exchanges?: { nombre: string; contra: string; precio: number; dif_pb: number }[];
+  flujo?: { s60: { compra_pct: number | null; cambio: number; volumen: number }; s300: { compra_pct: number | null; cambio: number; volumen: number } };
+  libro?: { compras: number; ventas: number; desequilibrio_pct: number } | null;
+  repaso?: { muestras: number; acierto_pct: number; up_pct: number; tramos: { desde_pct: number; n: number; aciertos: number; acierto_pct: number | null }[] } | null;
+  resumen?: ResumenPred | null;
+}
