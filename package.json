@@ -8,7 +8,7 @@
     "node": ">=18"
   },
   "scripts": {
-    "test": "node --test tests/aperturas.test.mjs tests/calendario.test.mjs tests/lib.test.mjs tests/skills.test.mjs tests/ballenas.test.mjs tests/bybit.test.mjs tests/confluencias.test.mjs tests/entrada-bots.test.mjs tests/swing.test.mjs servidor/acciones.test.mjs",
+    "test": "node --test tests/aperturas.test.mjs tests/calendario.test.mjs tests/lib.test.mjs tests/skills.test.mjs tests/ballenas.test.mjs tests/bybit.test.mjs tests/confluencias.test.mjs tests/entrada-bots.test.mjs tests/swing.test.mjs tests/prediccion.test.mjs servidor/acciones.test.mjs",
     "demo": "node scripts/demo.mjs",
     "motor:sync": "node scripts/sync-motor.mjs",
     "web:dev": "npm --prefix app run dev",

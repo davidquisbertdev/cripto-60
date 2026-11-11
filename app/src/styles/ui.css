@@ -489,3 +489,23 @@ table.t { width: 100%; border-collapse: collapse; font-size: var(--fs-md); }
 .sw-op:hover { background: var(--s2); }
 .sw-op:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 @media (max-width: 640px) { .sw-op { padding: var(--sp-3) var(--sp-4); } }
+
+/* Predicción de MEXC: tira de cajas (anteriores, actual y próximas) */
+.pred-tira { display: flex; gap: var(--sp-2); padding: var(--sp-3) var(--sp-4); overflow-x: auto; scroll-snap-type: x proximity; }
+.pred-caja { display: grid; gap: 4px; justify-items: start; align-content: start; width: 168px; min-height: 104px; padding: var(--sp-3); border-radius: var(--r); border: 1px solid var(--line-2); background: var(--s2); color: var(--text); font: inherit; font-size: var(--fs-sm); text-align: left; cursor: pointer; scroll-snap-align: center; }
+.pred-caja:hover { border-color: var(--text-3); }
+.pred-caja[aria-pressed='true'] { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.pred-caja-h { font-weight: 650; font-size: var(--fs-md); }
+.pred-caja-s { font-size: var(--fs-xs); }
+.pred-actual { background: var(--accent-soft); }
+.pred-proxima { background: transparent; border-style: dashed; }
+.pred-barra { display: grid; grid-template-columns: auto 1fr auto; gap: var(--sp-3); align-items: center; font-weight: 650; font-size: var(--fs-md); }
+.pred-barra-pista { height: 10px; border-radius: 999px; background: var(--loss); overflow: hidden; }
+.pred-barra-pista i { display: block; height: 100%; background: var(--gain); }
+.pred-leyenda { display: flex; flex-wrap: wrap; gap: var(--sp-2) var(--sp-4); font-size: var(--fs-xs); margin-top: var(--sp-2); }
+.pred-leyenda i { display: inline-block; width: 12px; height: 3px; border-radius: 2px; margin-right: 6px; vertical-align: middle; }
+.pred-reglas { margin: 0; padding-left: 18px; display: grid; gap: var(--sp-2); font-size: var(--fs-md); }
+.pred-reglas strong { color: var(--text); }
+.action-word.gain { color: var(--gain-text); }
+.action-word.loss { color: var(--loss-text); }
+@media (max-width: 640px) { .pred-caja { width: 150px; } .topbar .right { flex-wrap: wrap; } }

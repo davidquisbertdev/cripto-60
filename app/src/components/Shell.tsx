@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import {
-  Activity, BookOpen, Globe, TrendingUp, CandlestickChart, Crown, FileText, Home, LogOut, MoreHorizontal, Newspaper, PanelLeftClose, PanelLeftOpen, Radar, Settings, Waves, Zap, CheckCircle2,
+  Activity, BookOpen, Globe, TrendingUp, CandlestickChart, Crown, FileText, Home, LogOut, MoreHorizontal, Newspaper, PanelLeftClose, PanelLeftOpen, Radar, Settings, Target, Waves, Zap, CheckCircle2,
 } from 'lucide-react';
 import { diasRestantes, porRenovar, useSesion } from '../lib/sesion';
 import { useLocal } from '../lib/usar';
@@ -14,6 +14,7 @@ export const RUTAS = [
   { a: '/senal', t: 'Señal', i: Zap, g: 0 },
   { a: '/posicion', t: 'Posición', i: Activity, g: 0 },
   { a: '/swing', t: 'Swing', i: TrendingUp, g: 0 },
+  { a: '/prediccion', t: 'Predicción', i: Target, g: 0 },
   { a: '/mercado', t: 'Mercado', i: Globe, g: 1 },
   { a: '/ballenas', t: 'Ballenas', i: Waves, g: 1 },
   { a: '/noticias', t: 'Noticias', i: Newspaper, g: 1 },

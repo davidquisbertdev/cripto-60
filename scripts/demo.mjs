@@ -53,8 +53,15 @@ const panorama = await ejecutar('panorama', { monedas: ['SOL'] }, { db, fuente: 
 panorama.dominancia ??= await dominancia(fx('calendario')).catch(() => null);
 // swing de BTC grabado (2.5 años de velas diarias)
 const swing = await ejecutar('swing', { moneda: 'BTC', capital: 20, zona }, { db, fuente: crearFuente({ offline: path.join(RAIZ, 'tests', 'fixtures', 'swing-btc') }) });
+// Predicción de MEXC grabada (BTC, cajas de 5 min): la lista, la caja actual, las 5 cerradas y la siguiente
+const fxPred = () => fx('prediccion');
+const predLista = await ejecutar('prediccion', { moneda: 'BTC', plazo: 5 }, { db, fuente: fxPred() });
+const predActual = predLista.cajas.find((c) => c.estado === 'actual').inicio;
+const predAnalisis = (inicio) => ejecutar('prediccion_analisis', { moneda: 'BTC', plazo: 5, inicio }, { db, fuente: fxPred() });
+const prediccion = { lista: predLista, actual: await predAnalisis(predActual), proxima: await predAnalisis(predActual + 300e3), cerradas: [] };
+for (let k = 1; k <= 5; k++) prediccion.cerradas.push(await predAnalisis(predActual - k * 300e3));
 const estado = await ejecutar('estado', { zona }, { db, fuente: fx('near') });
 
 const out = path.join(RAIZ, 'app', 'src', 'demo', 'datos.json');
-fs.writeFileSync(out, JSON.stringify({ generado: ahora, zona, senal, senal_lado: senalLado, posicion, btc, ballenas, billetera, noticias, escaner, mercado, panorama, swing, estado, operaciones, capital_inicial: 20 }));
+fs.writeFileSync(out, JSON.stringify({ generado: ahora, zona, senal, senal_lado: senalLado, posicion, btc, ballenas, billetera, noticias, escaner, mercado, panorama, swing, prediccion, estado, operaciones, capital_inicial: 20 }));
 console.log(`${out} (${(fs.statSync(out).size / 1024).toFixed(0)} KB) · señal ${senal.recomendacion} · posición ${posicion.accion}`);
