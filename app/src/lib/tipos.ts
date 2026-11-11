@@ -147,6 +147,29 @@ export interface Bots {
 export interface LecturaMoneda { simbolo: string; base: string; precio: number; cambio_15m_pct: number | null; cambio_1h_pct: number | null; cambio_24h_pct: number | null; puntuacion: number; lectura: string }
 export interface Dominancia { btc_pct: number | null; eth_pct: number | null; usdt_pct: number | null; usdc_pct: number | null; estables_pct: number | null; capitalizacion_usd: number | null; cambio_cap_24h_pct: number | null; lectura: string | null }
 export interface InformePanorama { ahora: number; monedas: LecturaMoneda[]; dominancia: Dominancia | null }
+// ---- Swing trading ----
+export interface SwingEvento { tipo: 'entrada' | 'salida'; precio: number; porcentaje: number; fecha: string; nota?: string | null }
+export interface SwingOperacion {
+  id: number; base: string; lado: Lado; setup: string | null; entrada: number; sl: number; tp1: number | null; trailing: boolean;
+  abierta_en: string; cerrada_en: string | null; eventos: SwingEvento[]; nota: string | null; creada?: string;
+}
+export type NuevaSwing = Pick<SwingOperacion, 'base' | 'lado' | 'entrada' | 'sl'> & Partial<Pick<SwingOperacion, 'setup' | 'tp1' | 'trailing' | 'abierta_en' | 'eventos' | 'nota'>>;
+export interface HistSwing { setup: string; n: number; r_medio: number | null; acierto_pct: number | null; r_total: number; dias_medio: number | null; dias_tp1_mediana: number | null; r_mitad1: number | null; r_mitad2: number | null }
+export interface VigilarSwing { setup: string; lado: Lado; precio: number; texto: string; dist_pct: number; plan: { entrada: number; sl: number; tp1: number; r_tp1: number; sl_pct: number; tp1_pct: number; dias_tp1: number | null; dias_medio: number | null } }
+export interface EvalSwing {
+  precio: number; dias: number; r_actual: number; camino_tp1: number | null; camino_sl: number; toco_tp1: boolean; toco_sl: boolean; t_tp1: number | null; t_sl: number | null;
+  max_favorable: number; max_contra: number; sl_sugerido: number; abierto_pct: number; accion: 'MANTENER' | 'MOVER SL' | 'REDUCIR' | 'CERRAR' | 'CERRADA'; motivo: string; resultado_pct: number;
+}
+export interface VelaD { t: number; o: number; h: number; l: number; c: number }
+export interface InformeSwing {
+  base: string; ahora: number; precio: number; decimales: number; tendencia: 'ALCISTA' | 'BAJISTA' | 'LATERAL'; recomendacion: Lado | 'ESPERAR'; nivel: Nivel; texto: string; setup: string | null;
+  plan: (Plan & { setup: string; zona_entrada: { precio: number; reparto: number }[]; tp1: number; tp1_cierra_pct: number; trailing: { dias: number; texto: string; nivel_hoy: number } | null; dias_tp1: number | null; dias_max: number; funding_estimado_usdt: number | null; funding_paga: boolean | null }) | null;
+  vigilar: VigilarSwing[]; historiales: Record<string, HistSwing>; setups: Record<string, { nombre: string; explica: string }>;
+  indicadores: { ema20: number; ema50: number; ema200: number; atr: number; atr_pct: number; rsi: number; max20: number; min20: number };
+  funding: number | null; velas: VelaD[]; medias: { t: number; e20: number; e50: number; e200: number }[];
+  evaluaciones: Record<string, EvalSwing | null>;
+}
+export interface InformeSwingRevisar { ahora: number; evaluaciones: Record<string, (EvalSwing & { base: string }) | null> }
 export interface FNG { valor: number; clase: string; ayer: number | null; semana?: number | null; historial?: { t: number; valor: number }[] }
 export interface InformeNoticias { ahora: number; horas: number; fng: FNG | null; monedas: { moneda: string; propias: Noticia[]; macro: Noticia[]; sentimiento: number; evento_riesgo: string | null; alerta_macro?: string | null; errores: string[] }[] }
 export interface FilaEscaner { simbolo: string; precio: number; sesgo: Lado; nivel: Nivel; confianza: number; cambio_15m: number | null; volumen_24h_musdt: number; funding_pct: number; atr5_pct: number; comision_pct: number; spread_pct: number | null; reversion: { lado: Lado; nivel: Nivel; confianza: number } | null; cero_promo: boolean; apto: boolean; motivo_no_apto: string | null; lateral: boolean; senal?: SenalResumen }

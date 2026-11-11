@@ -5,6 +5,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Fuente } from '../lib/mexc.mjs';
+import { crearFuente } from '../lib/fuentes.mjs';
 import { ejecutar } from '../servidor/acciones.mjs';
 import { dbMemoria } from '../servidor/db-memoria.mjs';
 import { resumenSenal } from '../cripto-escaner/escaner.mjs';
@@ -50,8 +51,10 @@ mercado.calendario = await leerCalendario(fx('calendario'), { velasBTC5m: btc15 
 // vista general: SOL grabado (no hay grabación de ETH) y la dominancia de CoinGecko del mismo día
 const panorama = await ejecutar('panorama', { monedas: ['SOL'] }, { db, fuente: fx('sol') });
 panorama.dominancia ??= await dominancia(fx('calendario')).catch(() => null);
+// swing de BTC grabado (2.5 años de velas diarias)
+const swing = await ejecutar('swing', { moneda: 'BTC', capital: 20, zona }, { db, fuente: crearFuente({ offline: path.join(RAIZ, 'tests', 'fixtures', 'swing-btc') }) });
 const estado = await ejecutar('estado', { zona }, { db, fuente: fx('near') });
 
 const out = path.join(RAIZ, 'app', 'src', 'demo', 'datos.json');
-fs.writeFileSync(out, JSON.stringify({ generado: ahora, zona, senal, senal_lado: senalLado, posicion, btc, ballenas, billetera, noticias, escaner, mercado, panorama, estado, operaciones, capital_inicial: 20 }));
+fs.writeFileSync(out, JSON.stringify({ generado: ahora, zona, senal, senal_lado: senalLado, posicion, btc, ballenas, billetera, noticias, escaner, mercado, panorama, swing, estado, operaciones, capital_inicial: 20 }));
 console.log(`${out} (${(fs.statSync(out).size / 1024).toFixed(0)} KB) · señal ${senal.recomendacion} · posición ${posicion.accion}`);

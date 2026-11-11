@@ -27,6 +27,7 @@ Fear & Greed de alternative.me.
 | `/cripto-ballenas` | Qué hacen las ballenas: posiciones reales de las billeteras grandes de Hyperliquid, qué abrieron o cerraron, qué cambió desde la última revisión, top traders frente a minoristas, open interest, flujo y muros. Lo usan también la señal y la revisión de posición. |
 | `/cripto-noticias` | Titulares recientes de la moneda y del mercado, sentimiento, alertas de riesgo y Fear & Greed. |
 | `/cripto-escaner` | Ordena los futuros cripto más líquidos (Binance, Bybit o MEXC) por claridad del setup y confirma las 3 mejores con la señal completa, para que el escáner y la señal digan lo mismo. |
+| `/cripto-swing` | Swing de días a semanas: setup que gana en 2 años de historial, plan o niveles a vigilar, y registro y revisión de tus operaciones. |
 | `/cripto-diario` | Registra tus resultados, lleva el capital y para la operativa si el día va mal. |
 
 ## Ejemplos
@@ -168,6 +169,10 @@ y Términos y condiciones.
 - **Aperturas de mercado** (Inicio y Mercado): las del día con cuenta atrás (datos de EE. UU., bolsa
   de Nueva York, Hong Kong, futuros de Chicago) y alertas 5 y 1 min antes, con notificación y sonido.
   Son ventanas de riesgo para no entrar en el golpe; la señal avisa si una cae dentro de tu operación.
+- **Swing**: operaciones de días a semanas en velas diarias. El setup se elige con el historial real
+  de 2 años de cada moneda; plan con zona de entrada, SL, TP1 y trailing, o los niveles a vigilar con
+  su plan. Gráfico con los puntos (pulsa una línea para registrar tu entrada o salida) y tus
+  operaciones guardadas en la cuenta con su seguimiento (cerca del TP1, SL roto, mover el SL).
 - **Mercado**: vista general (BTC, ETH, SOL, oro, petróleo, Fear & Greed, dominancia de BTC y USDT,
   calendario económico, ballenas, bots de trading y noticias). Con el filtro de moneda: esa moneda
   frente a BTC, sus ballenas, bots y noticias.
