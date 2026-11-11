@@ -1,7 +1,7 @@
 // Acciones del motor para la app web. No depende del entorno: recibe una base de datos abstracta (db)
 // y una fuente de datos, así corre igual en Node (tests, modo demo) y en Supabase Edge Functions (Deno).
 // Usa exactamente las mismas funciones que las skills de Claude: un solo motor.
-import { DEFAULTS } from '../lib/defaults.mjs';
+import { DEFAULTS, aplicarRiesgo } from '../lib/defaults.mjs';
 import { estadoDiario } from '../lib/diario.mjs';
 import { crearFuente } from '../lib/fuentes.mjs';
 import { simbolo as simboloDe, base as baseDe, cerradas, esCripto } from '../lib/mexc.mjs';
@@ -14,6 +14,23 @@ import { generarSenal } from '../cripto-senal/senal.mjs';
 import { cargarPosicion, evaluar } from '../cripto-posicion/posicion.mjs';
 import { informeBTC } from '../cripto-btc/btc.mjs';
 import { escanear, ESTABLES, resumenSenal } from '../cripto-escaner/escaner.mjs';
+
+// Lado elegido por el usuario y la señal previa que vio (solo los campos que usa la advertencia)
+const LADOS = ['LONG', 'SHORT'];
+function ladoValido(x) {
+  const l = String(x).toUpperCase();
+  if (!LADOS.includes(l)) throw new ErrorUsuario('El lado debe ser LONG o SHORT.');
+  return l;
+}
+function previaValida(p) {
+  if (!p || typeof p !== 'object' || !LADOS.includes(p.lado)) return undefined;
+  const texto = (x, n) => String(x ?? '').slice(0, n);
+  return {
+    recomendacion: [...LADOS, 'NO OPERAR'].includes(p.recomendacion) ? p.recomendacion : null, lado: p.lado,
+    estrategia: ['tendencia', 'reversion'].includes(p.estrategia) ? p.estrategia : null, nivel: texto(p.nivel, 12),
+    razones: Array.isArray(p.razones) ? p.razones.slice(0, 5).map((r) => texto(r, 300)) : [],
+  };
+}
 
 // Caché del calendario económico en la base de datos (la tabla de instantáneas, clave '_calendario')
 const cacheCal = (db) => (db?.leerInstantanea ? { leer: () => db.leerInstantanea('_calendario'), guardar: (doc) => db.guardarInstantanea('_calendario', doc) } : null);
@@ -63,8 +80,8 @@ export function configDe(propio = {}) {
   // los frenos nunca pueden pasar los topes del motor. El apalancamiento lo elige el usuario (hasta
   // apalancamiento_tope); el plan lo sigue frenando con el máximo del exchange y la distancia a la liquidación.
   cfg.apalancamiento_max = Math.min(Math.max(1, Math.round(+cfg.apalancamiento_max || DEFAULTS.apalancamiento_max)), DEFAULTS.apalancamiento_tope);
-  for (const k of ['ALTA', 'MEDIA', 'BAJA']) cfg.riesgo_por_confianza[k] = Math.min(+cfg.riesgo_por_confianza[k] || DEFAULTS.riesgo_por_confianza[k], DEFAULTS.riesgo_max_pct);
-  cfg.max_perdida_dia_pct = Math.min(+cfg.max_perdida_dia_pct || DEFAULTS.max_perdida_dia_pct, DEFAULTS.max_perdida_dia_pct);
+  // pérdida en el SL y del día: las que ponga el usuario (hasta riesgo_tope_pct)
+  aplicarRiesgo(cfg);
   // duración por defecto de las operaciones (Ajustes); la espera del TP1 nunca la pasa
   // (sin espera propia, se escala desde la del motor: 30 de 60 → 60 de 120)
   const base = conReparto({ ...cfg, reparto_tps: DEFAULTS.reparto_tps, tps_r: DEFAULTS.tps_r, duracion_max_min: DEFAULTS.duracion_max_min, espera_max_min: DEFAULTS.espera_max_min }, limpio.reparto_tps);
@@ -130,8 +147,10 @@ export async function ejecutar(accion, params = {}, { db, fuente = null } = /** 
         capital: num(params.capital, 'El capital', { min: 1 }),
         margen: num(params.margen, 'El margen', { min: 0.5 }),
         objetivo: num(params.objetivo, 'El objetivo', { min: 0 }),
-        lado: params.lado || undefined,
+        lado: params.lado ? ladoValido(params.lado) : undefined,
         estrategia: params.estrategia || undefined,
+        // la señal automática que el usuario vio antes de pedir el otro lado (para la advertencia)
+        previa: params.lado ? previaValida(params.previa) : undefined,
         diario,
       };
       const a = await analizarSimbolo(f, m, { conNoticias: params.sin_noticias !== true, conBallenas: params.sin_ballenas !== true, carpetaCache: null, cacheCalendario: cacheCal(db) });

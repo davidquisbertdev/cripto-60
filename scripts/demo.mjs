@@ -25,6 +25,10 @@ const operaciones = pnl.map((p, i) => ({
 const db = dbMemoria({ diario: { capital_inicial: 20, operaciones } });
 
 const senal = await ejecutar('senal', { moneda: 'NEAR', capital: 10, zona }, { db, fuente: fx('near') });
+// la misma señal con el lado elegido por el usuario (botón «Prefiero entrar en…»), con la previa para el aviso
+const previa = { recomendacion: senal.recomendacion, lado: senal.lado, estrategia: senal.estrategia, nivel: senal.nivel, razones: senal.razones };
+const senalLado = {};
+for (const l of ['LONG', 'SHORT']) senalLado[l] = await ejecutar('senal', { moneda: 'NEAR', capital: 10, zona, lado: l, previa }, { db: dbMemoria({ diario: { capital_inicial: 20, operaciones } }), fuente: fx('near') });
 const posicion = await ejecutar('posicion', { moneda: 'NEAR', manual: true, lado: 'short', entrada: 3.658, sl: 3.677, tp1: 3.639, tp2: 3.628, tp3: 3.617, contratos: 30, hace: '6m', zona }, { db, fuente: fx('near-posicion') });
 const btc = await ejecutar('btc', { moneda: 'NEAR', zona }, { db, fuente: fx('near') });
 const ballenas = await ejecutar('ballenas', { moneda: 'SOL', zona }, { db, fuente: fx('ballenas-sol') });
@@ -45,5 +49,5 @@ mercado.calendario = await leerCalendario(fx('calendario'), { velasBTC5m: btc15 
 const estado = await ejecutar('estado', { zona }, { db, fuente: fx('near') });
 
 const out = path.join(RAIZ, 'app', 'src', 'demo', 'datos.json');
-fs.writeFileSync(out, JSON.stringify({ generado: ahora, zona, senal, posicion, btc, ballenas, billetera, noticias, escaner, mercado, estado, operaciones, capital_inicial: 20 }));
+fs.writeFileSync(out, JSON.stringify({ generado: ahora, zona, senal, senal_lado: senalLado, posicion, btc, ballenas, billetera, noticias, escaner, mercado, estado, operaciones, capital_inicial: 20 }));
 console.log(`${out} (${(fs.statSync(out).size / 1024).toFixed(0)} KB) · señal ${senal.recomendacion} · posición ${posicion.accion}`);

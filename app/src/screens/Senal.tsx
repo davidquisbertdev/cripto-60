@@ -32,6 +32,10 @@ export function Senal() {
   const [cargando, setCargando] = useState(false);
   const [errCampo, setErrCampo] = useState<string | null>(null);
   const [errCapital, setErrCapital] = useState<string | null>(null);
+  // lado: '' = el que recomiende el sistema; LONG/SHORT = el usuario lo elige (con advertencia si va en contra)
+  const [lado, setLado] = useState<'' | Lado>('');
+  // última señal automática: se manda al pedir el otro lado para que el aviso diga qué se recomendó y por qué
+  const [previa, setPrevia] = useState<TSenal | null>(null);
 
   // Se rellena una sola vez con el capital del diario: si el usuario vacía el campo, se respeta.
   const relleno = useRef(false);
@@ -42,7 +46,7 @@ export function Senal() {
     if (estado.cfg) { setObjetivo(String(estado.cfg.objetivo_usdt)); setDuracion(String(estado.cfg.duracion_max_min)); setReparto(repartoCfg(estado.cfg)); }
   }, [estado]);
 
-  const analizar = async (e?: FormEvent, capitalInicial?: string) => {
+  const analizar = async (e?: FormEvent, capitalInicial?: string, ladoPedido?: '' | Lado) => {
     e?.preventDefault();
     const m = moneda.trim().toUpperCase();
     if (!m) { setErrCampo('Escribe una moneda, por ejemplo SOL.'); return; }
@@ -57,10 +61,13 @@ export function Senal() {
     if (eR) { setVerTPs(true); return; }
     // solo se manda si es distinto del de Ajustes
     const rep = reparto && estado?.cfg && reparto.join() !== repartoCfg(estado.cfg).join() ? reparto : undefined;
+    const l = ladoPedido ?? lado;
+    const prev = l && previa && previa.base === m ? { recomendacion: previa.recomendacion, lado: previa.lado, estrategia: previa.estrategia, nivel: previa.nivel, razones: previa.razones } : undefined;
     setError(null); setCargando(true);
     try {
-      const r = await backend.motor<Res>('senal', { moneda: m, capital: cap, margen: margen || undefined, objetivo: objetivo || (estado?.cfg ? String(estado.cfg.objetivo_usdt) : undefined), duracion: dur, reparto: rep });
+      const r = await backend.motor<Res>('senal', { moneda: m, capital: cap, margen: margen || undefined, objetivo: objetivo || (estado?.cfg ? String(estado.cfg.objetivo_usdt) : undefined), duracion: dur, reparto: rep, lado: l || undefined, previa: prev });
       setRes(r);
+      if (!l && !('bloqueado' in r)) setPrevia(r);
     } catch (x) { setError((x as Error).message); setRes(null); }
     finally { setCargando(false); }
   };
@@ -94,6 +101,11 @@ export function Senal() {
           <Campo etiqueta="Duración" error={errDur} hint={estado?.cfg && duracion !== '' && Number(duracion) !== estado.cfg.duracion_max_min ? `En Ajustes: ${estado.cfg.duracion_max_min} min` : 'Cierre total de la operación.'}>
             <div className="input-wrap"><input className="input num" type="number" min={15} max={1440} step={5} value={duracion} onChange={(e) => setDuracion(e.target.value)} aria-invalid={!!errDur} /><span className="suf">min</span></div>
           </Campo>
+          <Campo etiqueta="Lado" hint={lado ? 'Lo eliges tú: te aviso si va contra mi análisis.' : 'El que recomiende el análisis.'}>
+            <div className="seg" role="group" aria-label="Lado de la operación">
+              {([['', 'Auto'], ['LONG', 'LONG'], ['SHORT', 'SHORT']] as const).map(([v, t]) => <button type="button" key={t} aria-pressed={lado === v} onClick={() => setLado(v)}>{t}</button>)}
+            </div>
+          </Campo>
           <div className="field field-btn"><span aria-hidden>&nbsp;</span><button className="btn btn-primary" type="submit" disabled={cargando}><Search size={16} aria-hidden />{cargando ? 'Analizando…' : 'Analizar'}</button></div>
         </div>
         {reparto && (
@@ -121,7 +133,7 @@ export function Senal() {
       ) : 'bloqueado' in res ? (
         <Nota tono="loss" titulo="No se genera la orden.">{res.motivo} {res.pausa_hasta ? `Vuelve a las ${hora(res.pausa_hasta)}.` : ''} <Link to="/diario">Ver diario</Link></Nota>
       ) : (
-        <Resultado s={res} onSeguir={seguir} abierta={!!estado?.posicion_abierta} />
+        <Resultado s={res} onSeguir={seguir} abierta={!!estado?.posicion_abierta} onLado={(l) => { setLado(l); analizar(undefined, undefined, l); }} />
       )}
     </Pagina>
   );
@@ -189,7 +201,12 @@ function PanelBallenas({ s }: { s: TSenal }) {
 
 // El objetivo en USDT no se alcanza: el motor no pasa del tope de pérdida, del margen ni del apalancamiento seguro.
 function ObjetivoNota({ o }: { o: ObjetivoInfo }) {
-  const freno = o.limitante === 'riesgo' ? `tu pérdida máxima en el SL (${o.riesgo_tope_pct ?? '—'} % del capital con esta confianza)` : `el apalancamiento seguro (${o.apalancamiento_max ?? '—'}x) con tu margen`;
+  // de dónde sale el % de pérdida: tu ajuste de esa confianza, el tope del motor (10 %) y el freno del diario
+  const nivel = (o.nivel_riesgo ?? '').toLowerCase();
+  const origen = o.riesgo_ajuste_pct == null ? 'con esta confianza'
+    : o.factor_riesgo != null && o.factor_riesgo < 1 ? `tu ajuste para confianza ${nivel} es ${o.riesgo_ajuste_pct} %, a la mitad por las pérdidas seguidas del diario`
+    : `tu ajuste «Pérdida en el SL, confianza ${nivel}»; lo puedes subir en Ajustes`;
+  const freno = o.limitante === 'riesgo' ? `tu pérdida máxima en el SL: ${o.riesgo_tope_pct ?? '—'} % del capital (${origen})` : `el apalancamiento seguro (${o.apalancamiento_max ?? '—'}x) con tu margen`;
   return (
     <Nota tono="warn" titulo={`Objetivo ${usdt(o.objetivo)}: este plan llega a ${usdt(o.alcanza ?? null)}.`}>
       Lo frena {freno}. {o.ayuda ?? o.mensaje}
@@ -209,11 +226,27 @@ function copiarTexto(s: TSenal) {
   ].join('\n');
 }
 
-function Resultado({ s, onSeguir, abierta }: { s: TSenal & { demo_nota?: string | null }; onSeguir: (s: TSenal) => void; abierta: boolean }) {
+// Cambiar de lado: pedir la mejor entrada del lado contrario (o volver a lo que recomienda el sistema).
+function CambiarLado({ s, onLado }: { s: TSenal; onLado: (l: '' | Lado) => void }) {
+  const opera = s.recomendacion !== 'NO OPERAR';
+  if (s.lado_pedido) return <button type="button" className="btn btn-sm" onClick={() => onLado('')}>Volver a lo que recomienda el sistema</button>;
+  const lados: Lado[] = opera ? [s.recomendacion === 'LONG' ? 'SHORT' : 'LONG'] : ['LONG', 'SHORT'];
+  return (
+    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+      <span className="faint" style={{ fontSize: 13 }}>{opera ? '¿Quieres ir al revés?' : '¿Quieres entrar igual?'}</span>
+      {lados.map((l) => <button type="button" key={l} className="btn btn-sm" onClick={() => onLado(l)}>{opera ? `Prefiero entrar en ${l}` : `Ver la mejor entrada en ${l}`}</button>)}
+    </div>
+  );
+}
+
+function Resultado({ s, onSeguir, abierta, onLado }: { s: TSenal & { demo_nota?: string | null }; onSeguir: (s: TSenal) => void; abierta: boolean; onLado: (l: '' | Lado) => void }) {
   const { aviso } = useSesion();
   const opera = s.recomendacion !== 'NO OPERAR';
   const p = s.plan, dec = s.decimales, sim = s.simulacion, h = s.historial;
   const m = s.mejor_entrada;
+  // con un lado elegido por el usuario se muestra su plan aunque el sistema diga NO OPERAR (bajo su riesgo)
+  const pedido = s.lado_pedido ?? null;
+  const verPlan = opera || (!!pedido && p.viable);
   const Ico = !opera ? CircleSlash : s.recomendacion === 'LONG' ? ArrowUpRight : ArrowDownRight;
   const copiar = async () => { try { await navigator.clipboard.writeText(copiarTexto(s)); aviso('Niveles copiados'); } catch { aviso('No se pudo copiar: selecciona el texto a mano.'); } };
 
@@ -231,7 +264,15 @@ function Resultado({ s, onSeguir, abierta }: { s: TSenal & { demo_nota?: string 
               </div>
               <div className="tags"><NivelTag nivel={s.nivel} /><span className="tag num">{s.confianza}/100</span></div>
             </div>
-            {opera ? (
+            <div className="panel-b" style={{ display: 'grid', gap: 10, paddingBottom: 0 }}>
+              {pedido && s.aviso_lado && (
+                <Nota tono={s.contra_sistema ? 'warn' : 'info'} titulo={s.contra_sistema ? `Elegiste ${pedido}, contra mi recomendación.` : `Elegiste ${pedido}.`}>
+                  {s.aviso_lado.replace(/^Elegiste (LONG|SHORT)[.:] ?/, '')}{!opera && p.viable ? ' Abajo tienes el plan de ese lado.' : ''}
+                </Nota>
+              )}
+              <CambiarLado s={s} onLado={onLado} />
+            </div>
+            {verPlan ? (
               <>
                 <Tabla filas={filasNiveles(p.lado, p.entrada, p.sl, p.tps, dec, p.riesgo_usdt)} entrada={{ ...s.entrada, dec }} />
                 <div className="money">
@@ -248,7 +289,7 @@ function Resultado({ s, onSeguir, abierta }: { s: TSenal & { demo_nota?: string 
                 <div className="panel-b" style={{ display: 'grid', gap: 12 }}>
                   <p className="muted">{p.apalancamiento_razon}</p>
                   <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                    <button className="btn btn-primary" onClick={() => onSeguir(s)} disabled={abierta} title={abierta ? 'Ya sigues una posición abierta' : undefined}><Eye size={16} aria-hidden />Entré: seguir la posición</button>
+                    <button className="btn btn-primary" onClick={() => onSeguir(s)} disabled={abierta} title={abierta ? 'Ya sigues una posición abierta' : undefined}><Eye size={16} aria-hidden />{opera ? 'Entré: seguir la posición' : `Entré en ${p.lado} igual: seguirla`}</button>
                     <button className="btn" onClick={copiar}><Clipboard size={16} aria-hidden />Copiar niveles</button>
                   </div>
                   {abierta && <span className="faint" style={{ fontSize: 13 }}>Ya sigues una posición. <Link to="/posicion">Ábrela</Link> o ciérrala antes de seguir otra.</span>}

@@ -112,7 +112,9 @@ function backendDemo(): Backend {
       if (accion === 'senal') {
         const d = diario();
         if (d?.bloqueo) return { bloqueado: true, motivo: d.bloqueo, pausa_hasta: d.pausa_hasta } as T;
-        const s = ahora(D.senal) as Record<string, unknown>;
+        // con un lado elegido, la señal grabada de ese lado (con su aviso frente a la recomendación)
+        const ladoPedido = String(params.lado ?? '').toUpperCase() as 'LONG' | 'SHORT' | '';
+        const s = ahora(ladoPedido && D.senal_lado?.[ladoPedido] ? D.senal_lado[ladoPedido] : D.senal) as Record<string, unknown>;
         const pedida = String(params.moneda ?? '').toUpperCase();
         return { ...s, diario: d, id: 'demo', demo_nota: pedida && pedida !== D.senal.base ? `En modo demo solo hay datos grabados de ${D.senal.base}: esta es su señal, no la de ${pedida}.` : null } as T;
       }

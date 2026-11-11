@@ -128,6 +128,38 @@ export function efectoBallenas(b, lado) {
   return { bajar: 0, a_favor: null, texto: null };
 }
 
+// El usuario puede pedir el lado contrario al del sistema (--lado / params.lado): la señal calcula la mejor
+// entrada de ESE lado (con la confianza bajada dos niveles si va contra el análisis) y aquí se resume lo que
+// el sistema recomendaba sin forzarlo y por qué, para la advertencia.
+export function ladoElegido(a, op) {
+  const pedido = op.lado ? op.lado.toUpperCase() : null;
+  if (!pedido) return { lado_pedido: null, contra_sistema: false, sistema: null, aviso_lado: null };
+  const nombre = (e) => (e === 'reversion' ? 'reversión a la media' : 'tendencia');
+  const cierre = `Te doy la mejor entrada en ${pedido} con la confianza bajada: va contra mi recomendación, bajo tu riesgo.`;
+  // op.previa: la señal automática que el usuario acaba de ver (la web la manda al pedir el otro lado)
+  const p = op.previa;
+  if (p?.lado) {
+    const rec = p.recomendacion && p.recomendacion !== 'NO OPERAR' ? p.recomendacion : null;
+    const contra = (rec ?? p.lado) !== pedido;
+    const que = rec ? `${rec} (${nombre(p.estrategia)}, confianza ${p.nivel})` : `NO OPERAR (me inclinaba a ${p.lado}, ${nombre(p.estrategia)})`;
+    const por = (p.razones ?? []).slice(0, 5).join('; ');
+    const aviso = contra
+      ? `Elegiste ${pedido}. Mi recomendación fue ${que}${por ? ` por: ${por}` : ''}. ${cierre}`
+      : `Elegiste ${pedido}: ${rec ? 'es mi misma recomendación' : `es el lado al que me inclinaba, aunque dije NO OPERAR${por ? ` (${por})` : ''}`}.`;
+    return { lado_pedido: pedido, contra_sistema: contra, sistema: { recomendacion: p.recomendacion ?? null, lado: p.lado, estrategia: p.estrategia ?? null, nivel: p.nivel ?? null, razones: (p.razones ?? []).slice(0, 5) }, aviso_lado: aviso };
+  }
+  // sin la señal previa (CLI): lo que dice cada estrategia
+  const de = (estrategia, d) => (d ? { estrategia, lado: d.sesgo, nivel: d.nivel, confianza: d.confianza, razones: d.razones.slice(0, 5) } : null);
+  const t = de('tendencia', a.decision);
+  const r = a.decisionReversion && Math.abs(a.decisionReversion.puntuacion) >= 0.35 ? de('reversion', a.decisionReversion) : null;
+  const enContra = [t, r].filter((x) => x && x.lado !== pedido);
+  const contra = enContra.length > 0 && !(t?.lado === pedido || r?.lado === pedido);
+  const aviso = enContra.length
+    ? `Elegiste ${pedido}. ${enContra.map((x) => `La ${nombre(x.estrategia)} se inclina a ${x.lado} (confianza ${x.nivel}) por: ${x.razones.join('; ')}`).join('. ')}.${contra ? ` ${cierre}` : ` La ${nombre([t, r].find((x) => x?.lado === pedido).estrategia)} sí va en ${pedido}.`}`
+    : `Elegiste ${pedido}: coincide con el análisis.`;
+  return { lado_pedido: pedido, contra_sistema: enContra.length > 0, sistema: { tendencia: t, reversion: r }, aviso_lado: aviso };
+}
+
 export async function generarSenal(a, op, cfg) {
   const ahora = a.ahora;
   // op.diario: estado ya calculado (la web lo trae de su base de datos); si no, se lee trader/diario.json
@@ -161,6 +193,8 @@ export async function generarSenal(a, op, cfg) {
     // sin setup de reversión (precio cerca de la media) no se evalúa, salvo que se pida
     if (e === 'reversion' && !op.estrategia && Math.abs(d.puntuacion) < 0.35) continue;
     const lado = op.lado ? op.lado.toUpperCase() : d.sesgo;
+    // la reversión tiene dirección por definición (vuelta a la media): al revés no es una reversión
+    if (e === 'reversion' && op.lado && lado !== d.sesgo && op.estrategia !== 'reversion') continue;
     let nivel = bajar(d.nivel, bajarComun);
     const motivos = [...comunes, ...d.alertas];
     if (op.lado && lado !== d.sesgo) { nivel = bajar(nivel, 2); motivos.push(`Pediste ${lado} pero ${e === 'reversion' ? 'la reversión' : 'el análisis'} se inclina a ${d.sesgo}.`); }
@@ -323,6 +357,8 @@ export async function generarSenal(a, op, cfg) {
     } : null,
     // confluencias del lado elegido + los datos para la web (Fibonacci, CVD/OI, mapa de liquidaciones)
     confluencias: g.cf ? { ajuste: g.cf.ajuste_conf, items: g.cf.items } : null,
+    // lado elegido por el usuario (op.lado): qué decía el sistema sin forzarlo y por qué, para avisarle
+    ...ladoElegido(a, op),
     // datos macro de las últimas 24 h y los próximos días; en_ventana = los que caen dentro de esta operación
     calendario: a.calendario ? { ...a.calendario, en_ventana: ecal.en_ventana.map((e) => e.titulo) } : null,
     fibonacci: a.fib ?? null,
@@ -369,6 +405,7 @@ export function informe(s, cfg) {
     ? `SEÑAL: NO OPERAR  (el análisis se inclina a ${s.sesgo_analisis}, confianza ${s.confianza}/100)`
     : `SEÑAL: ${s.lado}   confianza ${s.nivel} (${s.confianza}/100) · estrategia ${NOMBRE[s.estrategia]}`;
   out.push(titulo);
+  if (s.aviso_lado) out.push(`${s.contra_sistema ? '! ' : ''}${s.aviso_lado}`);
   if (s.recomendacion === 'NO OPERAR') out.push(`  (estrategia evaluada: ${NOMBRE[s.estrategia]})`);
   if (s.objetivo_media) out.push(`  Reversión: se busca la vuelta hacia la media de 5m (${f(s.objetivo_media)}).`);
   out.push('Por qué:');
