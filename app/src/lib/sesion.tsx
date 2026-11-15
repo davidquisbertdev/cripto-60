@@ -74,8 +74,11 @@ export function ProveedorSesion({ children }: { children: ReactNode }) {
     setPerfil(null); setEstado(null); setErrorPerfil(null); setSesion(null);
     if (fallo) {
       try { for (const k of Object.keys(localStorage)) if (/^sb-.*-auth-token/.test(k)) localStorage.removeItem(k); } catch { /* sin almacenamiento */ }
-      location.assign('/'); // recarga para que el cliente de Supabase arranque sin la sesión vieja
+      location.assign('/entrar'); // recarga para que el cliente de Supabase arranque sin la sesión vieja
+      return;
     }
+    // sin sesión la raíz es la página de presentación: tras salir se queda en la pantalla de entrar
+    if (supabase && location.pathname !== '/entrar') { history.replaceState(null, '', '/entrar'); window.dispatchEvent(new PopStateEvent('popstate')); }
   }, []);
 
   const suscrita = backend.demo ? true : !perfil ? null : !!perfil.activo && (!perfil.suscripcion_hasta || Date.parse(perfil.suscripcion_hasta) > Date.now());

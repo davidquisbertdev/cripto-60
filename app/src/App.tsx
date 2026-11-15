@@ -13,6 +13,7 @@ import { Swing } from './screens/Swing';
 import { Prediccion } from './screens/Prediccion';
 import { Diario, Ajustes, Legal } from './screens/Cuenta';
 import { Acceso } from './screens/Acceso';
+import { Landing } from './screens/Landing';
 import { Suscripcion, SuscripcionPublica } from './screens/Suscripcion';
 
 function Rutas() {
@@ -36,12 +37,15 @@ function Rutas() {
             <Route path="/terminos" element={<div className="main"><Legal /></div>} />
             <Route path="/legal" element={<Navigate to="/terminos" replace />} />
             <Route path="/suscripcion" element={<SuscripcionPublica />} />
+            <Route index element={<Landing />} />
+            <Route path="entrar" element={<Acceso />} />
             <Route path="*" element={<Acceso />} />
           </>
         ) : !suscrita ? (
           // sesión iniciada pero sin suscripción activa: solo la página para renovar y los términos
           <>
             <Route path="/terminos" element={<div className="main"><Legal /></div>} />
+            <Route path="entrar" element={<Navigate to="/" replace />} />
             <Route path="*" element={<SuscripcionPublica />} />
           </>
         ) : (
@@ -50,6 +54,7 @@ function Rutas() {
             <Route path="senal" element={<Senal />} />
             <Route path="posicion" element={<Posicion />} />
             <Route path="mercado" element={<Panorama />} />
+            <Route path="entrar" element={<Navigate to="/" replace />} />
             <Route path="swing" element={<Swing />} />
             <Route path="prediccion" element={<Prediccion />} />
             <Route path="btc" element={<Navigate to="/mercado" replace />} />

@@ -7,6 +7,7 @@ interface ImportMetaEnv {
   readonly VITE_BINANCE_QR?: string;
   readonly VITE_CONTACTO_URL?: string;
   readonly VITE_CONTACTO_TEXTO?: string;
+  readonly VITE_SITIO_URL?: string;
 }
 interface ImportMeta { readonly env: ImportMetaEnv }
 declare module '@fontsource-variable/inter';

@@ -11,7 +11,7 @@ import { useSesion } from '../lib/sesion';
 import { fechaHora } from '../lib/formato';
 import { entrarDemo } from '../lib/modoDemo';
 
-const PRECIO = 100;
+export const PRECIO = 100;
 const PAY_ID = import.meta.env.VITE_BINANCE_PAY_ID?.trim() || '';
 const NOMBRE = import.meta.env.VITE_BINANCE_NOMBRE?.trim() || '';
 const QR = import.meta.env.VITE_BINANCE_QR?.trim() || '/pago/binance-qr.png';
@@ -38,7 +38,7 @@ const PASOS = [
   <>Te creamos la cuenta (o la renovamos) por <strong>30 días</strong> y te llega el acceso a ese correo.</>,
 ];
 
-const PREGUNTAS = [
+export const PREGUNTAS = [
   { p: '¿Se cobra solo cada mes?', r: 'No. Binance Pay no hace cobros automáticos: pagas tú cada mes y la cuenta se renueva 30 días desde la fecha en que vencía.' },
   { p: '¿Necesita mis API keys o mi cuenta del exchange?', r: 'No. Cripto60 solo lee datos públicos. Las órdenes las pones tú a mano en tu exchange.' },
   { p: '¿Garantiza ganancias?', r: 'No. Es un software de análisis, no asesoría financiera. Muchas veces la respuesta es NO OPERAR, y los futuros apalancados pueden liquidarte.' },
@@ -98,7 +98,7 @@ function Contenido() {
               <li><Check size={15} aria-hidden />Sin renovación automática</li>
             </ul>
             <a className="btn btn-primary btn-lg btn-block" href="#pagar"><CandlestickChart size={16} aria-hidden />Suscribirme</a>
-            {!dentro && <p className="faint" style={{ fontSize: 13, textAlign: 'center' }}>¿Ya tienes cuenta? <Link to="/">Entrar</Link></p>}
+            {!dentro && <p className="faint" style={{ fontSize: 13, textAlign: 'center' }}>¿Ya tienes cuenta? <Link to="/entrar">Entrar</Link></p>}
           </div>
         </div>
       </section>
@@ -168,7 +168,7 @@ export function SuscripcionPublica() {
           <button type="button" className="btn btn-sm btn-primary" onClick={entrarDemo}><PlayCircle size={14} aria-hidden />Ver demo</button>
           {sesion
             ? <button type="button" className="btn btn-sm btn-ghost" onClick={() => setConfirmar(true)}><LogOut size={14} aria-hidden />Cerrar sesión</button>
-            : <Link className="btn btn-sm" to="/">Entrar</Link>}
+            : <Link className="btn btn-sm" to="/entrar">Entrar</Link>}
         </div>
       </header>
       <main className="content sus-main" id="contenido"><h1 className="sr-only">Suscripción a Cripto60</h1><Contenido /></main>
