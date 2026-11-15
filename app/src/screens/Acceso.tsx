@@ -40,7 +40,7 @@ export function Acceso() {
   return (
     <div className="auth">
       <div className="auth-side">
-        <div className="brand" style={{ padding: 0 }}><span className="brand-mark"><CandlestickChart size={14} aria-hidden /></span>Cripto60</div>
+        <Link to="/" className="brand" style={{ padding: 0 }} title="Volver a la presentación"><span className="brand-mark"><CandlestickChart size={14} aria-hidden /></span>Cripto60</Link>
         <div>
           <h1>Opera poco, con un plan y con el reloj a la vista.</h1>
           <p className="lede">Señales de 15 a 60 minutos para futuros cripto: LONG, SHORT o NO OPERAR, con entrada, stop loss, TP1 a TP3, apalancamiento y lo que pierdes si sale mal. Solo recomienda lo que ganó de verdad en el historial reciente de esa moneda.</p>

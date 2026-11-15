@@ -1,13 +1,15 @@
 // Diario, Ajustes y Términos y condiciones.
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
-import { BookOpen, Download, Plus, Trash2 } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { BookOpen, Crown, Download, Plus, Trash2 } from 'lucide-react';
 import { Pagina } from '../components/Shell';
 import { Campo, ErrorEstado, Esqueleto, Filas, KV, LadoTag, Nota, Panel, Vacio } from '../components/ui';
 import { CurvaCapital } from '../components/graficos';
 import { SelectorMoneda } from '../components/SelectorMoneda';
 import { EditorTPs, errorReparto } from '../components/EditorTPs';
 import { backend, reiniciarDemo } from '../lib/api';
-import { useSesion } from '../lib/sesion';
+import { RENOVAR_DIAS, diasRestantes, useSesion } from '../lib/sesion';
+import { demoElegido, salirDemo } from '../lib/modoDemo';
 import { usePeticion } from '../lib/usar';
 import { diaClave, nombreExchange, fechaCorta, fechaHora, pct, tono, usdt, usdtSigno, zonaNavegador } from '../lib/formato';
 import type { Ajustes as TAjustes, Lado } from '../lib/tipos';
@@ -119,6 +121,54 @@ function Registrar({ onHecho }: { onHecho: () => Promise<void> }) {
 
 // ---------------- Ajustes ----------------
 const ZONAS = ['America/La_Paz', 'America/Lima', 'America/Bogota', 'America/Mexico_City', 'America/Santiago', 'America/Argentina/Buenos_Aires', 'America/Caracas', 'Europe/Madrid', 'UTC'];
+// Membresía: cuántos días quedan antes de que venza (cada pago activa 30 días; sin cobro automático)
+const DIAS_PAGO = 30;
+function Membresia() {
+  const { perfil, demo } = useSesion();
+  const hasta = perfil?.suscripcion_hasta ?? null;
+  if (demo) {
+    return (
+      <Panel titulo="Membresía">
+        <div className="memb">
+          <p className="muted" style={{ margin: 0 }}>Estás en el demo, sin membresía. Con tu cuenta, aquí verás los días que te quedan y la fecha en que vence.</p>
+          {demoElegido && <button type="button" className="btn btn-sm btn-primary" style={{ justifySelf: 'start' }} onClick={() => salirDemo('/suscripcion')}><Crown size={14} aria-hidden />Ver la membresía</button>}
+        </div>
+      </Panel>
+    );
+  }
+  if (!hasta) {
+    return (
+      <Panel titulo="Membresía" aside={<span className="tag tag-gain">Activa</span>}>
+        <p className="muted" style={{ margin: 0 }}>Tu cuenta no tiene fecha de vencimiento.</p>
+      </Panel>
+    );
+  }
+  const ms = Date.parse(hasta) - Date.now(), dias = diasRestantes(hasta) ?? 0, vencida = ms <= 0;
+  const renovar = dias <= RENOVAR_DIAS;
+  const pctBarra = vencida ? 100 : Math.max(3, Math.min(100, (100 * ms) / (DIAS_PAGO * 864e5)));
+  return (
+    <Panel titulo="Membresía" aside={<span className={`tag ${vencida ? 'tag-loss' : renovar ? 'tag-warn' : 'tag-gain'}`}>{vencida ? 'Vencida' : renovar ? 'Por vencer' : 'Activa'}</span>}>
+      <div className="memb">
+        <div>
+          <div className="memb-dias num">{vencida ? 0 : ms < 864e5 ? Math.max(1, Math.floor(ms / 36e5)) : dias}<span> {vencida ? 'días' : ms < 864e5 ? (Math.floor(ms / 36e5) <= 1 ? 'hora' : 'horas') : dias === 1 ? 'día' : 'días'}</span></div>
+          <div className="muted">{vencida ? 'Tu membresía venció' : 'te quedan de membresía'}</div>
+        </div>
+        <div className="memb-pista" role="progressbar" aria-label="Días que quedan de los 30 del pago" aria-valuemin={0} aria-valuemax={DIAS_PAGO} aria-valuenow={Math.max(0, Math.min(DIAS_PAGO, dias))}>
+          <i className={vencida ? 'nada' : renovar ? 'poco' : ''} style={{ width: `${pctBarra}%` }} />
+        </div>
+        <Filas items={[
+          { k: vencida ? 'Venció el' : 'Vence el', v: fechaHora(hasta) },
+          { k: 'Cada pago', v: `${DIAS_PAGO} días · 100 USDT` },
+          { k: 'Cobro automático', v: 'No' },
+        ]} />
+        {renovar
+          ? <><Nota tono="warn">{vencida ? 'Renueva para volver a usar el motor.' : `Quedan ${dias <= 1 ? 'menos de 2 días' : `${dias} días`}. Si renuevas ahora, los 30 días se suman a la fecha de vencimiento: no pierdes nada.`}</Nota><Link className="btn btn-primary" to="/suscripcion"><Crown size={15} aria-hidden />Renovar membresía</Link></>
+          : <p className="faint" style={{ margin: 0, fontSize: 'var(--fs-sm)' }}>El botón para renovar aparece aquí y en el menú cuando falten {RENOVAR_DIAS} días o menos. Al renovar se suman 30 días a esa fecha. Tu diario y tus ajustes se guardan aunque venza.</p>}
+      </div>
+    </Panel>
+  );
+}
+
 export function Ajustes() {
   const { perfil, estado, refrescar, aviso, demo, sesion } = useSesion();
   const [a, setA] = useState<TAjustes>({});
@@ -223,6 +273,7 @@ export function Ajustes() {
           <div><button className="btn btn-primary" disabled={guardando}>{guardando ? 'Guardando…' : 'Guardar ajustes'}</button></div>
         </div>
         <div className="stack">
+          <Membresia />
           <Panel titulo="Apariencia">
             <div className="seg" role="group" aria-label="Tema">{([['dark', 'Oscuro'], ['light', 'Claro']] as const).map(([k, t]) => <button type="button" key={k} aria-pressed={tema === k} onClick={() => setTema(k)}>{t}</button>)}</div>
           </Panel>
